@@ -1145,13 +1145,14 @@ html,body{
       <div id="vw-player-title" style="flex:1;font-size:12px;color:#8ab0d0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
       <div id="vw-player-time" style="font-size:11px;color:#3a5070;white-space:nowrap;flex-shrink:0;"></div>
     </div>
-    <!-- 動画 -->
-    <video id="vw-video" controls playsinline style="flex:1;width:100%;background:#000;min-height:0;"
-      oncanplay="vwOnCanPlay()" ontimeupdate="vwOnTimeUpdate()"></video>
-    <!-- ハイライトジャンプバー -->
-    <div id="vw-hl-bar" style="display:none;flex-shrink:0;background:#090d16;border-top:1px solid #1a2840;padding:8px 10px;">
-      <div style="font-size:9px;color:#3a5070;letter-spacing:1px;margin-bottom:6px;">▼ ハイライトシーンへジャンプ</div>
-      <div id="vw-hl-btns" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;"></div>
+    <!-- 動画(左) + ハイライトパネル(右) : 動画がボタンに被らない2ペイン構成 -->
+    <div style="flex:1;display:flex;min-height:0;">
+      <video id="vw-video" controls playsinline style="flex:1;min-width:0;height:100%;background:#000;"
+        oncanplay="vwOnCanPlay()" ontimeupdate="vwOnTimeUpdate()"></video>
+      <div id="vw-hl-bar" style="display:none;flex-shrink:0;width:min(340px,32vw);background:#090d16;border-left:1px solid #1a2840;flex-direction:column;min-height:0;">
+        <div style="flex-shrink:0;font-size:10px;color:#3a5070;letter-spacing:1px;padding:9px 12px;border-bottom:1px solid #1a2840;">▼ ハイライトシーンへジャンプ</div>
+        <div id="vw-hl-btns" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -3823,17 +3824,22 @@ function vwBuildHlBtns(highlights){
   const cont = document.getElementById('vw-hl-btns');
   if(!bar || !cont) return;
   if(!highlights || !highlights.length){ bar.style.display='none'; return; }
-  bar.style.display = 'block';
+  bar.style.display = 'flex';
   const techCol = {一本:'#f39c12', 技有:'#5a90d0', 有効:'#5a7090'};
   cont.innerHTML = highlights.map((h,i) => {
     const sc  = h.side==='赤' ? '#d06080' : '#5090d0';
+    const bg  = h.side==='赤' ? 'rgba(192,64,96,.15)' : 'rgba(64,128,192,.15)';
     const col = techCol[h.tech] || '#5a7090';
     return `<button id="hl-vbtn-${i}" onclick="vwSeekTo(${Math.max(0,h.sec-5)},${i})"
-      style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding:5px 10px;
-             background:#0a1020;border:1px solid #1a2840;border-radius:6px;cursor:pointer;font-family:inherit;min-width:60px;gap:2px;">
-      <span style="font-size:8px;font-weight:700;color:${sc};">${h.side}</span>
-      <span style="font-size:10px;font-weight:700;color:${col};">${h.tech}</span>
-      <span style="font-size:13px;font-weight:900;color:#c0d8f0;">${h.sec}秒</span>
+      style="display:flex;align-items:center;gap:7px;width:100%;padding:10px 10px;
+             background:#0a1020;border:none;border-bottom:1px solid #10182a;border-left:3px solid transparent;
+             cursor:pointer;font-family:inherit;text-align:left;">
+      <span style="width:18px;font-size:10px;font-weight:700;color:#2a4060;text-align:center;flex-shrink:0;">${i+1}</span>
+      <span style="font-size:9px;font-weight:700;color:${sc};background:${bg};padding:1px 5px;border-radius:3px;flex-shrink:0;">${h.side}</span>
+      <span style="flex:1;min-width:0;font-size:12px;font-weight:700;color:#a0c0e0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${h.name}</span>
+      <span style="font-size:11px;font-weight:700;color:${col};flex-shrink:0;">${h.tech}</span>
+      <span style="font-size:13px;font-weight:900;color:#c0d8f0;flex-shrink:0;min-width:38px;text-align:right;">${h.sec}秒</span>
+      <span style="display:flex;align-items:center;justify-content:center;width:30px;height:24px;background:#0a2040;border:1px solid #4a80c8;border-radius:5px;color:#8ab8f0;font-size:11px;font-weight:700;flex-shrink:0;">▶</span>
     </button>`;
   }).join('');
 }
@@ -3848,8 +3854,8 @@ function vwHighlightActiveBtn(currentSec){
     const btn = document.getElementById('hl-vbtn-' + i);
     if(!btn) return;
     const active = Math.abs(currentSec - h.sec) < 8;
-    btn.style.borderColor = active ? '#4a80c8' : '#1a2840';
-    btn.style.background  = active ? '#0a2040' : '#0a1020';
+    btn.style.borderLeftColor = active ? '#4a80c8' : 'transparent';
+    btn.style.background      = active ? '#0a2040' : '#0a1020';
   });
 }
 
