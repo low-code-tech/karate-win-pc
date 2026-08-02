@@ -870,6 +870,7 @@ html,body{
     <button class="tb-right-btn" onclick="sw('result',null)">試合結果</button>
     <button class="tb-right-btn" id="tb-cam-btn" onclick="camSetup()">📹 カメラ</button>
     <span id="tb-rec-dot" style="display:none;width:9px;height:9px;border-radius:50%;background:#e74c3c;box-shadow:0 0 6px #e74c3c;animation:recblink 1s infinite;flex-shrink:0;"></span>
+    <button class="tb-right-btn" onclick="sw('viewer',null)">📱 閲覧</button>
     <div class="tb-spacer"></div>
     <button class="tb-right-btn green" onclick="sw('matchload',null)">選手選択</button>
     <button class="tb-right-btn orange" onclick="cfR()">リセット</button>
@@ -1414,6 +1415,7 @@ html,body{
   <div style="display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
     <div class="back-bar"><button class="bbtn" onclick="sw('match',null)">◀ 戻る</button><div class="stit">📊 試合結果</div></div>
     <div style="display:flex;gap:7px;padding-right:12px;">
+      <button onclick="sw('log',null)" style="background:#090d14;border:1px solid #1a2840;border-radius:4px;padding:4px 11px;color:#3a5070;cursor:pointer;font-size:11px;">📋 詳細ログ</button>
       <button onclick="expL()" style="background:#1a3a6a;border:1px solid #4a80c8;border-radius:4px;padding:4px 14px;color:#8ab8f0;cursor:pointer;font-size:11px;font-weight:700;">📥 Excel出力</button>
     </div>
   </div>
@@ -1550,6 +1552,7 @@ html,body{
     </div>
     <div style="flex:1;"></div>
     <button class="bbtn" onclick="sw('match',null)" style="font-size:10px;padding:3px 10px;border-color:#1a3060;color:#3a5070;">◀ 戻る</button>
+    <button onclick="sw('load',null)" style="font-size:10px;font-weight:700;color:#2a5080;padding:3px 10px;border:1px solid #1a3060;border-radius:4px;background:transparent;cursor:pointer;font-family:inherit;letter-spacing:0.5px;white-space:nowrap;">✎ 手入力</button>
     <button onclick="sw('import',null)" style="font-size:10px;font-weight:700;color:#2a5080;padding:3px 10px;border:1px solid #1a3060;border-radius:4px;background:transparent;cursor:pointer;font-family:inherit;letter-spacing:0.5px;white-space:nowrap;">📥 データ取込</button>
   </div>
 
