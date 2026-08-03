@@ -90,6 +90,8 @@ html,body{
 ════════════════════════════ */
 .sc{display:none;flex-direction:column;width:100%;flex:1;min-height:0}
 .sc.on{display:flex}
+/* 試合画面以外は文字が小さいため1.22倍で表示（Chrome/Safari対応のzoom） */
+.sc.sub, #screen-matchload{zoom:1.22}
 
 /* ═══════════════════════════
    MATCH SCREEN
@@ -103,7 +105,7 @@ html,body{
   flex:1;
   display:grid;
   grid-template-columns: 1fr 1fr;
-  grid-template-rows: 150px 1fr;
+  grid-template-rows: 210px 1fr;
   border:1px solid #1a3060;
   min-height:0;overflow:hidden}
 
@@ -130,20 +132,21 @@ html,body{
 .player-bib.blue{color:#fff}
 /* よみがな: 名前の直上・中央揃え・大きく */
 .player-furi{
-  font-size:22px;font-weight:400;letter-spacing:2px;
-  color:#fff;opacity:.75;
+  font-size:24px;font-weight:400;letter-spacing:2px;
+  color:#fff;opacity:.8;
   text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  width:100%;line-height:1.2;margin-bottom:0;}
+  width:100%;line-height:1.2;margin-bottom:2px;}
 .player-furi.red{color:#fff}
 .player-furi.blue{color:#fff}
 /* 氏名 */
 .player-name{
-  font-size:70px;font-weight:900;letter-spacing:2px;
-  margin-top:0;margin-bottom:4px;text-align:center;line-height:1}
+  font-size:84px;font-weight:900;letter-spacing:2px;
+  margin-top:0;margin-bottom:4px;text-align:center;line-height:1;
+  width:100%;overflow:hidden}
 .player-name.red{color:#fff;text-shadow:0 0 40px rgba(180,80,80,.5),0 2px 0 rgba(0,0,0,.4)}
 .player-name.blue{color:#fff;text-shadow:0 0 40px rgba(160,200,255,.6),0 2px 0 rgba(0,0,0,.4)}
 .player-club{
-  font-size:24px;font-weight:400;letter-spacing:2px;color:#fff;opacity:.75}
+  font-size:26px;font-weight:400;letter-spacing:2px;color:#fff;opacity:.75}
 .player-club.red{color:#fff}
 .player-club.blue{color:#fff}
 .top-ptag{display:none}
@@ -176,14 +179,14 @@ html,body{
   border-right:1px solid #c0c8e0;
   display:flex;flex-direction:column;
   align-items:center;justify-content:center;
-  padding:8px;overflow:hidden}
+  padding:8px 8px 116px;position:relative;overflow:hidden}
 /* red total (right) */
 #bot-red{
   background:#fff;
   border-left:1px solid #d0a0b0;
   display:flex;flex-direction:column;
   align-items:center;justify-content:center;
-  padding:8px;position:relative;overflow:hidden}
+  padding:8px 8px 116px;position:relative;overflow:hidden}
 
 .arena-label{
   font-size:16px;font-weight:700;letter-spacing:4px;
@@ -195,7 +198,7 @@ html,body{
   letter-spacing:-0.04em;transition:font-size .2s;
   width:100%;text-align:center}
 .arena-total.big2{
-  font-size:170px !important;letter-spacing:-0.04em}
+  font-size:294px;letter-spacing:-0.04em}
 .blue-total{color:#1040c0;text-shadow:none}
 .red-total{color:#7a0020;text-shadow:none}
 
@@ -212,7 +215,7 @@ html,body{
 #tdis{
   flex:1;min-height:0;width:100%;
   display:flex;align-items:center;justify-content:center;
-  font-size:225px;font-weight:700;line-height:1;
+  font-size:255px;font-weight:700;line-height:1;
   letter-spacing:-4px;color:#fff;text-align:center;
   text-shadow:0 0 40px rgba(255,255,255,.15);
   transition:color .3s}
@@ -282,10 +285,21 @@ html,body{
   background:#fff;
   border:1px solid #ccd0d8;border-radius:6px}
 .pen-big{
-  text-align:center;font-size:108px;font-weight:700;line-height:.9;
+  text-align:center;font-size:76px;font-weight:700;line-height:.9;
+  min-width:96px;
   padding:4px 8px;border-radius:6px;border:2px solid currentColor}
+.pen-big.big2{font-size:58px !important}
 .pen-big.blue{color:#0a2a80;background:#d8e8ff;text-shadow:none}
 .pen-big.red {color:#6b0020;background:#ffe0e4;text-shadow:none}
+/* ペナルティ下隅ウィジェット */
+.pen-corner{
+  position:absolute;bottom:8px;
+  display:flex;flex-direction:column;align-items:center;gap:2px;z-index:5}
+.pen-corner-lbl{
+  font-size:16px;font-weight:700;letter-spacing:2px;opacity:.85}
+.pen-corner-row{
+  display:flex;align-items:center;gap:6px}
+.pen-corner .scbtn{width:56px;padding:12px 0;font-size:24px}
 .pen-center-lbl{
   text-align:center;font-size:22px;font-weight:700;
   color:#111;letter-spacing:2px;padding:0 6px;white-space:nowrap}
@@ -1263,6 +1277,15 @@ html,body{
         <div id="bot-blue">
           <div class="sentoku-badge blue-sentoku" id="blue-sentoku-badge" style="visibility:hidden">青先取</div>
           <div class="arena-total blue-total" id="btot">0</div>
+          <!-- ペナルティ: 右下隅(中央寄り) -->
+          <div class="pen-corner" style="right:10px;">
+            <div class="pen-corner-lbl" style="color:#1a3a90;">ペナルティ</div>
+            <div class="pen-corner-row">
+              <button class="scbtn blue-mn" onclick="sc('b','p',-1)">－</button>
+              <div class="pen-big blue" id="bv-p-s">0</div>
+              <button class="scbtn blue" onclick="sc('b','p',1)">＋</button>
+            </div>
+          </div>
         </div>
 
         <!-- CENTER: タイマー＋点数ボタン -->
@@ -1303,18 +1326,7 @@ html,body{
               <div class="sbt-score red-sc"  id="rv-i-s">0</div>
               <button class="scbtn red" onclick="sc('r','i',1)">＋</button>
             </div>
-            <!-- ペナルティ行: ＋(青) [大数字(青)] －(青)  反則  －(赤) [大数字(赤)] ＋(赤) -->
-            <div id="pen-row">
-              <button class="scbtn blue"    onclick="sc('b','p',1)">＋</button>
-              <div class="pen-big blue" id="bv-p-s">0</div>
-              <button class="scbtn blue-mn" onclick="sc('b','p',-1)">－</button>
-              <div class="pen-center-lbl">反則</div>
-              <button class="scbtn red-mn"  onclick="sc('r','p',-1)">－</button>
-              <div class="pen-big red"  id="rv-p-s">0</div>
-              <button class="scbtn red"     onclick="sc('r','p',1)">＋</button>
-            </div>
-
-
+            <!-- ペナルティ行は v1.7 で合計得点エリアの下隅へ移設 -->
           </div>
         </div>
 
@@ -1322,13 +1334,22 @@ html,body{
         <div id="bot-red">
           <div class="sentoku-badge red-sentoku" id="red-sentoku-badge" style="visibility:hidden">赤先取</div>
           <div class="arena-total red-total" id="rtot">0</div>
+          <!-- ペナルティ: 左下隅(中央寄り) -->
+          <div class="pen-corner" style="left:10px;">
+            <div class="pen-corner-lbl" style="color:#6b0020;">ペナルティ</div>
+            <div class="pen-corner-row">
+              <button class="scbtn red" onclick="sc('r','p',1)">＋</button>
+              <div class="pen-big red"  id="rv-p-s">0</div>
+              <button class="scbtn red-mn"  onclick="sc('r','p',-1)">－</button>
+            </div>
+          </div>
           <!-- キーボードショートカット: 右下隅に絶対配置 -->
           <div id="kb-hints" style="
-            position:absolute;bottom:6px;left:4px;right:4px;
-            display:flex;flex-direction:column;align-items:center;
+            position:absolute;bottom:6px;right:10px;
+            display:flex;flex-direction:column;align-items:flex-end;
             gap:3px;pointer-events:none;opacity:.75;">
-            <div style="font-size:12px;color:#2a3a5a;letter-spacing:1px;font-weight:700;text-align:center;">KEYBOARD</div>
-            <div style="font-size:11px;color:#2a3a5a;text-align:center;line-height:1.7;">
+            <div style="font-size:12px;color:#2a3a5a;letter-spacing:1px;font-weight:700;text-align:right;">KEYBOARD</div>
+            <div style="font-size:11px;color:#2a3a5a;text-align:right;line-height:1.7;">
               Space：開始/停止　R：再開<br>
               ←/→：±1秒　BS：リセット
             </div>
@@ -1995,6 +2016,7 @@ function doLoad(){
   document.getElementById('dn-b-furi').textContent=bfuri||'';
   document.getElementById('dn-r-club').textContent=rclub||'—';
   document.getElementById('dn-b-club').textContent=bclub||'—';
+  if(window.fitPlayerName)window.fitPlayerName();  // 名前確定後にサイズ再調整（折返し対応）
   // topbar更新
   const tname=document.getElementById('i-tn')?document.getElementById('i-tn').value.trim():'';
   document.getElementById('tb-tournament').textContent=tname||'大会名未設定';
@@ -2708,7 +2730,10 @@ function mlRenderPlayers(){
   var list=document.getElementById('ml-player-list');
   if(!_mlVisible.length){mlShowEmpty('このクラス・コートに選手がいません');return;}
   list.innerHTML='';
-  var ROWS=5;
+  // 利用可能高さからカード行数を動的算出（1カード最低86px確保、最大5行）
+  var listH=list.parentElement.clientHeight||400;
+  var ROWS=Math.min(5,Math.max(2,Math.floor(listH/86)));
+  list.style.gridTemplateRows='repeat('+ROWS+',1fr)';
   var cols=Math.ceil(_mlVisible.length/ROWS);
   var contW=list.parentElement.clientWidth-8;
   var cardW=Math.max(150,Math.min(280,Math.floor((contW-(cols-1)*3)/cols)));
@@ -2721,19 +2746,22 @@ function mlRenderPlayers(){
     var d=document.createElement('div');
     var bg=isR?'#160a0d':isB?'#080c18':'#0b1020';
     var bc=isR?'#5a2030':isB?'#1a3a60':'#182438';
-    d.style.cssText='display:flex;flex-direction:column;gap:2px;background:'+bg+';border:1px solid '+bc+';border-radius:5px;padding:5px 7px;transition:all .12s;overflow:hidden;box-sizing:border-box;';
+    d.style.cssText='display:flex;flex-direction:column;gap:1px;background:'+bg+';border:1px solid '+bc+';border-radius:5px;padding:4px 6px;transition:all .12s;overflow:hidden;box-sizing:border-box;';
     var bibColor=isR?'#ff7080':isB?'#70b8ff':'#5888b8';
     var nameColor=isR?'#f0b0b8':isB?'#a0c8e8':'#b0c8e0';
 
     var html='';
-    html+='<div style="font-size:15px;font-weight:900;color:'+bibColor+';letter-spacing:2px;line-height:1;border-bottom:1px solid '+bc+';padding-bottom:2px;margin-bottom:1px;">'+(p.bib||'—')+'</div>';
-    html+='<div style="font-size:14px;font-weight:700;color:'+nameColor+';line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+(p.name||'名称不明')+'</div>';
-    if(p.yomi) html+='<div style="font-size:10px;color:#5a7898;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+p.yomi+'</div>';
-    if(p.club) html+='<div style="font-size:10px;color:#4a6880;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+p.club+'</div>';
+    html+='<div style="font-size:15px;font-weight:900;color:'+bibColor+';letter-spacing:2px;line-height:1;border-bottom:1px solid '+bc+';padding-bottom:2px;margin-bottom:1px;flex-shrink:0;">'+(p.bib||'—')+'</div>';
+    // 氏名＋よみがなを1行にまとめる（横スペース活用・縦潰れ防止）
+    html+='<div style="display:flex;align-items:baseline;gap:6px;overflow:hidden;flex-shrink:0;">'
+        +'<span style="font-size:14px;font-weight:700;color:'+nameColor+';line-height:1.25;white-space:nowrap;flex-shrink:0;">'+(p.name||'名称不明')+'</span>'
+        +(p.yomi?'<span style="font-size:10px;color:#5a7898;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">'+p.yomi+'</span>':'')
+        +'</div>';
+    if(p.club) html+='<div style="font-size:10px;color:#4a6880;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0;">'+p.club+'</div>';
 
     var rBdr=isR?'#c04060':'#3a1020'; var rClr=isR?'#ff8090':'#b04060'; var rBg=isR?'#2a0d18':'#0e0810';
     var bBdr=isB?'#3060b0':'#102040'; var bClr=isB?'#80c0ff':'#3870b8'; var bBg=isB?'#0a1828':'#070c18';
-    html+='<div style="display:flex;gap:3px;margin-top:auto;padding-top:2px;">';
+    html+='<div style="display:flex;gap:3px;margin-top:auto;padding-top:2px;flex-shrink:0;">';
     html+='<button onclick="mlAssign(\'red\','+idx+')" '+(isR?'disabled':'')+' style="flex:1;padding:3px 0;border-radius:3px;font-size:10px;font-weight:900;border:1px solid '+rBdr+';color:'+rClr+';background:'+rBg+';cursor:'+(isR?'default':'pointer')+';font-family:inherit;">'+(isR?'✓ 赤':'赤')+'</button>';
     html+='<button onclick="mlAssign(\'blue\','+idx+')" '+(isB?'disabled':'')+' style="flex:1;padding:3px 0;border-radius:3px;font-size:10px;font-weight:900;border:1px solid '+bBdr+';color:'+bClr+';background:'+bBg+';cursor:'+(isB?'default':'pointer')+';font-family:inherit;">'+(isB?'✓ 青':'青')+'</button>';
     html+='</div>';
@@ -2861,31 +2889,44 @@ function toast(msg,cls){
       if(!el)return;
       const name=el.textContent||'';
       const len=name.replace(/\s/g,'').length;
-      // 文字数に応じてfont-sizeを段階的に縮小
-      let fs;
-      if(len<=4)      fs='70px';
-      else if(len<=6) fs='56px';
-      else if(len<=8) fs='45px';
-      else if(len<=10)fs='37px';
-      else            fs='30px';
-      el.style.fontSize=fs;
+      // 文字数に応じてfont-sizeを段階的に縮小。長い名前(11文字超)は折返して2行表示
+      let fs, wrap=false;
+      if(len<=4)      fs=84;
+      else if(len<=6) fs=72;
+      else if(len<=8) fs=58;
+      else if(len<=10)fs=48;
+      else            {fs=56; wrap=true;}  // 折返し許可で大きめから開始、収まらなければ縮小
+      el.style.whiteSpace=wrap?'normal':'nowrap';
+      el.style.wordBreak =wrap?'break-word':'normal';
+      el.style.lineHeight=wrap?'1.12':'1';
+      el.style.maxHeight =wrap?'110px':'none';
+      el.style.fontSize=fs+'px';
+      // 収まらなければ2pxずつ縮小（最低18px）
+      let guard=0;
+      while(fs>18 && guard<20 &&
+            (wrap ? el.scrollHeight>el.clientHeight+2
+                  : el.scrollWidth >el.clientWidth +2)){
+        fs-=2; el.style.fontSize=fs+'px'; guard++;
+      }
     });
   }
 
   function fitScoreFont(rw,rh){
-    // 1600×900キャンバス固定: topbar(72+48=120) + 選手名行150 + actbar92 を除いたアリーナ高さ
-    const arenaH = rh - 120 - 150 - 92;
+    // 1600×900キャンバス固定: topbar(72+48=120) + 選手名行210 + actbar92 を除いたアリーナ高さ
+    const arenaH = rh - 120 - 210 - 92;
     // 横: 3fr / (3+4+3) = 30% の幅、padding8px除く
     const colW = rw * 3 / 10 - 16;
     // 縦横両方に収まる最大フォントサイズ
-    const fs = Math.floor(Math.min(colW * 0.88, arenaH * 0.72));
-    const fs2 = Math.floor(fs * 0.60);
+    const fs = Math.floor(Math.min(colW * 0.88, arenaH * 0.68));
+    const fs2 = Math.floor(fs * 0.74);
     document.querySelectorAll('.arena-total').forEach(el=>{
       el.style.fontSize = (el.classList.contains('big2') ? fs2 : fs) + 'px';
     });
     fitPlayerName();
   }
   fit169();
+  window.fitScoreFont=fitScoreFont;
+  window.fitPlayerName=fitPlayerName;
   window.addEventListener('resize',fit169);
   window.addEventListener('orientationchange',()=>setTimeout(fit169,300));
   if(window.visualViewport) window.visualViewport.addEventListener('resize',fit169);
