@@ -37,7 +37,7 @@ html,body{
   background:#090d14;border-bottom:2px solid #1a3a6a;}
 #tb-row1{
   display:flex;align-items:center;
-  padding:0 12px;gap:8px;height:58px;}
+  padding:0 12px;gap:8px;height:72px;}
 #tb-row2{
   display:grid;grid-template-columns:1fr auto 1fr;
   align-items:center;
@@ -71,9 +71,9 @@ html,body{
 .tb-spacer{flex:1}
 /* 右端3ボタン */
 .tb-right-btn{
-  padding:5px 0;min-width:72px;text-align:center;
-  background:#0d1220;border:1px solid #2a4060;border-radius:4px;
-  color:#6888a8;font-size:13px;font-weight:700;
+  padding:13px 15px;min-width:72px;text-align:center;
+  background:#0d1220;border:1px solid #2a4060;border-radius:6px;
+  color:#6888a8;font-size:19px;font-weight:700;
   cursor:pointer;white-space:nowrap;flex-shrink:0;font-family:inherit}
 .tb-right-btn:hover{border-color:#4a80c8;color:#8ab8f0}
 .tb-right-btn.green{border-color:#2a6040;color:#48a870}
@@ -202,18 +202,20 @@ html,body{
 /* center panel */
 #bot-center{
   display:flex;flex-direction:column;
-  align-items:center;justify-content:center;
-  padding:2px 6px;gap:4px;
+  align-items:center;justify-content:flex-start;
+  padding:2px 6px 8px;gap:4px;
   background:#000;
   border-left:1px solid #111;border-right:1px solid #111;
   overflow:hidden}
 
 /* timer display */
 #tdis{
-  font-size:200px;font-weight:700;line-height:1;
+  flex:1;min-height:0;width:100%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:225px;font-weight:700;line-height:1;
   letter-spacing:-4px;color:#fff;text-align:center;
   text-shadow:0 0 40px rgba(255,255,255,.15);
-  transition:color .3s;flex-shrink:0}
+  transition:color .3s}
 
 #tdis.warning{color:#ff8c00;animation:wpls .5s infinite alternate}
 #tdis.finished{color:#e03030}
@@ -361,6 +363,8 @@ html,body{
   font-size:15px;line-height:1.25;letter-spacing:0;
   padding:9px 12px;font-weight:800;
 }
+/* 通常勝ち/判定勝ち: 左右余白分だけ幅を拡大 */
+.abtn.win-wide{padding-left:26px;padding-right:26px}
 .abtn.win-cancel{
   background:#3a0010;color:#ffaaaa;border-color:#ff6060;}
 .abtn.win-cancel:hover{background:#700020;color:#fff;}
@@ -1338,8 +1342,8 @@ html,body{
         <!-- 青側: 勝利直接ボタン(外側から 棄権/反則/判定/通常) + 青先取 -->
         <button class="abtn win-blue win-sm" onclick="directWin('blue','forfeit')">勝ち<br>(相手棄権)</button>
         <button class="abtn win-blue win-sm" onclick="directWin('blue','foul')">勝ち<br>(相手反則)</button>
-        <button class="abtn win-blue win-sm" onclick="directWin('blue','decision')">判定<br>勝ち</button>
-        <button class="abtn win-blue win-sm" onclick="directWin('blue','normal')">通常<br>勝ち</button>
+        <button class="abtn win-blue win-sm win-wide" onclick="directWin('blue','decision')">判定<br>勝ち</button>
+        <button class="abtn win-blue win-sm win-wide" onclick="directWin('blue','normal')">通常<br>勝ち</button>
         <button class="abtn sentoku-blue" onclick="setSentoku('blue')">青先取</button>
         <button class="abtn adj-plus" onclick="dA(1000)">＋1秒</button>
         <div class="abtn-sep"></div>
@@ -1350,8 +1354,8 @@ html,body{
         <button class="abtn adj" onclick="dA(-1000)">－1秒</button>
         <button class="abtn sentoku-red" onclick="setSentoku('red')">赤先取</button>
         <!-- 赤側: 通常/判定/反則/棄権 -->
-        <button class="abtn win-red win-sm" onclick="directWin('red','normal')">通常<br>勝ち</button>
-        <button class="abtn win-red win-sm" onclick="directWin('red','decision')">判定<br>勝ち</button>
+        <button class="abtn win-red win-sm win-wide" onclick="directWin('red','normal')">通常<br>勝ち</button>
+        <button class="abtn win-red win-sm win-wide" onclick="directWin('red','decision')">判定<br>勝ち</button>
         <button class="abtn win-red win-sm" onclick="directWin('red','foul')">勝ち<br>(相手反則)</button>
         <button class="abtn win-red win-sm" onclick="directWin('red','forfeit')">勝ち<br>(相手棄権)</button>
         <!-- 後方互換（非表示） -->
@@ -2869,8 +2873,8 @@ function toast(msg,cls){
   }
 
   function fitScoreFont(rw,rh){
-    // 1600×900キャンバス固定: topbar(58+48=106) + 選手名行150 + actbar92 を除いたアリーナ高さ
-    const arenaH = rh - 106 - 150 - 92;
+    // 1600×900キャンバス固定: topbar(72+48=120) + 選手名行150 + actbar92 を除いたアリーナ高さ
+    const arenaH = rh - 120 - 150 - 92;
     // 横: 3fr / (3+4+3) = 30% の幅、padding8px除く
     const colW = rw * 3 / 10 - 16;
     // 縦横両方に収まる最大フォントサイズ
