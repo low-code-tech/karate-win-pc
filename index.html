@@ -3,6 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Karate Win">
+<meta name="theme-color" content="#05080f">
 <title>Karate Win | 統合版</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -36,7 +41,7 @@ html,body{
 #tb-row2{
   display:grid;grid-template-columns:1fr auto 1fr;
   align-items:center;
-  padding:0 14px;height:64px;
+  padding:0 14px;height:48px;
   border-top:1px solid #1a2840;background:#070b12;}
 .logo{font-size:20px;font-weight:900;letter-spacing:3px;color:#4a80c8;white-space:nowrap}
 .logo small{font-size:10px;font-weight:300;color:#2a3a5a;letter-spacing:2px;margin-left:6px}
@@ -98,7 +103,7 @@ html,body{
   flex:1;
   display:grid;
   grid-template-columns: 1fr 1fr;
-  grid-template-rows: 5fr 12fr;
+  grid-template-rows: 150px 1fr;
   border:1px solid #1a3060;
   min-height:0;overflow:hidden}
 
@@ -125,7 +130,7 @@ html,body{
 .player-bib.blue{color:#fff}
 /* よみがな: 名前の直上・中央揃え・大きく */
 .player-furi{
-  font-size:28px;font-weight:400;letter-spacing:2px;
+  font-size:22px;font-weight:400;letter-spacing:2px;
   color:#fff;opacity:.75;
   text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   width:100%;line-height:1.2;margin-bottom:0;}
@@ -134,11 +139,11 @@ html,body{
 /* 氏名 */
 .player-name{
   font-size:70px;font-weight:900;letter-spacing:2px;
-  margin-top:0;margin-bottom:6px;text-align:center;line-height:1}
+  margin-top:0;margin-bottom:4px;text-align:center;line-height:1}
 .player-name.red{color:#fff;text-shadow:0 0 40px rgba(180,80,80,.5),0 2px 0 rgba(0,0,0,.4)}
 .player-name.blue{color:#fff;text-shadow:0 0 40px rgba(160,200,255,.6),0 2px 0 rgba(0,0,0,.4)}
 .player-club{
-  font-size:30px;font-weight:400;letter-spacing:2px;color:#fff;opacity:.75}
+  font-size:24px;font-weight:400;letter-spacing:2px;color:#fff;opacity:.75}
 .player-club.red{color:#fff}
 .player-club.blue{color:#fff}
 .top-ptag{display:none}
@@ -154,7 +159,7 @@ html,body{
 #bot-row{
   grid-column:1/-1;grid-row:2;
   display:grid;
-  grid-template-rows:1fr 58px;
+  grid-template-rows:1fr 92px;
   min-height:0;overflow:hidden}
 
 /* top 9: 3-column arena */
@@ -186,11 +191,11 @@ html,body{
 .blue-lbl{color:#1040c0}
 .red-lbl{color:#c01010}
 .arena-total{
-  font-size:min(17vw,23vh);font-weight:700;line-height:.9;
+  font-size:280px;font-weight:700;line-height:.9;
   letter-spacing:-0.04em;transition:font-size .2s;
   width:100%;text-align:center}
 .arena-total.big2{
-  font-size:min(14vw,19vh) !important;letter-spacing:-0.04em}
+  font-size:170px !important;letter-spacing:-0.04em}
 .blue-total{color:#1040c0;text-shadow:none}
 .red-total{color:#7a0020;text-shadow:none}
 
@@ -205,7 +210,7 @@ html,body{
 
 /* timer display */
 #tdis{
-  font-size:min(260px,25vh);font-weight:700;line-height:1;
+  font-size:200px;font-weight:700;line-height:1;
   letter-spacing:-4px;color:#fff;text-align:center;
   text-shadow:0 0 40px rgba(255,255,255,.15);
   transition:color .3s;flex-shrink:0}
@@ -231,10 +236,10 @@ html,body{
   padding:0 4px}
 .sbtpt{display:block;font-size:9px;color:#667788;font-weight:400}
 .sbt-score{
-  text-align:center;font-size:min(42px,4.2vh);font-weight:700;line-height:1;
+  text-align:center;font-size:38px;font-weight:700;line-height:1;
   padding:4px 2px;transition:font-size .15s;
   border-radius:4px;border:2px solid currentColor}
-.sbt-score.big2{font-size:min(26px,2.6vh) !important}
+.sbt-score.big2{font-size:23px !important}
 .sbt-score.blue-sc{background:#d8e8ff;color:#0a2a80 !important;border-color:#4060c0}
 .sbt-score.red-sc {background:#ffe0e0;color:#6b0000 !important;border-color:#c04060}
 .scbtn{
@@ -275,7 +280,7 @@ html,body{
   background:#fff;
   border:1px solid #ccd0d8;border-radius:6px}
 .pen-big{
-  text-align:center;font-size:min(120px,12vh);font-weight:700;line-height:.9;
+  text-align:center;font-size:108px;font-weight:700;line-height:.9;
   padding:4px 8px;border-radius:6px;border:2px solid currentColor}
 .pen-big.blue{color:#0a2a80;background:#d8e8ff;text-shadow:none}
 .pen-big.red {color:#6b0020;background:#ffe0e4;text-shadow:none}
@@ -286,7 +291,7 @@ html,body{
 /* actbar */
 #actbar{
   display:flex;align-items:center;justify-content:center;
-  padding:0 10px;height:58px;position:relative;
+  padding:0 10px;height:92px;position:relative;
   background:#050810;border-top:1px solid #1a3060;
   flex-shrink:0;overflow:hidden;gap:6px}
 /* 両端固定ボタン */
@@ -295,13 +300,13 @@ html,body{
 /* ＋1秒: 明るいオレンジ/緑 */
 .abtn.adj-plus{background:linear-gradient(135deg,#1a3a00,#50a000);color:#e0ff80;border:2px solid #70cc00;font-weight:900}
 .abtn.adj-plus:hover{filter:brightness(1.25)}
-.abtn-sep{width:1px;height:28px;background:#2a3a58;margin:0 2px;flex-shrink:0}
+.abtn-sep{width:1px;height:44px;background:#2a3a58;margin:0 2px;flex-shrink:0}
 .abtn-group{display:flex;align-items:center;gap:6px}
 .dim-grp{opacity:.4}
 .dim-grp:hover{opacity:.85;transition:opacity .2s}
 .abtn{
-  padding:10px 18px;border:none;border-radius:6px;
-  font-size:14px;font-weight:700;cursor:pointer;
+  padding:16px 22px;border:none;border-radius:8px;
+  font-size:19px;font-weight:700;cursor:pointer;
   transition:transform .1s,filter .1s;white-space:nowrap}
 .abtn:active{transform:scale(.9)}
 .abtn:disabled{opacity:.2;cursor:not-allowed;transform:none}
@@ -332,7 +337,7 @@ html,body{
   display:flex;align-items:center;justify-content:center;
   gap:12px;
   padding:10px 16px;
-  font-size:min(2.6vw,4vh);font-weight:900;letter-spacing:2px;
+  font-size:36px;font-weight:900;letter-spacing:2px;
   text-align:center;
   pointer-events:none;
   outline:3px solid #ffd700;
@@ -353,8 +358,8 @@ html,body{
   text-shadow:0 0 20px rgba(255,80,100,.8)}
 /* 直接勝利ボタン(2行表示・小型) */
 .abtn.win-sm{
-  font-size:min(11px,1.5vh);line-height:1.25;letter-spacing:0;
-  padding:5px 9px;font-weight:800;
+  font-size:15px;line-height:1.25;letter-spacing:0;
+  padding:9px 12px;font-weight:800;
 }
 .abtn.win-cancel{
   background:#3a0010;color:#ffaaaa;border-color:#ff6060;}
@@ -372,13 +377,13 @@ html,body{
   color:#ffd700;
   text-shadow:0 0 8px rgba(255,215,0,.8)}
 .sentoku-badge{
-  font-size:min(2.4vw,3.6vh);font-weight:900;letter-spacing:3px;
+  font-size:32px;font-weight:900;letter-spacing:3px;
   padding:3px 10px;border-radius:5px;
   margin-bottom:4px;text-align:center;
   animation:sentoku-pulse 1.2s ease-in-out infinite alternate}
 .sentoku-placeholder{
   display:block;
-  height:min(2.4vw,3.6vh);
+  height:32px;
   margin-bottom:4px;
   visibility:hidden}
 .blue-sentoku{
@@ -1318,8 +1323,8 @@ html,body{
             position:absolute;bottom:6px;left:4px;right:4px;
             display:flex;flex-direction:column;align-items:center;
             gap:3px;pointer-events:none;opacity:.75;">
-            <div style="font-size:min(1.4vw,12px);color:#2a3a5a;letter-spacing:1px;font-weight:700;text-align:center;">KEYBOARD</div>
-            <div style="font-size:min(1.3vw,11px);color:#2a3a5a;text-align:center;line-height:1.7;">
+            <div style="font-size:12px;color:#2a3a5a;letter-spacing:1px;font-weight:700;text-align:center;">KEYBOARD</div>
+            <div style="font-size:11px;color:#2a3a5a;text-align:center;line-height:1.7;">
               Space：開始/停止　R：再開<br>
               ←/→：±1秒　BS：リセット
             </div>
@@ -2864,16 +2869,12 @@ function toast(msg,cls){
   }
 
   function fitScoreFont(rw,rh){
-    // topbar:52px, actbar:58px を除いた下段エリア
-    const botH = rh - 122 - 58;  // topbar 2行(58+64=122) + actbar(58)
-    // main-grid: 5fr(上段選手名) + 12fr(下段) → 下段 = botH * 12/17
-    const botRowH = botH * 12 / 17;
-    // bot-arena内のbot-row: grid-template-rows:1fr 58px → arenaH = botRowH - 58
-    const arenaH = botRowH - 58;
+    // 1600×900キャンバス固定: topbar(58+48=106) + 選手名行150 + actbar92 を除いたアリーナ高さ
+    const arenaH = rh - 106 - 150 - 92;
     // 横: 3fr / (3+4+3) = 30% の幅、padding8px除く
     const colW = rw * 3 / 10 - 16;
-    // 縦横両方に収まる最大フォントサイズ（正方形に近い0にする）
-    const fs = Math.floor(Math.min(colW * 0.88, arenaH * 0.78));
+    // 縦横両方に収まる最大フォントサイズ
+    const fs = Math.floor(Math.min(colW * 0.88, arenaH * 0.72));
     const fs2 = Math.floor(fs * 0.60);
     document.querySelectorAll('.arena-total').forEach(el=>{
       el.style.fontSize = (el.classList.contains('big2') ? fs2 : fs) + 'px';
