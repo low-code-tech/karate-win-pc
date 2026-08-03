@@ -18,7 +18,9 @@ html,body{
   display:flex;flex-direction:column;
   overflow:hidden;
   position:fixed;top:0;left:0;
-  /* JS fit169() が width/height をセット */}
+  width:1600px;height:900px;
+  transform-origin:top left;
+  /* JS fit169() が transform:scale と left/top をセット（1600×900固定キャンバスを画面にフィット） */}
 
 /* ═══════════════════════════
    TOP BAR
@@ -2832,13 +2834,15 @@ function toast(msg,cls){
   function fit169(){
     const el=document.getElementById('root169');
     const vw=window.innerWidth,vh=window.innerHeight;
-    // 16:9ボックスを画面内に最大サイズで収め、中央に配置（レターボックス）
-    let w=vw,h=Math.round(vw*9/16);
-    if(h>vh){h=vh;w=Math.round(vh*16/9);}
-    el.style.width=w+'px';el.style.height=h+'px';
-    el.style.left=Math.round((vw-w)/2)+'px';
-    el.style.top=Math.round((vh-h)/2)+'px';
-    fitScoreFont(w,h);
+    // 1600×900の固定キャンバスを画面内に収まる倍率で縮小し中央配置
+    // （中身のレイアウトは常に1600×900で描画されるため崩れない）
+    const s=Math.min(vw/1600,vh/900);
+    window.KW_SCALE=s;
+    el.style.width='1600px';el.style.height='900px';
+    el.style.transform='scale('+s+')';
+    el.style.left=Math.round((vw-1600*s)/2)+'px';
+    el.style.top=Math.round((vh-900*s)/2)+'px';
+    fitScoreFont(1600,900);
   }
   // 得点フォントをコンテナにフィット
   // 氏名フォントサイズを文字数に応じて自動調整
@@ -2879,6 +2883,7 @@ function toast(msg,cls){
   fit169();
   window.addEventListener('resize',fit169);
   window.addEventListener('orientationchange',()=>setTimeout(fit169,300));
+  if(window.visualViewport) window.visualViewport.addEventListener('resize',fit169);
   try{localStorage.removeItem('kw3');}catch(e){}
   loadCfg();
   T.initMs=cfg.it*1000;T.baseMs=T.initMs;_syncTimeSelects(cfg.it);
@@ -3000,8 +3005,11 @@ function anncToggle(e){
   e.stopPropagation();
   const m=document.getElementById('annc-menu');
   const r=e.currentTarget.getBoundingClientRect();
-  m.style.left=Math.round(r.left)+'px';
-  m.style.top=Math.round(r.bottom+4)+'px';
+  // transform縮小下ではfixed要素の座標系がroot169内(1600×900)になるためスケール換算
+  const rr=document.getElementById('root169').getBoundingClientRect();
+  const s=window.KW_SCALE||1;
+  m.style.left=Math.round((r.left-rr.left)/s)+'px';
+  m.style.top=Math.round((r.bottom-rr.top)/s+4)+'px';
   m.style.display = m.style.display==='block'?'none':'block';
 }
 document.addEventListener('click',function(){
@@ -3026,8 +3034,11 @@ function ivToggle(e){
   e.stopPropagation();
   const m=document.getElementById('interval-menu');
   const r=e.currentTarget.getBoundingClientRect();
-  m.style.left=Math.round(r.left)+'px';
-  m.style.top=Math.round(r.bottom+4)+'px';
+  // transform縮小下ではfixed要素の座標系がroot169内(1600×900)になるためスケール換算
+  const rr=document.getElementById('root169').getBoundingClientRect();
+  const s=window.KW_SCALE||1;
+  m.style.left=Math.round((r.left-rr.left)/s)+'px';
+  m.style.top=Math.round((r.bottom-rr.top)/s+4)+'px';
   m.style.display = m.style.display==='block'?'none':'block';
 }
 document.addEventListener('click',function(){
