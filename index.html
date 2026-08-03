@@ -2,6 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Karate Win | 統合版</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -42,7 +43,7 @@ html,body{
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #tb-court{font-size:20px;color:#405070;letter-spacing:1px;white-space:nowrap}
 #tb-cls{
-  font-size:36px;font-weight:900;
+  font-size:22px;font-weight:900;
   color:#c8d8f8;letter-spacing:2px;
   white-space:nowrap;text-align:center;}
 #tb-tournament{font-size:16px;font-weight:700;color:#6080b0;
@@ -130,7 +131,7 @@ html,body{
 .player-furi.blue{color:#fff}
 /* 氏名 */
 .player-name{
-  font-size:100px;font-weight:900;letter-spacing:2px;
+  font-size:70px;font-weight:900;letter-spacing:2px;
   margin-top:0;margin-bottom:6px;text-align:center;line-height:1}
 .player-name.red{color:#fff;text-shadow:0 0 40px rgba(180,80,80,.5),0 2px 0 rgba(0,0,0,.4)}
 .player-name.blue{color:#fff;text-shadow:0 0 40px rgba(160,200,255,.6),0 2px 0 rgba(0,0,0,.4)}
@@ -870,7 +871,7 @@ html,body{
 <div id="topbar">
   <!-- 1行目: ロゴ 設定 試合結果 動画 ── 選手選定 リセット 判定 -->
   <div id="tb-row1">
-    <div class="logo">Karate Win<small>v1.0</small></div>
+    <div class="logo" onclick="sw('onboarding',null)" style="cursor:pointer" title="はじめに画面へ戻る">Karate Win<small>v1.0</small></div>
     <button class="tb-right-btn" onclick="sw('settings',this)">設定</button>
     <button class="tb-right-btn" id="tb-cam-btn" onclick="camSetup()">📹 カメラ</button>
     <span id="tb-rec-dot" style="display:none;width:9px;height:9px;border-radius:50%;background:#e74c3c;box-shadow:0 0 6px #e74c3c;animation:recblink 1s infinite;flex-shrink:0;"></span>
@@ -977,11 +978,6 @@ html,body{
 ════════════════════════════════════════════════ -->
 <div id="screen-onboarding" class="sc sub" style="background:#05080f;flex-direction:column;align-items:center;justify-content:center;">
   <div style="width:100%;max-width:520px;padding:20px;">
-    <div style="text-align:center;margin-bottom:24px;">
-      <div style="font-size:18px;font-weight:700;color:#c8d8f0;letter-spacing:1px;">はじめに — 4ステップで試合開始</div>
-      <div style="font-size:12px;color:#3a5070;margin-top:4px;">画面を順番に進めるだけです</div>
-    </div>
-
     <div id="ob-steps" style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px;">
       <!-- Step 1 -->
       <div class="ob-step" data-step="1" style="background:#090d16;border:1px solid #1a3060;border-radius:10px;padding:16px 18px;display:flex;align-items:center;gap:16px;cursor:pointer;transition:border-color .2s;" onclick="obGo(1)">
@@ -2836,9 +2832,13 @@ function toast(msg,cls){
   function fit169(){
     const el=document.getElementById('root169');
     const vw=window.innerWidth,vh=window.innerHeight;
-    // 幅: フル, 高さ: ブラウザ高さをそのまま使用（16:9制限なし）
-    el.style.width=vw+'px';el.style.height=vh+'px';
-    fitScoreFont(vw,vh);
+    // 16:9ボックスを画面内に最大サイズで収め、中央に配置（レターボックス）
+    let w=vw,h=Math.round(vw*9/16);
+    if(h>vh){h=vh;w=Math.round(vh*16/9);}
+    el.style.width=w+'px';el.style.height=h+'px';
+    el.style.left=Math.round((vw-w)/2)+'px';
+    el.style.top=Math.round((vh-h)/2)+'px';
+    fitScoreFont(w,h);
   }
   // 得点フォントをコンテナにフィット
   // 氏名フォントサイズを文字数に応じて自動調整
@@ -2850,11 +2850,11 @@ function toast(msg,cls){
       const len=name.replace(/\s/g,'').length;
       // 文字数に応じてfont-sizeを段階的に縮小
       let fs;
-      if(len<=4)      fs='100px';
-      else if(len<=6) fs='80px';
-      else if(len<=8) fs='64px';
-      else if(len<=10)fs='52px';
-      else            fs='42px';
+      if(len<=4)      fs='70px';
+      else if(len<=6) fs='56px';
+      else if(len<=8) fs='45px';
+      else if(len<=10)fs='37px';
+      else            fs='30px';
       el.style.fontSize=fs;
     });
   }
@@ -2878,6 +2878,7 @@ function toast(msg,cls){
   }
   fit169();
   window.addEventListener('resize',fit169);
+  window.addEventListener('orientationchange',()=>setTimeout(fit169,300));
   try{localStorage.removeItem('kw3');}catch(e){}
   loadCfg();
   T.initMs=cfg.it*1000;T.baseMs=T.initMs;_syncTimeSelects(cfg.it);
