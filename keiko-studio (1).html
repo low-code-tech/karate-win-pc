@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>稽古スタジオ - 手本と自分を並べて磨く</title>
+<style>
+  :root{
+    --bg:#111318;
+    --panel:#1b1e26;
+    --line:#2c3040;
+    --text:#e8e6df;
+    --sub:#8b8fa0;
+    --aka:#c73e3a;      /* 赤コーナー */
+    --ao:#3a6ec7;       /* 青コーナー */
+    --gold:#c9a227;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",system-ui,sans-serif;
+    display:flex;flex-direction:column;
+    height:100dvh;overflow:hidden;
+  }
+
+  /* ===== ヘッダー ===== */
+  header{
+    display:flex;align-items:center;gap:10px;
+    padding:8px 12px;border-bottom:1px solid var(--line);
+    flex-shrink:0;
+  }
+  .logo{
+    font-weight:800;font-size:15px;letter-spacing:.14em;
+    display:flex;align-items:center;gap:8px;
+  }
+  .logo::before{
+    content:"";width:10px;height:10px;border-radius:50%;
+    background:var(--aka);box-shadow:0 0 8px rgba(199,62,58,.7);
+  }
+  .logo small{font-weight:400;font-size:10px;color:var(--sub);letter-spacing:.06em}
+  header .spacer{flex:1}
+  .hbtn{
+    background:var(--panel);border:1px solid var(--line);color:var(--text);
+    border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;
+  }
+  .hbtn.active{border-color:var(--gold);color:var(--gold)}
+
+  /* ===== 動画エリア ===== */
+  main{
+    flex:1;display:flex;flex-direction:column;gap:6px;
+    padding:6px;min-height:0;
+  }
+  @media (orientation:landscape){
+    main{flex-direction:row}
+  }
+  .pane{
+    flex:1;display:flex;flex-direction:column;min-height:0;min-width:0;
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    overflow:hidden;
+  }
+  .pane-head{
+    display:flex;align-items:center;gap:8px;
+    padding:5px 10px;font-size:11px;color:var(--sub);
+    flex-shrink:0;
+  }
+  .tag{
+    font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;letter-spacing:.08em;
+  }
+  .tag.aka{background:rgba(199,62,58,.18);color:#ff8a86;border:1px solid rgba(199,62,58,.5)}
+  .tag.ao{background:rgba(58,110,199,.18);color:#8ab2ff;border:1px solid rgba(58,110,199,.5)}
+  .pane-head .spacer{flex:1}
+
+  .video-wrap{
+    flex:1;position:relative;background:#000;min-height:0;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .video-wrap iframe,
+  .video-wrap video{
+    position:absolute;inset:0;width:100%;height:100%;border:0;
+    object-fit:contain;
+  }
+  .video-wrap.mirrored iframe,
+  .video-wrap.mirrored video{transform:scaleX(-1)}
+
+  /* 空の状態 */
+  .empty{
+    position:absolute;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:12px;padding:20px;
+    text-align:center;
+  }
+  .empty p{font-size:12px;color:var(--sub);line-height:1.7}
+  .empty .big{
+    background:var(--aka);color:#fff;border:0;border-radius:10px;
+    padding:12px 22px;font-size:14px;font-weight:700;cursor:pointer;
+    letter-spacing:.06em;
+  }
+  .empty .big.blue{background:var(--ao)}
+
+  /* コントロール帯 */
+  .ctrl{
+    display:flex;align-items:center;gap:6px;
+    padding:6px 8px;flex-shrink:0;flex-wrap:nowrap;overflow-x:auto;
+    scrollbar-width:none;
+  }
+  .ctrl::-webkit-scrollbar{display:none}
+  .cbtn{
+    background:#232733;border:1px solid var(--line);color:var(--text);
+    border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;
+    white-space:nowrap;flex-shrink:0;
+  }
+  .cbtn:active{transform:scale(.96)}
+  .cbtn.on{border-color:var(--gold);color:var(--gold)}
+  .speed-group{display:flex;gap:0;flex-shrink:0;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .speed-group .cbtn{border:0;border-radius:0;padding:6px 9px}
+  .speed-group .cbtn.on{background:rgba(201,162,39,.15)}
+
+  /* ===== YouTube URL 入力モーダル ===== */
+  .modal-bg{
+    position:fixed;inset:0;background:rgba(0,0,0,.65);
+    display:none;align-items:center;justify-content:center;z-index:50;padding:16px;
+  }
+  .modal-bg.show{display:flex}
+  .modal{
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    width:100%;max-width:420px;padding:18px;
+  }
+  .modal h2{font-size:14px;margin-bottom:4px;letter-spacing:.06em}
+  .modal p{font-size:11px;color:var(--sub);margin-bottom:12px;line-height:1.6}
+  .modal input{
+    width:100%;background:#12141a;border:1px solid var(--line);color:var(--text);
+    border-radius:8px;padding:10px 12px;font-size:14px;margin-bottom:12px;
+  }
+  .modal input:focus{outline:none;border-color:var(--aka)}
+  .modal .row{display:flex;gap:8px;justify-content:flex-end}
+  .modal .row button{
+    border:0;border-radius:8px;padding:9px 16px;font-size:13px;cursor:pointer;font-weight:700;
+  }
+  .modal .cancel{background:#232733;color:var(--sub)}
+  .modal .ok{background:var(--aka);color:#fff}
+  .err{color:#ff8a86;font-size:11px;margin-bottom:10px;display:none}
+
+  input[type=file]{display:none}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">稽古スタジオ <small>手本 × 自分</small></div>
+  <div class="spacer"></div>
+  <button class="hbtn" id="btnBothPlay">▶ 同時再生</button>
+  <button class="hbtn" id="btnBothPause">❚❚ 停止</button>
+</header>
+
+<main>
+  <!-- 手本(YouTube) -->
+  <section class="pane">
+    <div class="pane-head">
+      <span class="tag aka">手本</span><span>YouTube</span>
+      <div class="spacer"></div>
+      <button class="cbtn" id="btnChangeYt" style="display:none">動画を変更</button>
+    </div>
+    <div class="video-wrap" id="ytWrap">
+      <div class="empty" id="ytEmpty">
+        <p>YouTubeでうまい選手の動画を開き、<br>「共有」からリンクをコピーして貼り付けます</p>
+        <button class="big" id="btnOpenYtModal">YouTubeのリンクを貼る</button>
+      </div>
+      <div id="ytPlayer" style="position:absolute;inset:0;display:none"></div>
+    </div>
+    <div class="ctrl" id="ytCtrl" style="display:none">
+      <button class="cbtn" id="ytPlayPause">▶</button>
+      <button class="cbtn" data-ytseek="-5">−5秒</button>
+      <button class="cbtn" data-ytseek="5">＋5秒</button>
+      <div class="speed-group" id="ytSpeeds">
+        <button class="cbtn" data-ytspeed="0.25">0.25</button>
+        <button class="cbtn" data-ytspeed="0.5">0.5</button>
+        <button class="cbtn" data-ytspeed="0.75">0.75</button>
+        <button class="cbtn on" data-ytspeed="1">1×</button>
+      </div>
+      <button class="cbtn" id="ytMirror">🪞 反転</button>
+    </div>
+  </section>
+
+  <!-- 自分(端末の動画) -->
+  <section class="pane">
+    <div class="pane-head">
+      <span class="tag ao">自分</span><span>端末の動画</span>
+      <div class="spacer"></div>
+      <button class="cbtn" id="btnChangeLocal" style="display:none">動画を変更</button>
+    </div>
+    <div class="video-wrap" id="localWrap">
+      <div class="empty" id="localEmpty">
+        <p>スマホで撮影した自分の動画を選びます</p>
+        <button class="big blue" id="btnPickLocal">動画を選ぶ</button>
+        <button class="big blue" id="btnRecordLocal" style="opacity:.85">その場で撮影する</button>
+      </div>
+      <video id="localVideo" playsinline style="display:none"></video>
+    </div>
+    <div class="ctrl" id="localCtrl" style="display:none">
+      <button class="cbtn" id="localPlayPause">▶</button>
+      <button class="cbtn" data-lcseek="-5">−5秒</button>
+      <button class="cbtn" data-lcseek="5">＋5秒</button>
+      <div class="speed-group" id="localSpeeds">
+        <button class="cbtn" data-lcspeed="0.25">0.25</button>
+        <button class="cbtn" data-lcspeed="0.5">0.5</button>
+        <button class="cbtn" data-lcspeed="0.75">0.75</button>
+        <button class="cbtn on" data-lcspeed="1">1×</button>
+      </div>
+      <button class="cbtn" id="localMirror">🪞 反転</button>
+      <button class="cbtn" id="localMute">🔇 消音中</button>
+    </div>
+  </section>
+</main>
+
+<input type="file" id="filePick" accept="video/*">
+<input type="file" id="fileRecord" accept="video/*" capture="environment">
+
+<!-- YouTube URL モーダル -->
+<div class="modal-bg" id="ytModal">
+  <div class="modal">
+    <h2>YouTubeのリンクを貼り付け</h2>
+    <p>例：https://youtu.be/××××　/　https://www.youtube.com/watch?v=××××<br>ショート動画のリンクも使えます</p>
+    <input type="url" id="ytUrlInput" placeholder="https://..." inputmode="url">
+    <div class="err" id="ytErr">リンクからYouTube動画を見つけられませんでした。もう一度確認してください。</div>
+    <div class="row">
+      <button class="cancel" id="ytCancel">やめる</button>
+      <button class="ok" id="ytOk">表示する</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// file:// で直接開くとYouTube側の仕様(リファラー必須)でエラー153になるため注意表示
+if(location.protocol === 'file:'){
+  const w = document.createElement('div');
+  w.style.cssText = 'background:#4a3208;color:#f0c96b;font-size:11px;padding:6px 12px;line-height:1.6;flex-shrink:0';
+  w.textContent = '注意: このファイルを直接開いているため、YouTube側の仕様によりYouTube動画は再生できません(エラー153)。Vercel等のWebサーバーに配置したURLからご利用ください。';
+  document.body.insertBefore(w, document.querySelector('main'));
+}
+
+// ========== YouTube ==========
+let ytPlayer = null, ytReady = false, ytApiLoaded = false, pendingVideoId = null;
+
+function extractYouTubeId(url){
+  try{
+    const u = new URL(url.trim());
+    const host = u.hostname.replace(/^www\./,'').replace(/^m\./,'');
+    if(host === 'youtu.be') return u.pathname.slice(1).split('/')[0] || null;
+    if(host.endsWith('youtube.com')){
+      if(u.pathname === '/watch') return u.searchParams.get('v');
+      const m = u.pathname.match(/^\/(shorts|embed|live)\/([\w-]{6,})/);
+      if(m) return m[2];
+    }
+  }catch(e){
+    const m = url.match(/([\w-]{11})/);
+    if(m) return m[1];
+  }
+  return null;
+}
+
+function loadYtApi(){
+  if(ytApiLoaded) return;
+  ytApiLoaded = true;
+  const s = document.createElement('script');
+  s.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(s);
+}
+
+window.onYouTubeIframeAPIReady = function(){
+  if(pendingVideoId) createYtPlayer(pendingVideoId);
+};
+
+function createYtPlayer(videoId){
+  document.getElementById('ytEmpty').style.display = 'none';
+  document.getElementById('ytPlayer').style.display = 'block';
+  document.getElementById('ytCtrl').style.display = 'flex';
+  document.getElementById('btnChangeYt').style.display = 'inline-block';
+  if(ytPlayer){ ytPlayer.loadVideoById(videoId); return; }
+  ytPlayer = new YT.Player('ytPlayer', {
+    host: 'https://www.youtube-nocookie.com',
+    videoId: videoId,
+    playerVars:{ playsinline:1, rel:0, modestbranding:1 },
+    events:{
+      onReady: (e)=>{
+        ytReady = true;
+        // エラー153(リファラー必須化)対策
+        const ifr = e.target.getIframe();
+        if(ifr) ifr.setAttribute('referrerpolicy','strict-origin-when-cross-origin');
+      },
+      onStateChange: (e)=>{
+        document.getElementById('ytPlayPause').textContent =
+          (e.data === YT.PlayerState.PLAYING) ? '❚❚' : '▶';
+      }
+    }
+  });
+}
+
+function setYouTube(videoId){
+  if(window.YT && window.YT.Player){ createYtPlayer(videoId); }
+  else{ pendingVideoId = videoId; loadYtApi(); }
+}
+
+// モーダル
+const ytModal = document.getElementById('ytModal');
+document.getElementById('btnOpenYtModal').onclick = ()=>{ ytModal.classList.add('show'); document.getElementById('ytUrlInput').focus(); };
+document.getElementById('btnChangeYt').onclick = ()=>{ ytModal.classList.add('show'); };
+document.getElementById('ytCancel').onclick = ()=> ytModal.classList.remove('show');
+document.getElementById('ytOk').onclick = ()=>{
+  const id = extractYouTubeId(document.getElementById('ytUrlInput').value);
+  if(!id){ document.getElementById('ytErr').style.display = 'block'; return; }
+  document.getElementById('ytErr').style.display = 'none';
+  ytModal.classList.remove('show');
+  setYouTube(id);
+};
+
+// YouTube操作
+document.getElementById('ytPlayPause').onclick = ()=>{
+  if(!ytReady) return;
+  const st = ytPlayer.getPlayerState();
+  (st === YT.PlayerState.PLAYING) ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
+};
+document.querySelectorAll('[data-ytseek]').forEach(b=>{
+  b.onclick = ()=>{ if(ytReady) ytPlayer.seekTo(ytPlayer.getCurrentTime() + Number(b.dataset.ytseek), true); };
+});
+document.querySelectorAll('[data-ytspeed]').forEach(b=>{
+  b.onclick = ()=>{
+    if(ytReady) ytPlayer.setPlaybackRate(Number(b.dataset.ytspeed));
+    document.querySelectorAll('#ytSpeeds .cbtn').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+  };
+});
+document.getElementById('ytMirror').onclick = function(){
+  document.getElementById('ytWrap').classList.toggle('mirrored');
+  this.classList.toggle('on');
+};
+
+// ========== ローカル動画 ==========
+const localVideo = document.getElementById('localVideo');
+localVideo.muted = true; // 同時再生時は手本の音声を優先。ボタンで解除可
+
+function setLocalFile(file){
+  if(!file) return;
+  const old = localVideo.src;
+  localVideo.src = URL.createObjectURL(file);
+  if(old && old.startsWith('blob:')) URL.revokeObjectURL(old);
+  document.getElementById('localEmpty').style.display = 'none';
+  localVideo.style.display = 'block';
+  document.getElementById('localCtrl').style.display = 'flex';
+  document.getElementById('btnChangeLocal').style.display = 'inline-block';
+  localVideo.load();
+}
+
+document.getElementById('btnPickLocal').onclick = ()=> document.getElementById('filePick').click();
+document.getElementById('btnRecordLocal').onclick = ()=> document.getElementById('fileRecord').click();
+document.getElementById('btnChangeLocal').onclick = ()=> document.getElementById('filePick').click();
+document.getElementById('filePick').onchange = e => setLocalFile(e.target.files[0]);
+document.getElementById('fileRecord').onchange = e => setLocalFile(e.target.files[0]);
+
+document.getElementById('localPlayPause').onclick = ()=>{
+  localVideo.paused ? localVideo.play() : localVideo.pause();
+};
+localVideo.onplay  = ()=> document.getElementById('localPlayPause').textContent = '❚❚';
+localVideo.onpause = ()=> document.getElementById('localPlayPause').textContent = '▶';
+
+document.querySelectorAll('[data-lcseek]').forEach(b=>{
+  b.onclick = ()=>{ localVideo.currentTime += Number(b.dataset.lcseek); };
+});
+document.querySelectorAll('[data-lcspeed]').forEach(b=>{
+  b.onclick = ()=>{
+    localVideo.playbackRate = Number(b.dataset.lcspeed);
+    document.querySelectorAll('#localSpeeds .cbtn').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+  };
+});
+document.getElementById('localMirror').onclick = function(){
+  document.getElementById('localWrap').classList.toggle('mirrored');
+  this.classList.toggle('on');
+};
+document.getElementById('localMute').onclick = function(){
+  localVideo.muted = !localVideo.muted;
+  this.textContent = localVideo.muted ? '🔇 消音中' : '🔊 音あり';
+  this.classList.toggle('on', !localVideo.muted);
+};
+
+// ========== 同時操作 ==========
+document.getElementById('btnBothPlay').onclick = ()=>{
+  if(ytReady) ytPlayer.playVideo();
+  if(localVideo.src) localVideo.play();
+};
+document.getElementById('btnBothPause').onclick = ()=>{
+  if(ytReady) ytPlayer.pauseVideo();
+  if(localVideo.src) localVideo.pause();
+};
+</script>
+</body>
+</html>
