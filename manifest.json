@@ -2,7 +2,7 @@
   "name": "稽古スタジオ - Keiko Studio",
   "short_name": "稽古スタジオ",
   "description": "手本と自分を並べて磨く 空手動画分析アプリ (Karate Win)",
-  "start_url": "./keiko-studio_v8_3.html",
+  "start_url": "./keiko-studio_v8_4.html",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#111318",
