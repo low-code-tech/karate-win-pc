@@ -1,0 +1,3535 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a1428">
+<title>Karate Win - 試合動画</title>
+<style>
+:root{
+  --bg:#0a1428;--bg2:#0e1a32;--panel:#142845;--panel2:#1a3055;
+  --line:#2a4068;--line2:#3a5278;
+  --txt:#e0e8f5;--txt2:#a0b0c8;--txt3:#6878a0;
+  --r:#c84050;--b:#4080d0;
+  --ok:#30c060;--ok-bg:#0a2818;
+  --ng:#ff4040;--ng-bg:#2a0a0a;
+  --warn:#ffa820;--warn-bg:#2a1a08;
+  --acc:#5090d8;--acc-bg:#0a2040;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;
+  background:var(--bg);color:var(--txt);
+  font-family:"Hiragino Sans","Yu Gothic",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+  font-size:14px;line-height:1.5;
+  font-feature-settings:"palt" 1;
+  font-variant-numeric:tabular-nums;
+  min-height:100vh;
+  background:linear-gradient(180deg,#0a1428 0%,#0a1018 100%)}
+button,input,select{font-family:inherit}
+a{color:var(--acc);text-decoration:none}
+a:hover{text-decoration:underline}
+
+/* ══ ローディング画面 ══ */
+#loading{
+  position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+  background:var(--bg);z-index:1000;flex-direction:column;gap:14px}
+.spinner{
+  width:36px;height:36px;border:3px solid var(--line);
+  border-top-color:var(--acc);border-radius:50%;
+  animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ══ 認証画面 ══ */
+#auth-view{
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  padding:env(safe-area-inset-top) 20px env(safe-area-inset-bottom);
+  background:radial-gradient(ellipse at top,rgba(80,144,216,.08),transparent 60%)}
+.auth-card{
+  width:100%;max-width:400px;
+  background:linear-gradient(180deg,#1a2a48,#0e1a32);
+  border:1px solid var(--line2);border-radius:14px;
+  padding:32px 28px;
+  box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.auth-logo{font-size:24px;font-weight:800;letter-spacing:1px;
+  text-align:center;margin-bottom:6px;
+  background:linear-gradient(90deg,#7ab0ff,#a0c8ff);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text}
+.auth-tagline{text-align:center;color:var(--txt2);font-size:12px;
+  margin-bottom:24px}
+.auth-tabs{display:flex;background:#0a1020;border-radius:8px;padding:4px;
+  margin-bottom:20px}
+.auth-tab{
+  flex:1;padding:9px;border:none;background:transparent;
+  color:var(--txt2);font-size:13px;font-weight:600;cursor:pointer;
+  border-radius:6px;transition:all .2s;letter-spacing:1px}
+.auth-tab.active{background:var(--panel2);color:var(--txt)}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.field label{font-size:11px;font-weight:700;letter-spacing:1px;color:var(--txt2)}
+.field input{
+  width:100%;height:44px;padding:0 14px;
+  background:#0a1020;border:1px solid var(--line2);border-radius:8px;
+  color:var(--txt);font-size:14px}
+.field input:focus{
+  outline:none;border-color:var(--acc);box-shadow:0 0 0 2px rgba(80,144,216,.2)}
+.btn-primary{
+  width:100%;height:46px;border:none;
+  background:linear-gradient(180deg,#2266cc,#0a3a90);
+  color:#fff;font-size:14px;font-weight:700;letter-spacing:1px;
+  border-radius:8px;cursor:pointer;
+  box-shadow:0 4px 14px rgba(40,100,200,.3);
+  transition:transform .15s}
+.btn-primary:active{transform:scale(.98)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.auth-footer{margin-top:14px;font-size:12px;color:var(--txt3);text-align:center}
+.auth-msg{
+  margin-top:14px;padding:10px 12px;border-radius:8px;
+  font-size:12px;line-height:1.5;display:none;
+  white-space:pre-line}
+.auth-msg.error{background:var(--ng-bg);color:#ffaaaa;border:1px solid var(--ng);display:block}
+.auth-msg.success{background:var(--ok-bg);color:#aef0c0;border:1px solid var(--ok);display:block}
+.auth-msg.info{background:var(--acc-bg);color:#a0c8e8;border:1px solid var(--acc);display:block}
+
+/* ══ メイン画面: ヘッダー ══ */
+#app-view{display:none;min-height:100vh}
+#app-view.on{display:flex;flex-direction:column}
+.app-header{
+  position:sticky;top:0;z-index:10;
+  background:rgba(10,20,40,.92);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--line);
+  padding:env(safe-area-inset-top) 0 0}
+.app-header-inner{
+  max-width:1400px;margin:0 auto;padding:12px 16px;
+  display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center}
+.app-logo{font-size:18px;font-weight:800;letter-spacing:1px;
+  background:linear-gradient(90deg,#7ab0ff,#a0c8ff);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;cursor:pointer}
+.search-wrap{position:relative;max-width:400px;width:100%;justify-self:center}
+.search-input{
+  width:100%;height:38px;padding:0 14px 0 36px;
+  background:#0a1020;border:1px solid var(--line);border-radius:19px;
+  color:var(--txt);font-size:13px}
+.search-input:focus{outline:none;border-color:var(--acc)}
+.search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);
+  color:var(--txt3);pointer-events:none}
+.user-btn{
+  width:38px;height:38px;border:1px solid var(--line);
+  background:var(--panel);color:var(--txt);
+  border-radius:50%;cursor:pointer;font-size:16px;
+  display:flex;align-items:center;justify-content:center}
+.user-btn:active{background:var(--panel2)}
+
+/* ══ フィルタチップ ══ */
+.filter-bar{
+  max-width:1400px;margin:0 auto;
+  padding:10px 16px;
+  display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;
+  scrollbar-width:none}
+.filter-bar::-webkit-scrollbar{display:none}
+.chip{
+  flex:0 0 auto;padding:7px 14px;
+  background:var(--panel);border:1px solid var(--line);
+  color:var(--txt2);font-size:12px;font-weight:600;
+  border-radius:16px;cursor:pointer;white-space:nowrap;
+  transition:all .15s}
+.chip:hover{border-color:var(--line2);color:var(--txt)}
+.chip.active{background:var(--acc-bg);border-color:var(--acc);color:#a0c8ff}
+
+/* ══ コンテンツエリア ══ */
+.app-main{
+  max-width:1400px;margin:0 auto;width:100%;
+  padding:8px 16px 40px}
+.section-h{
+  display:flex;justify-content:space-between;align-items:baseline;
+  margin:16px 0 12px}
+.section-h h2{margin:0;font-size:15px;font-weight:700;letter-spacing:1px}
+.section-h .count{color:var(--txt3);font-size:11px}
+
+/* ══ 動画グリッド ══ */
+.video-grid{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:14px}
+@media (min-width: 640px){
+  .video-grid{grid-template-columns:repeat(2,1fr);gap:16px}
+}
+@media (min-width: 1024px){
+  .video-grid{grid-template-columns:repeat(3,1fr)}
+}
+@media (min-width: 1400px){
+  .video-grid{grid-template-columns:repeat(4,1fr)}
+}
+
+/* ══ 動画カード ══ */
+.video-card{
+  background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  overflow:hidden;cursor:pointer;
+  transition:all .2s;display:flex;flex-direction:column}
+.video-card:hover{transform:translateY(-2px);
+  border-color:var(--line2);box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.video-thumb{
+  position:relative;width:100%;aspect-ratio:16/9;
+  background:#000;overflow:hidden}
+.video-thumb img{
+  width:100%;height:100%;object-fit:cover;
+  transition:transform .3s}
+.video-card:hover .video-thumb img{transform:scale(1.04)}
+.video-thumb .play-overlay{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(180deg,transparent 60%,rgba(0,0,0,.5));
+  opacity:0;transition:opacity .2s}
+.video-card:hover .play-overlay{opacity:1}
+.play-icon{
+  width:48px;height:48px;border-radius:50%;
+  background:rgba(255,255,255,.9);color:#000;
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px}
+.video-thumb .visibility-badge{
+  position:absolute;top:8px;right:8px;
+  background:rgba(0,0,0,.7);backdrop-filter:blur(8px);
+  padding:3px 8px;border-radius:10px;
+  font-size:9px;font-weight:700;letter-spacing:.5px;color:#fff;
+  text-transform:uppercase;border:1px solid rgba(255,255,255,.2)}
+
+.video-info{padding:10px 12px 14px}
+.video-players{
+  display:flex;align-items:center;gap:6px;
+  font-size:13px;font-weight:700;line-height:1.3;
+  margin-bottom:6px}
+.player-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.player-name.r{color:#ff8090}
+.player-name.b{color:#80b0ff}
+.player-vs{color:var(--txt3);font-size:11px;font-weight:500}
+.video-meta{font-size:11px;color:var(--txt2);line-height:1.5}
+.video-meta .dot{margin:0 5px;color:var(--txt3)}
+.video-tournament{
+  font-size:11px;color:var(--txt2);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px}
+.video-time{color:var(--acc);font-weight:600}
+
+/* ══ 空状態 ══ */
+.empty-state{
+  text-align:center;padding:60px 20px;color:var(--txt3)}
+.empty-state .icon{font-size:48px;opacity:.4;margin-bottom:10px}
+.empty-state h3{margin:0 0 6px;font-size:15px;color:var(--txt2);font-weight:600}
+.empty-state p{margin:0;font-size:12px;line-height:1.6}
+
+/* ══ 法務リンクフッター ══ */
+.app-footer{
+  margin-top:60px;padding:24px 20px 32px;
+  border-top:1px solid var(--line);
+  text-align:center;color:var(--txt3);font-size:11px;
+  letter-spacing:.05em
+}
+.app-footer-links{
+  display:flex;justify-content:center;flex-wrap:wrap;
+  gap:6px 20px;margin-bottom:10px
+}
+.app-footer-links a{color:var(--txt3);text-decoration:none}
+.app-footer-links a:hover{color:var(--acc);text-decoration:underline}
+.app-footer-copy{color:var(--txt3);opacity:.7}
+
+/* ══ 動画再生モーダル ══ */
+.modal-bg{
+  position:fixed;inset:0;background:rgba(0,0,0,.92);backdrop-filter:blur(4px);
+  z-index:100;display:none;
+  padding:env(safe-area-inset-top) 16px 16px;
+  overflow-y:auto}
+.modal-bg.on{display:flex;flex-direction:column;align-items:center}
+
+.player-modal{
+  width:100%;max-width:1100px;
+  margin-top:max(20px,env(safe-area-inset-top));margin-bottom:20px;
+  background:var(--bg2);border:1px solid var(--line2);border-radius:12px;
+  overflow:hidden;display:flex;flex-direction:column;
+  position:relative;
+  /* ★【修正】ビューポート内に収める。動画の縦横比によらず情報エリアが見えるように */
+  max-height:calc(100dvh - max(40px,env(safe-area-inset-top)) - 20px);
+}
+
+/* 動画オーバーレイで閉じるボタン (右上フローティング) */
+.modal-close-floating{
+  position:absolute;top:12px;right:12px;z-index:6;
+  width:38px;height:38px;border-radius:50%;
+  background:rgba(0,0,0,.65);backdrop-filter:blur(8px);
+  border:1px solid rgba(255,255,255,.15);
+  color:#fff;font-size:22px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  line-height:1;padding:0;
+  transition:background .15s}
+.modal-close-floating:hover{background:rgba(0,0,0,.85)}
+.modal-close-floating:active{transform:scale(.92)}
+
+/* ★【修正】aspect-ratio を廃止して flex 対応。縦長動画も letterbox で対応 */
+.player-iframe-wrap{
+  position:relative;width:100%;
+  background:#000;
+  flex:1 1 auto;
+  min-height:200px;
+  max-height:calc(100dvh - 280px);
+  overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+}
+.player-iframe-wrap iframe{
+  position:absolute;inset:0;width:100%;height:100%;border:none;
+}
+.player-iframe-wrap video{
+  width:100%;height:100%;
+  max-width:100%;max-height:100%;
+  object-fit:contain;background:#000;display:block;
+}
+
+/* ★【追加】動画プレイヤー下の情報エリア */
+.player-info{
+  flex-shrink:0;
+  padding:16px 20px 20px;
+  background:linear-gradient(180deg,var(--bg2),#0a1428);
+  border-top:1px solid var(--line);
+  overflow-y:auto;
+  max-height:40vh;
+}
+.player-info-tournament{
+  font-size:11px;color:var(--txt3);font-weight:700;letter-spacing:1.5px;
+  text-transform:uppercase;margin-bottom:8px;
+}
+.player-info-tournament:empty{display:none}
+.player-info-match{
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  font-size:20px;font-weight:800;margin-bottom:10px;line-height:1.3;
+}
+.player-info-red{
+  color:#ff8090;padding:4px 12px;border-radius:8px;
+  background:rgba(224,72,88,.12);border:1px solid rgba(224,72,88,.3);
+}
+.player-info-blue{
+  color:#8ab0ff;padding:4px 12px;border-radius:8px;
+  background:rgba(80,144,232,.12);border:1px solid rgba(80,144,232,.3);
+}
+.player-info-vs{color:var(--txt3);font-weight:600;font-size:14px;letter-spacing:1px}
+.player-info-meta{
+  font-size:13px;color:var(--txt2);line-height:1.9;margin-bottom:8px;
+}
+.player-info-meta:empty{display:none}
+.player-info-meta .meta-sep{color:var(--txt3);margin:0 8px}
+.player-info-badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;margin-bottom:12px}
+.player-info-badges:empty{display:none}
+.player-info-badges .p-badge{
+  display:inline-block;padding:3px 9px;border-radius:100px;
+  font-size:10px;font-weight:800;letter-spacing:.5px;
+}
+.player-info-badges .p-badge.gold{background:rgba(232,192,96,.12);color:var(--gold);border:1px solid rgba(232,192,96,.3)}
+.player-info-badges .p-badge.blue{background:rgba(80,144,232,.12);color:var(--blue);border:1px solid rgba(80,144,232,.3)}
+.player-info-badges .p-badge.green{background:rgba(64,192,120,.12);color:#80f0a8;border:1px solid rgba(64,192,120,.3)}
+.player-info-badges .p-badge.red{background:rgba(224,72,88,.12);color:#ff9aa5;border:1px solid rgba(224,72,88,.3)}
+
+/* ══【チャプター機能】試合イベント表示 ══ */
+.player-info-chapters{
+  padding-top:12px;border-top:1px solid rgba(255,255,255,.06);margin-top:8px;
+}
+.chapters-title{
+  font-size:11px;font-weight:800;letter-spacing:1.5px;color:var(--txt3);
+  text-transform:uppercase;margin-bottom:10px;
+  display:flex;align-items:center;gap:6px;
+}
+.chapters-title .badge-count{
+  display:inline-block;padding:1px 7px;border-radius:10px;
+  background:var(--acc-bg);border:1px solid var(--acc);color:#a0c8ff;
+  font-size:10px;font-weight:800;
+}
+/* タイムラインバー: 全体のイベント発生位置を視覚化 */
+.chapters-timeline{
+  position:relative;width:100%;height:10px;
+  background:#0a1428;border-radius:5px;margin-bottom:12px;
+  border:1px solid var(--line);cursor:pointer;overflow:visible;
+}
+.chapters-timeline .tl-progress{
+  position:absolute;left:0;top:0;bottom:0;
+  background:linear-gradient(90deg,#3a7adc,#5090d8);
+  border-radius:5px 0 0 5px;transition:width .1s linear;
+}
+.chapters-timeline .tl-marker{
+  position:absolute;top:-3px;bottom:-3px;width:3px;
+  border-radius:2px;cursor:pointer;transition:transform .1s;
+}
+.chapters-timeline .tl-marker:hover{transform:scaleY(1.4)}
+.chapters-timeline .tl-marker.red{background:#ff5060;box-shadow:0 0 4px rgba(255,80,96,.6)}
+.chapters-timeline .tl-marker.blue{background:#4a90f0;box-shadow:0 0 4px rgba(74,144,240,.6)}
+.chapters-timeline .tl-marker.start,.chapters-timeline .tl-marker.end{
+  background:#e8c060;box-shadow:0 0 4px rgba(232,192,96,.6);width:4px;
+}
+.chapters-timeline .tl-marker.warning{background:#ff9020;box-shadow:0 0 4px rgba(255,144,32,.6)}
+/* チャプターリスト */
+.chapters-list{
+  display:grid;grid-template-columns:1fr;gap:6px;
+  max-height:280px;overflow-y:auto;
+}
+@media (min-width: 640px){
+  .chapters-list{grid-template-columns:repeat(2,1fr)}
+}
+.chapter-item{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 12px;border-radius:8px;
+  background:var(--panel);border:1px solid var(--line);
+  cursor:pointer;transition:all .15s;
+  font-size:13px;
+}
+.chapter-item:hover{
+  background:var(--panel2);border-color:var(--acc);
+  transform:translateX(2px);
+}
+.chapter-item.current{
+  background:var(--acc-bg);border-color:var(--acc);
+  box-shadow:0 0 0 1px var(--acc);
+}
+.chapter-item .ci-time{
+  font-family:ui-monospace,Consolas,monospace;
+  font-size:11px;font-weight:700;color:var(--acc);
+  min-width:44px;text-align:right;
+}
+.chapter-item .ci-icon{font-size:16px;line-height:1;flex-shrink:0}
+.chapter-item .ci-icon.red{color:#ff8090}
+.chapter-item .ci-icon.blue{color:#8ab0ff}
+.chapter-item .ci-icon.gold{color:#e8c060}
+.chapter-item .ci-icon.orange{color:#ff9020}
+.chapter-item .ci-label{
+  flex:1;min-width:0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  color:var(--txt);font-weight:600;
+}
+.chapter-item .ci-player{
+  font-size:11px;color:var(--txt2);font-weight:500;
+}
+.chapter-item .ci-score{
+  padding:2px 7px;border-radius:100px;
+  font-size:10px;font-weight:800;letter-spacing:.5px;
+  background:rgba(232,192,96,.15);color:#e8c060;
+  border:1px solid rgba(232,192,96,.3);
+}
+@media(max-width:640px){
+  .chapters-list{max-height:220px}
+  .chapter-item{padding:7px 10px;font-size:12px}
+  .chapter-item .ci-time{font-size:10px;min-width:38px}
+}
+/* ★【追加】ダウンロードボタン (プレミアム会員限定) */
+.player-info-download{
+  padding-top:12px;border-top:1px solid rgba(255,255,255,.06);margin-top:8px;
+}
+
+/* ★【色修正】ダウンロードボタン - 明示的な色値で確実に表示 */
+.pm-download-btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  padding:12px 24px;border-radius:10px;
+  background:linear-gradient(135deg,#e8c060 0%,#c9a340 100%) !important;
+  color:#1a1208 !important;
+  font-weight:800;font-size:14px;letter-spacing:.5px;
+  border:1px solid #f0d080;cursor:pointer;
+  box-shadow:0 4px 14px rgba(232,192,96,.35);
+  transition:transform .15s,box-shadow .15s,background .15s;
+  min-height:44px;
+  font-family:inherit;
+}
+.pm-download-btn *{color:#1a1208 !important}
+.pm-download-btn:hover{
+  transform:translateY(-1px);
+  box-shadow:0 6px 20px rgba(232,192,96,.5);
+  background:linear-gradient(135deg,#f0d080 0%,#d8b850 100%) !important;
+}
+.pm-download-btn:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
+.pm-dl-icon{font-size:17px;font-weight:900;line-height:1;color:#1a1208 !important}
+.pm-dl-label{font-weight:800;color:#1a1208 !important}
+.pm-download-count{font-size:11px;color:var(--txt3);margin-top:8px;line-height:1.5}
+.pm-download-count .count-num{color:#e8c060;font-weight:800}
+.pm-download-count.warning .count-num{color:#ff9aa5}
+
+/* ★【追加】期限切れバッジ (動画カード用) */
+.expired-badge{
+  position:absolute;top:8px;left:8px;
+  background:rgba(224,72,88,.85);backdrop-filter:blur(4px);
+  color:#fff;font-size:10px;font-weight:800;
+  padding:3px 8px;border-radius:100px;letter-spacing:.5px;
+  z-index:2;
+}
+
+@media(max-width:640px){
+  .player-info{padding:14px 16px 18px;max-height:45vh}
+  .player-info-match{font-size:17px;gap:10px}
+  .player-info-red,.player-info-blue{padding:3px 10px}
+  .pm-download-btn{width:100%;justify-content:center}
+}
+/* ══【会員別視聴v3】プレビューモード(小画面) & 購入バー ══ */
+#player-modal.preview-open{align-items:center;justify-content:center;padding:16px}
+#player-modal.preview-open .player-modal{
+  width:100%;max-width:520px;min-height:auto;margin:0;
+  border:1px solid var(--line2);border-radius:12px}
+#player-modal.preview-open .player-iframe-wrap{
+  aspect-ratio:16/9;height:auto;max-height:300px;flex:0 0 auto;width:100%}
+.preview-purchase-bar{
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  padding:12px 14px;margin-bottom:12px;border-radius:10px;
+  background:linear-gradient(135deg,rgba(232,192,96,.14),rgba(232,192,96,.05));
+  border:1px solid rgba(232,192,96,.35)}
+.preview-purchase-bar .ppb-text{flex:1;min-width:170px;font-size:12px;color:var(--txt2);line-height:1.6}
+.preview-purchase-bar .ppb-text b{color:#e8c060;font-size:13px}
+.ppb-btn{
+  padding:11px 18px;border-radius:9px;border:1px solid #f0d080;
+  background:linear-gradient(135deg,#e8c060,#c9a340);color:#1a1208;
+  font-weight:800;font-size:13px;cursor:pointer;white-space:nowrap;
+  box-shadow:0 3px 12px rgba(232,192,96,.3)}
+.ppb-btn:active{transform:scale(.97)}
+
+/* ══ ユーザーメニュー ══ */
+.user-menu{
+  position:fixed;top:0;right:0;bottom:0;
+  width:min(320px,90vw);
+  background:linear-gradient(180deg,#1a2a48,#0e1a32);
+  border-left:1px solid var(--line2);
+  transform:translateX(100%);transition:transform .25s;
+  z-index:50;display:flex;flex-direction:column;
+  padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+.user-menu.on{transform:translateX(0)}
+.user-menu-h{
+  padding:18px 20px;border-bottom:1px solid var(--line);
+  display:flex;justify-content:space-between;align-items:center}
+.user-menu-h h3{margin:0;font-size:14px;font-weight:700}
+.user-info{padding:18px 20px;display:flex;flex-direction:column;gap:14px}
+.user-info .label{font-size:10px;color:var(--txt3);font-weight:700;letter-spacing:1px}
+.user-info .value{font-size:13px;color:var(--txt)}
+.user-info .item{display:flex;flex-direction:column;gap:2px}
+.tier-badge{
+  display:inline-block;padding:2px 8px;border-radius:10px;
+  font-size:10px;font-weight:700;letter-spacing:.5px}
+.tier-badge.free{background:#3a3a3a;color:#a0a0a0}
+.tier-badge.dojo{background:var(--acc-bg);color:#a0c8ff;border:1px solid var(--acc)}
+.tier-badge.premium{background:#3a2a08;color:#ffd060;border:1px solid var(--warn)}
+.tier-badge.admin{background:#3a0828;color:#ff80c0;border:1px solid #c83080}
+.user-menu-spacer{flex:1}
+.user-menu-actions{padding:14px 16px;border-top:1px solid var(--line);
+  display:flex;flex-direction:column;gap:8px}
+.btn-secondary{
+  width:100%;height:42px;padding:0 14px;
+  background:var(--panel);border:1px solid var(--line2);
+  color:var(--txt);font-size:13px;font-weight:600;
+  border-radius:8px;cursor:pointer}
+.btn-secondary:active{background:var(--panel2)}
+.btn-plan-mgmt{
+  width:100%;height:42px;padding:0 14px;
+  background:linear-gradient(180deg, #4a90e2, #3580d4);
+  border:1px solid #5ba0f2;color:#fff;font-size:13px;font-weight:700;
+  border-radius:8px;cursor:pointer}
+.btn-plan-mgmt:hover{background:linear-gradient(180deg, #5ba0f2, #4090e4)}
+.btn-portal{
+  width:100%;height:42px;padding:0 14px;
+  background:transparent;
+  border:1px solid var(--line2);color:var(--txt2);font-size:12px;font-weight:600;
+  border-radius:8px;cursor:pointer}
+.btn-portal:hover{background:var(--panel);color:var(--txt)}
+.btn-danger{
+  width:100%;height:42px;padding:0 14px;
+  background:linear-gradient(180deg,#8a1a30,#600820);
+  border:1px solid #b03a4a;color:#fff;font-size:13px;font-weight:600;
+  border-radius:8px;cursor:pointer}
+.user-menu-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:40;
+  display:none}
+.user-menu-overlay.on{display:block}
+
+/* ══ トースト ══ */
+#toast{
+  position:fixed;top:max(20px,env(safe-area-inset-top));left:50%;
+  transform:translateX(-50%);
+  background:rgba(20,40,70,.95);backdrop-filter:blur(8px);
+  color:#fff;padding:10px 18px;border-radius:20px;
+  font-size:13px;font-weight:600;
+  border:1px solid var(--line2);z-index:200;
+  opacity:0;pointer-events:none;transition:opacity .3s;
+  max-width:90vw;text-align:center}
+#toast.on{opacity:1}
+#toast.ok{border-color:var(--ok);color:#aef0c0}
+#toast.ng{border-color:var(--ng);color:#ffaaaa}
+
+/* ══ ロード中インジケータ ══ */
+.list-loading{
+  text-align:center;padding:40px 20px;color:var(--txt3);font-size:12px}
+
+/*═══════════════════════════════════════════════════════════════
+  レスポンシブ調整 (スマホ・タブレット)
+═══════════════════════════════════════════════════════════════*/
+
+/* ── モバイル全般 (< 768px): ヘッダー・モーダルをコンパクト化 ── */
+@media (max-width: 767px){
+  /* ヘッダー領域コンパクト化 */
+  .app-header-inner{
+    padding:8px 10px;gap:8px;
+    grid-template-columns:auto 1fr auto}
+  .app-logo{font-size:15px;letter-spacing:.5px}
+  .search-input{height:34px;font-size:12px;padding:0 12px 0 32px;border-radius:17px}
+  .search-icon{left:11px;font-size:12px}
+  .user-btn{width:34px;height:34px;font-size:14px}
+  .filter-bar{padding:8px 10px;gap:6px}
+  .chip{font-size:11px;padding:6px 12px}
+  .section-h{margin:12px 0 10px}
+  .section-h h2{font-size:14px}
+  .app-main{padding:6px 10px 24px}
+  .video-grid{gap:12px}
+  .video-info{padding:8px 10px 12px}
+  .video-tournament,.video-meta{font-size:10px}
+  .video-players{font-size:12px}
+
+  /* 動画プレイヤーモーダル: フルスクリーン化 */
+  .modal-bg{padding:0}
+  .modal-bg.on{align-items:stretch}            /* 横方向ストレッチ (中央寄せ無効) */
+  .player-modal{
+    width:100%;max-width:none;
+    margin:0;
+    border:none;border-radius:0;
+    min-height:100vh}
+  .modal-close-floating{
+    top:max(10px,env(safe-area-inset-top));right:10px;
+    width:36px;height:36px;font-size:20px}
+
+  /* ユーザーメニュー: 全画面ドロワー */
+  .user-menu{width:100vw}
+}
+
+/* ── dvh対応ブラウザ向け: モバイル時のフルハイト ── */
+@supports (min-height: 100dvh){
+  @media (max-width: 767px){
+    .player-modal{min-height:100dvh}
+  }
+}
+
+/* ── モバイル横向き (低い画面): 動画を画面いっぱいに ── */
+/* aspect-ratio + width:auto がブラウザによっては効かないので、
+   高さを基準に幅を明示計算する方式を採用 */
+@media (max-height:500px) and (orientation:landscape){
+  /* ホーム画面: ヘッダー類を圧縮 */
+  .app-header-inner{padding:5px 10px}
+  .app-logo{font-size:14px}
+  .search-input{height:30px}
+  .user-btn{width:30px;height:30px}
+  .filter-bar{padding:5px 10px}
+  .chip{padding:5px 10px}
+  .section-h{margin:6px 0 6px}
+
+  /* 動画プレイヤー: 動画を画面の高さいっぱいに */
+  .modal-close-floating{
+    top:6px;right:6px;
+    width:32px;height:32px;font-size:18px}
+  .player-iframe-wrap{
+    aspect-ratio:unset;                          /* aspect-ratio無効化 */
+    height:100vh;                                /* 画面高さいっぱい */
+    width:calc(100vh * 16 / 9);                  /* 16:9 比率で幅を計算 */
+    max-width:100%;                               /* 幅が画面を超えないよう */
+    margin:0 auto;
+    background:#000}
+}
+
+/* ── 横向き + dvh対応 (iOS Safari等で URL バー含めない) ── */
+@supports (height: 100dvh){
+  @media (max-height:500px) and (orientation:landscape){
+    .player-iframe-wrap{
+      height:100dvh;
+      width:calc(100dvh * 16 / 9)}
+  }
+}
+
+/*═══════════════════════════════════════════════════════════════
+  Stage 2 (Stripe決済) - 追加スタイル
+═══════════════════════════════════════════════════════════════*/
+
+/* ══ 大会別ランディングのヒーロー ══ */
+.tournament-hero{
+  background:linear-gradient(135deg, #1a2540 0%, #243557 100%);
+  border-bottom:1px solid var(--line2);
+  padding:28px 20px;
+  display:none}
+.tournament-hero.on{display:block}
+.tournament-hero-inner{
+  max-width:1400px;margin:0 auto;
+  display:flex;flex-direction:column;gap:10px}
+.tournament-hero h1{
+  margin:0;font-size:22px;font-weight:800;
+  color:var(--txt);line-height:1.3}
+.tournament-hero-meta{
+  display:flex;flex-wrap:wrap;gap:14px;
+  font-size:13px;color:var(--txt2)}
+.tournament-hero-meta span{display:flex;align-items:center;gap:6px}
+.tournament-hero-meta i{font-style:normal;opacity:.7}
+.tournament-hero-stats{
+  display:flex;gap:20px;margin-top:6px;
+  font-size:12px;color:var(--txt3)}
+.tournament-hero-stats b{
+  color:var(--accent);font-size:18px;font-weight:800;margin-right:4px}
+.tournament-hero-desc{
+  color:var(--txt2);font-size:13px;line-height:1.6;
+  margin-top:4px;max-width:800px}
+@media (max-width: 767px){
+  .tournament-hero{padding:18px 14px}
+  .tournament-hero h1{font-size:17px}
+  .tournament-hero-meta{font-size:11px;gap:10px}
+  .tournament-hero-stats{font-size:11px;gap:14px}
+  .tournament-hero-stats b{font-size:15px}
+  .tournament-hero-desc{font-size:12px}
+}
+
+/* ══ CTAバナー (会員勧誘) ══ */
+.cta-banner{
+  background:linear-gradient(90deg, #2d4570 0%, #3a5a8c 100%);
+  border:1px solid #4a6aa0;
+  border-radius:10px;
+  padding:16px 18px;
+  margin:14px 0;
+  display:flex;flex-wrap:wrap;align-items:center;gap:14px;
+  cursor:pointer;
+  transition:transform .15s, box-shadow .15s}
+.cta-banner:hover{
+  transform:translateY(-1px);
+  box-shadow:0 6px 18px rgba(74,106,160,.3)}
+.cta-banner-icon{
+  font-size:28px;flex-shrink:0}
+.cta-banner-text{flex:1;min-width:200px}
+.cta-banner-title{
+  font-size:15px;font-weight:700;color:#fff;margin-bottom:3px}
+.cta-banner-desc{
+  font-size:12px;color:rgba(255,255,255,.85);line-height:1.5}
+.cta-banner-btn{
+  background:#fff;color:#2d4570;
+  border:none;border-radius:6px;
+  padding:10px 18px;
+  font-size:13px;font-weight:700;cursor:pointer;
+  flex-shrink:0;
+  transition:background .15s}
+.cta-banner-btn:hover{background:#f0f0f0}
+@media (max-width: 767px){
+  .cta-banner{padding:12px 14px;gap:10px;margin:10px 0}
+  .cta-banner-icon{font-size:22px}
+  .cta-banner-title{font-size:13px}
+  .cta-banner-desc{font-size:11px}
+  .cta-banner-btn{padding:8px 12px;font-size:12px}
+}
+
+/* ══ ログイン画面のプラン情報バナー ══ */
+.auth-cta{
+  background:linear-gradient(135deg, rgba(74,144,226,.15) 0%, rgba(74,144,226,.08) 100%);
+  border:1px solid rgba(74,144,226,.3);
+  border-radius:10px;padding:14px 16px;
+  margin-bottom:18px;
+  font-size:12px;color:var(--txt2);line-height:1.6}
+.auth-cta-title{
+  font-size:13px;font-weight:700;color:var(--accent);
+  margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.auth-cta-plans{
+  display:flex;flex-direction:column;gap:3px;
+  font-size:11px}
+.auth-cta-plans span{color:var(--txt2)}
+.auth-cta-plans b{color:var(--txt);font-weight:700}
+
+/* ══ 価格バッジ (動画カード) ══ */
+.video-card.locked .video-thumb::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(180deg, transparent 50%, rgba(0,0,0,.5) 100%);
+  pointer-events:none}
+.price-badge{
+  position:absolute;top:8px;left:8px;z-index:2;
+  background:rgba(74,144,226,.95);
+  color:#fff;
+  padding:4px 9px;
+  border-radius:6px;
+  font-size:10px;font-weight:700;
+  letter-spacing:.5px;
+  backdrop-filter:blur(4px);
+  border:1px solid rgba(255,255,255,.2)}
+.lock-icon{
+  position:absolute;top:50%;left:50%;
+  transform:translate(-50%, -50%);
+  font-size:32px;color:rgba(255,255,255,.7);
+  text-shadow:0 2px 8px rgba(0,0,0,.5);
+  z-index:2;pointer-events:none}
+.video-card.purchased .price-badge{
+  background:rgba(74,222,128,.95);  /* 緑 - 購入済み */
+}
+
+/* ══ 視聴方法選択モーダル ══ */
+.options-modal{
+  width:100%;max-width:480px;
+  background:var(--bg2);border:1px solid var(--line2);
+  border-radius:12px;
+  margin:auto 16px;
+  padding:24px}
+.options-modal h2{
+  margin:0 0 6px;font-size:18px;font-weight:700}
+.options-modal-sub{
+  font-size:12px;color:var(--txt3);margin-bottom:18px}
+.option-card{
+  display:flex;flex-direction:column;gap:8px;
+  padding:16px;
+  background:var(--bg);border:1px solid var(--line);
+  border-radius:8px;
+  margin-bottom:10px;
+  cursor:pointer;
+  transition:border-color .15s, transform .15s}
+.option-card:hover{
+  border-color:var(--accent);
+  transform:translateX(2px)}
+.option-card-h{
+  display:flex;justify-content:space-between;align-items:center;gap:10px}
+.option-card-title{
+  font-size:14px;font-weight:700;color:var(--txt)}
+.option-card-price{
+  font-size:16px;font-weight:800;color:var(--accent);
+  flex-shrink:0}
+.option-card-desc{
+  font-size:11px;color:var(--txt3);line-height:1.5}
+.option-card.featured{
+  border-color:var(--accent);
+  background:rgba(74,144,226,.05)}
+.option-card.featured .option-card-title::after{
+  content:'おすすめ';
+  display:inline-block;
+  background:var(--accent);color:#fff;
+  font-size:9px;font-weight:700;
+  padding:2px 6px;border-radius:3px;
+  margin-left:6px}
+
+/* ══ プラン選択モーダル ══ */
+.plan-modal{
+  width:100%;max-width:520px;
+  background:var(--bg2);border:1px solid var(--line2);
+  border-radius:12px;
+  margin:auto 16px;
+  padding:26px 24px;
+  max-height:85vh;overflow-y:auto}
+.plan-modal h2{
+  margin:0 0 6px;font-size:20px;font-weight:700;text-align:center}
+.plan-modal-sub{
+  font-size:12px;color:var(--txt3);text-align:center;margin-bottom:22px}
+.plan-card{
+  display:flex;flex-direction:column;gap:10px;
+  padding:18px;
+  background:var(--bg);border:2px solid var(--line);
+  border-radius:10px;
+  margin-bottom:12px;
+  position:relative;
+  transition:border-color .15s, transform .15s}
+.plan-card.recommended{
+  border-color:var(--accent);
+  background:linear-gradient(135deg, rgba(74,144,226,.08) 0%, rgba(74,144,226,.02) 100%)}
+.plan-card.recommended::before{
+  content:'おすすめ';
+  position:absolute;top:-9px;left:18px;
+  background:var(--accent);color:#fff;
+  font-size:10px;font-weight:800;letter-spacing:1px;
+  padding:3px 10px;border-radius:4px}
+.plan-card-h{display:flex;justify-content:space-between;align-items:center}
+.plan-card-name{font-size:16px;font-weight:700;color:var(--txt)}
+.plan-card-price{font-size:13px;color:var(--txt3)}
+.plan-card-price b{font-size:24px;font-weight:800;color:var(--accent);margin-right:2px}
+.plan-card-desc{font-size:12px;color:var(--txt2);line-height:1.6}
+.plan-card-features{
+  display:flex;flex-direction:column;gap:5px;
+  font-size:11px;color:var(--txt2)}
+.plan-card-features div::before{
+  content:'✓ ';color:var(--accent);font-weight:800}
+.plan-card-btn{
+  background:var(--accent);color:#fff;
+  border:none;border-radius:7px;
+  padding:11px;
+  font-size:13px;font-weight:700;cursor:pointer;
+  margin-top:6px;
+  transition:background .15s}
+.plan-card-btn:hover{background:#3580d4}
+.plan-card-btn:disabled{
+  background:#39466b;cursor:not-allowed;opacity:.6}
+.plan-modal-note{
+  font-size:10px;color:var(--txt3);text-align:center;
+  margin-top:8px;line-height:1.6}
+
+/* ══ ログイン誘導モーダル ══ */
+.login-prompt-modal{
+  width:100%;max-width:380px;
+  background:var(--bg2);border:1px solid var(--line2);
+  border-radius:12px;
+  margin:auto 16px;
+  padding:28px 24px;
+  text-align:center}
+.login-prompt-modal h2{
+  margin:0 0 10px;font-size:18px;font-weight:700}
+.login-prompt-modal p{
+  font-size:13px;color:var(--txt2);margin:0 0 20px;line-height:1.6}
+.login-prompt-buttons{
+  display:flex;flex-direction:column;gap:10px}
+.login-prompt-buttons button{
+  padding:12px;border-radius:7px;
+  font-size:13px;font-weight:700;cursor:pointer;
+  transition:background .15s}
+.btn-prompt-login{
+  background:var(--accent);color:#fff;border:none}
+.btn-prompt-login:hover{background:#3580d4}
+.btn-prompt-register{
+  background:transparent;color:var(--txt);
+  border:1px solid var(--line2)}
+.btn-prompt-register:hover{background:var(--bg)}
+
+/* ══ 共通: モーダル閉じる ══ */
+.modal-x-top{
+  position:absolute;top:14px;right:14px;
+  background:none;border:none;color:var(--txt3);
+  font-size:22px;cursor:pointer;
+  width:30px;height:30px;
+  display:flex;align-items:center;justify-content:center;
+  line-height:1}
+.modal-x-top:hover{color:var(--txt)}
+</style>
+</head>
+<body>
+
+<!-- ══ ローディング画面 ══ -->
+<div id="loading">
+  <div class="spinner"></div>
+  <div style="color:var(--txt3);font-size:12px">読み込み中...</div>
+</div>
+
+<!-- ══ 認証画面 ══ -->
+<div id="auth-view" style="display:none">
+  <div class="auth-card">
+    <div class="auth-logo">Karate Win</div>
+    <div class="auth-tagline">空手道 試合動画ライブラリ</div>
+
+    <div class="auth-cta">
+      <div class="auth-cta-title">🎬 子どもの試合動画を いつでもどこでも</div>
+      <div class="auth-cta-plans">
+        <span><b>一般会員</b> ¥500/月 — 自道場と参加大会の動画見放題</span>
+        <span><b>プレミアム会員</b> ¥1,000/月 — 全大会の動画見放題</span>
+        <span><b>個別購入</b> ¥500/本 — 見たい試合だけ買う</span>
+      </div>
+    </div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" data-tab="login">ログイン</button>
+      <button class="auth-tab" data-tab="register">新規登録</button>
+    </div>
+
+    <!-- ログインフォーム -->
+    <form id="form-login">
+      <div class="field">
+        <label>メールアドレス</label>
+        <input type="email" id="login-email" autocomplete="email" required>
+      </div>
+      <div class="field">
+        <label>パスワード</label>
+        <input type="password" id="login-password" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn-primary" id="btn-login">ログイン</button>
+      <div class="auth-footer">
+        <a href="#" id="link-reset">パスワードを忘れた方</a>
+      </div>
+    </form>
+
+    <!-- 新規登録フォーム -->
+    <form id="form-register" style="display:none">
+      <div class="field">
+        <label>表示名</label>
+        <input type="text" id="reg-name" autocomplete="name" required>
+      </div>
+      <div class="field">
+        <label>メールアドレス</label>
+        <input type="email" id="reg-email" autocomplete="email" required>
+      </div>
+      <div class="field">
+        <label>パスワード（8文字以上）</label>
+        <input type="password" id="reg-password" autocomplete="new-password" required minlength="8">
+      </div>
+      <button type="submit" class="btn-primary" id="btn-register">新規登録</button>
+      <div class="auth-footer" style="font-size:11px;line-height:1.6">
+        登録後、確認メールが送信される場合があります。<br>
+        メール内のリンクをクリックして登録を完了してください。
+      </div>
+    </form>
+
+    <div class="auth-msg" id="auth-msg"></div>
+  </div>
+</div>
+
+<!-- ══ メイン画面 ══ -->
+<div id="app-view">
+  <header class="app-header">
+    <div class="app-header-inner">
+      <div class="app-logo" id="app-logo">Karate Win</div>
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input type="search" class="search-input" id="search-input"
+          placeholder="選手名・大会名・クラスで検索...">
+      </div>
+      <button class="user-btn" id="btn-user-menu" style="display:none">👤</button>
+      <button class="user-btn" id="btn-anon-login" style="display:none" title="ログイン">🔑</button>
+    </div>
+    <div class="filter-bar" id="filter-bar">
+      <button class="chip active" data-filter="all">すべて</button>
+      <!-- 道場ごとのチップが動的に追加される -->
+    </div>
+  </header>
+
+  <!-- 大会別ランディング時のヒーロー -->
+  <section class="tournament-hero" id="tournament-hero">
+    <div class="tournament-hero-inner">
+      <h1 id="th-name">大会名</h1>
+      <div class="tournament-hero-meta">
+        <span><i>📅</i><span id="th-dates"></span></span>
+        <span><i>📍</i><span id="th-venue"></span></span>
+        <span><i>🏆</i><span id="th-host"></span></span>
+      </div>
+      <div class="tournament-hero-stats">
+        <span><b id="th-videos">—</b>試合</span>
+        <span><b id="th-dojos">—</b>道場参加</span>
+      </div>
+      <div class="tournament-hero-desc" id="th-desc"></div>
+    </div>
+  </section>
+
+  <main class="app-main">
+    <!-- CTA バナー (会員勧誘・無料/未ログイン時のみ表示) -->
+    <div class="cta-banner" id="cta-banner" style="display:none">
+      <div class="cta-banner-icon">💎</div>
+      <div class="cta-banner-text">
+        <div class="cta-banner-title" id="cta-title">会員になって動画を見放題に</div>
+        <div class="cta-banner-desc" id="cta-desc">¥500/月から。自道場の動画と参加大会の動画が見放題になります。</div>
+      </div>
+      <button class="cta-banner-btn" id="cta-btn">プランを見る</button>
+    </div>
+
+    <div class="section-h">
+      <h2 id="section-title">最新の試合</h2>
+      <span class="count" id="video-count"></span>
+    </div>
+
+    <div id="list-loading" class="list-loading" style="display:none">
+      <div class="spinner" style="margin:0 auto 10px"></div>
+      <div>動画を読み込み中...</div>
+    </div>
+
+    <div id="video-grid" class="video-grid"></div>
+
+    <div id="empty-state" class="empty-state" style="display:none">
+      <div class="icon">🎬</div>
+      <h3>動画がありません</h3>
+      <p id="empty-msg">表示可能な動画がまだ登録されていません</p>
+    </div>
+  </main>
+
+  <!-- 法務リンクフッター -->
+  <footer class="app-footer">
+    <div class="app-footer-links">
+      <a href="/terms.html">利用規約</a>
+      <a href="/privacy.html">プライバシーポリシー</a>
+      <a href="/tokushoho.html">特定商取引法に基づく表記</a>
+    </div>
+    <div class="app-footer-copy">© 2026 株式会社ローコードテック</div>
+  </footer>
+</div>
+
+<!-- ══ 動画再生モーダル ══ -->
+<div class="modal-bg" id="player-modal">
+  <div class="player-modal">
+    <button class="modal-close-floating" data-close-player aria-label="閉じる">×</button>
+    <div class="player-iframe-wrap" id="pm-iframe-wrap">
+      <!-- iframe/video は再生時に動的に生成 -->
+    </div>
+    <!-- ★【追加】動画プレイヤー下の情報エリア -->
+    <div class="player-info" id="pm-info">
+      <!-- ★【会員別視聴v3】選手会員プレビュー時の購入バー -->
+      <div class="preview-purchase-bar" id="pm-preview-bar" style="display:none">
+        <div class="ppb-text"><b>プレビュー表示中（小画面）</b><br>¥500で購入すると、大画面での視聴と720P動画のダウンロードができます。</div>
+        <button class="ppb-btn" id="pm-preview-buy">¥500で購入する</button>
+      </div>
+      <div class="player-info-tournament" id="pm-tournament"></div>
+      <div class="player-info-match">
+        <span class="player-info-red" id="pm-red-name">-</span>
+        <span class="player-info-vs">vs</span>
+        <span class="player-info-blue" id="pm-blue-name">-</span>
+      </div>
+      <div class="player-info-meta" id="pm-meta"></div>
+      <div class="player-info-badges" id="pm-badges"></div>
+      <!-- ★【チャプター機能】試合イベント表示 -->
+      <div class="player-info-chapters" id="pm-chapters-area" style="display:none">
+        <div class="chapters-title">
+          <span>🥋 試合イベント</span>
+          <span class="badge-count" id="pm-chapters-count">0</span>
+          <span style="flex:1"></span>
+          <span style="font-size:10px;color:var(--txt3);font-weight:400">クリックでジャンプ</span>
+        </div>
+        <div class="chapters-timeline" id="pm-chapters-timeline">
+          <div class="tl-progress" id="pm-chapters-progress"></div>
+        </div>
+        <div class="chapters-list" id="pm-chapters-list"></div>
+      </div>
+      <!-- ★【追加】ダウンロードエリア (プレミアム会員のみ表示) -->
+      <div class="player-info-download" id="pm-download-area" style="display:none">
+        <button class="pm-download-btn" id="pm-download-btn">
+          <span class="pm-dl-icon">⬇</span>
+          <span class="pm-dl-label">動画をダウンロード</span>
+        </button>
+        <div class="pm-download-count" id="pm-download-count"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 視聴方法選択モーダル ══ -->
+<div class="modal-bg" id="options-modal">
+  <div class="options-modal" style="position:relative">
+    <button class="modal-x-top" data-close-options aria-label="閉じる">×</button>
+    <h2 id="om-title">この動画を視聴するには</h2>
+    <div class="options-modal-sub" id="om-sub">いずれかの方法を選んでください</div>
+    
+    <div class="option-card featured" data-action="purchase">
+      <div class="option-card-h">
+        <div class="option-card-title">この動画を購入</div>
+        <div class="option-card-price">¥500</div>
+      </div>
+      <div class="option-card-desc">この試合だけを永続的に視聴できます。会員でなくても購入可能です。</div>
+    </div>
+    
+    <div class="option-card" data-action="subscribe">
+      <div class="option-card-h">
+        <div class="option-card-title">会員になる</div>
+        <div class="option-card-price">¥500/月〜</div>
+      </div>
+      <div class="option-card-desc">月額プランに登録すると、対象動画が見放題になります。</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ プラン選択モーダル ══ -->
+<div class="modal-bg" id="plan-modal">
+  <div class="plan-modal" style="position:relative">
+    <button class="modal-x-top" data-close-plan aria-label="閉じる">×</button>
+    <h2>プランを選択</h2>
+    <div class="plan-modal-sub">いつでも解約できます。テスト環境では実際には課金されません。</div>
+
+    <!-- ★【会員体系v2】一般会員 (無料) -->
+    <div class="plan-card" id="plan-card-free">
+      <div class="plan-card-h">
+        <div class="plan-card-name">一般会員プラン</div>
+        <div class="plan-card-price"><b>¥0</b>/月</div>
+      </div>
+      <div class="plan-card-desc">無料で Public 動画・CMS 記事を閲覧できます</div>
+      <div class="plan-card-features">
+        <div>Public 動画の視聴</div>
+        <div>Public 記事の閲覧</div>
+        <div>個別購入 (¥500/動画) で他動画も視聴可</div>
+      </div>
+      <button class="plan-card-btn" data-plan="free">無料プランで続ける</button>
+    </div>
+
+    <!-- ★【会員体系v2】選手会員 (旧「一般会員」を改名) -->
+    <div class="plan-card" id="plan-card-member">
+      <div class="plan-card-h">
+        <div class="plan-card-name">選手会員プラン</div>
+        <div class="plan-card-price"><b>¥500</b>/月</div>
+      </div>
+      <div class="plan-card-desc">自道場と、自道場が参加した大会の動画が見放題</div>
+      <div class="plan-card-features">
+        <div>Public 動画の視聴</div>
+        <div>自道場の試合動画 すべて</div>
+        <div>自道場が参加した大会の動画</div>
+        <div>所属道場の CMS 記事すべて</div>
+        <div>動画表示期間: 公開日から1年</div>
+      </div>
+      <button class="plan-card-btn" data-plan="member">この内容で契約する</button>
+    </div>
+
+    <!-- ★【会員体系v2】プレミアム会員 -->
+    <div class="plan-card recommended" id="plan-card-premium">
+      <div class="plan-card-h">
+        <div class="plan-card-name">プレミアム会員プラン</div>
+        <div class="plan-card-price"><b>¥1,000</b>/月</div>
+      </div>
+      <div class="plan-card-desc">全ての大会動画が見放題 + ダウンロード可能</div>
+      <div class="plan-card-features">
+        <div>Public 動画の視聴</div>
+        <div>自道場の試合動画 すべて</div>
+        <div>全ての大会の動画 (自道場が参加してない大会も)</div>
+        <div>💎 動画ダウンロード (月10動画まで)</div>
+        <div>すべての CMS 記事閲覧</div>
+        <div>動画表示期間: 公開日から1年</div>
+      </div>
+      <button class="plan-card-btn" data-plan="premium">この内容で契約する</button>
+    </div>
+
+    <div class="plan-modal-note">
+      契約は月額自動更新です。マイ情報ページからいつでも解約できます。<br>
+      動画は公開日から1年経過後、自動的に削除されます (購入済み動画は永続視聴可)。
+    </div>
+  </div>
+</div>
+
+<!-- ══ ログイン誘導モーダル (匿名ユーザー向け) ══ -->
+<div class="modal-bg" id="login-prompt-modal">
+  <div class="login-prompt-modal" style="position:relative">
+    <button class="modal-x-top" data-close-login-prompt aria-label="閉じる">×</button>
+    <h2>視聴にはログインが必要です</h2>
+    <p>動画を視聴または購入するには、アカウントが必要です。</p>
+    <div class="login-prompt-buttons">
+      <button class="btn-prompt-login" id="btn-go-login">ログイン</button>
+      <button class="btn-prompt-register" id="btn-go-register">新規登録</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 招待コード入力モーダル ══ -->
+<div class="modal-bg" id="invite-modal">
+  <div class="plan-modal" style="position:relative;max-width:420px">
+    <button class="modal-x-top" data-close-invite aria-label="閉じる">×</button>
+    <h2>🎟 招待コードで道場に参加</h2>
+    <div class="plan-modal-sub">
+      道場主から受け取った招待コードを入力してください
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div>
+        <label style="font-size:11px;color:var(--txt2);font-weight:700;letter-spacing:1px;text-transform:uppercase">
+          招待コード
+        </label>
+        <input type="text" id="invite-code-input"
+          placeholder="例: ABC123"
+          maxlength="20"
+          autocomplete="off"
+          autocapitalize="characters"
+          style="width:100%;height:52px;padding:0 16px;margin-top:6px;
+                 background:#0a1020;border:2px solid var(--line2);border-radius:8px;
+                 color:var(--txt);font-family:ui-monospace,Consolas,monospace;
+                 font-size:22px;font-weight:800;letter-spacing:3px;text-align:center;
+                 text-transform:uppercase" />
+      </div>
+
+      <div id="invite-msg" class="auth-msg" style="margin-top:0"></div>
+
+      <button class="plan-card-btn" id="btn-do-redeem-invite" style="font-size:14px;padding:14px">
+        道場に参加する
+      </button>
+
+      <div class="plan-modal-note">
+        招待コードが分からない場合は、所属している道場の道場主にお問い合わせください
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ユーザーメニュー ══ -->
+<div class="user-menu-overlay" id="user-menu-overlay"></div>
+<div class="user-menu" id="user-menu">
+  <div class="user-menu-h">
+    <h3>マイ情報</h3>
+    <button class="modal-x" id="btn-close-user-menu">×</button>
+  </div>
+  <div class="user-info">
+    <div class="item">
+      <span class="label">メール</span>
+      <span class="value" id="um-email">—</span>
+    </div>
+    <div class="item">
+      <span class="label">表示名</span>
+      <span class="value" id="um-name">—</span>
+    </div>
+    <div class="item">
+      <span class="label">会員ステータス</span>
+      <span class="value"><span class="tier-badge" id="um-tier">—</span></span>
+    </div>
+    <div class="item">
+      <span class="label">所属道場</span>
+      <span class="value" id="um-dojos">—</span>
+    </div>
+    <div class="item">
+      <span class="label">有効期限</span>
+      <span class="value" id="um-expires">—</span>
+    </div>
+  </div>
+  <div class="user-menu-spacer"></div>
+  <div class="user-menu-actions">
+    <!-- ★【招待コード】道場主から受け取ったコードを入力して道場に参加 -->
+    <button class="btn-secondary" id="btn-redeem-invite" style="background:linear-gradient(180deg, #d4a849, #a47820);color:#1a1208;border-color:#e8c060;font-weight:700">🎟 招待コードで道場に参加</button>
+    <button class="btn-plan-mgmt" id="btn-change-plan">プランを変更・契約する</button>
+    <button class="btn-portal" id="btn-customer-portal" style="display:none">契約を管理 (解約・カード変更)</button>
+    <button class="btn-danger" id="btn-logout">ログアウト</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+//═══════════════════════════════════════════════════════════════
+//  Karate Win 観客アプリ Stage1: 認証 + 動画視聴
+//═══════════════════════════════════════════════════════════════
+
+// ─── 設定 ──────────────────────────────────────────────
+//  本番環境ではここを実際の値に書き換える。
+//  anon/publishable key はクライアントに露出してOK (RLSで保護)。
+const CFG = {
+  SUPABASE_URL:  'https://ocxyycuasswuztjkbwuf.supabase.co',
+  SUPABASE_KEY:  'sb_publishable_fmCxA2UUUZtWdxwBhvhS5w_Z29KVTNp'  // Publishable Key
+};
+
+// ─── 状態 ──────────────────────────────────────────────
+const S = {
+  sb: null,
+  session: null,         // 現在のセッション
+  profile: null,         // user_profiles レコード
+  dojos: [],             // 自分が所属する道場
+  videos: [],            // 取得した動画一覧
+  filter: 'all',         // 現在のフィルタ
+  search: '',            // 検索文字列
+  loading: false,
+  // ─── Stage 2 (Stripe決済) ─────
+  mode: 'auth',          // 'auth' / 'app' / 'tournament' / 'anon-tournament'
+  tournamentSlug: null,  // ?t= パラメータ
+  tournament: null,      // 大会データ (slug一致)
+  tournamentDojos: [],   // 大会参加道場
+  purchasedVideoIds: new Set(),  // 購入済み動画ID
+  pendingAction: null    // 決済前にやろうとしたアクション
+};
+
+// ─── ユーティリティ ─────────────────────────────────────
+const $ = id => document.getElementById(id);
+const escapeHtml = s => String(s ?? '').replace(/[&<>"']/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function toast(msg, kind=''){
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'on ' + kind;
+  clearTimeout(t._h);
+  t._h = setTimeout(()=>{t.className=''}, 2800);
+}
+
+function showAuthMsg(msg, kind='error'){
+  const el = $('auth-msg');
+  el.textContent = msg;
+  el.className = 'auth-msg ' + kind;
+}
+function clearAuthMsg(){
+  $('auth-msg').className = 'auth-msg';
+  // ★【再送ボタン】メッセージクリア時に確認メール再送ボタンも掃除する
+  //   (タブ切替・再登録のたびに clearAuthMsg が呼ばれるため一元管理できる)
+  if(typeof removeResendConfirmButton === 'function') removeResendConfirmButton();
+}
+
+// 日時フォーマット (JST表示)
+function formatDateTime(iso){
+  if(!iso) return '—';
+  try{
+    const d = new Date(iso);
+    const fmt = new Intl.DateTimeFormat('ja-JP',{
+      timeZone:'Asia/Tokyo',
+      year:'numeric',month:'2-digit',day:'2-digit',
+      hour:'2-digit',minute:'2-digit',hour12:false
+    });
+    return fmt.format(d);
+  }catch{ return iso }
+}
+
+function formatDateShort(iso){
+  if(!iso) return '';
+  try{
+    const d = new Date(iso);
+    const now = new Date();
+    const diffDays = Math.floor((now - d) / (1000*60*60*24));
+    if(diffDays === 0) return '今日';
+    if(diffDays === 1) return '昨日';
+    if(diffDays < 7) return `${diffDays}日前`;
+    const fmt = new Intl.DateTimeFormat('ja-JP',{
+      timeZone:'Asia/Tokyo',
+      year:'numeric',month:'2-digit',day:'2-digit'
+    });
+    return fmt.format(d);
+  }catch{ return '' }
+}
+
+//═══════════════════════════════════════════════════════════════
+//  Supabase クライアント初期化
+//═══════════════════════════════════════════════════════════════
+function initSupabase(){
+  if(!CFG.SUPABASE_URL || !CFG.SUPABASE_KEY){
+    alert('Supabase設定が未入力です。HTMLのCFG部分を編集してください。');
+    return null;
+  }
+  return supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_KEY, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true
+    }
+  });
+}
+
+//═══════════════════════════════════════════════════════════════
+//  起動シーケンス
+//═══════════════════════════════════════════════════════════════
+(async function init(){
+  S.sb = initSupabase();
+  if(!S.sb){
+    $('loading').style.display = 'none';
+    return;
+  }
+
+  // URLパラメータ解析
+  const params = new URLSearchParams(window.location.search);
+  S.tournamentSlug = params.get('t');
+  
+  // /t/xxx 形式のpathnameからもスラッグを抽出 (vercel.json不要のフォールバック)
+  if(!S.tournamentSlug){
+    const pathMatch = window.location.pathname.match(/^\/t\/([^/]+)\/?$/);
+    if(pathMatch){
+      S.tournamentSlug = decodeURIComponent(pathMatch[1]);
+    }
+  }
+  
+  const checkoutResult = params.get('checkout');
+  const sessionId = params.get('session_id');
+  const directVideoId = params.get('v');
+  const portalReturn = params.get('portal');
+  // ★【アカウント作成導線】ランディングページの「無料アカウント作成」からの来訪判定
+  //   例: https://karate-spectator.vercel.app/?signup=1
+  const wantSignup = params.get('signup') === '1' || params.get('signup') === 'true';
+
+  // 決済結果ハンドリング (URLからパラメータをクリア)
+  if(checkoutResult || S.tournamentSlug || portalReturn || wantSignup){
+    // checkout/portal/signupパラメータを消す (tはhistoryに残す)
+    if(checkoutResult || portalReturn || wantSignup){
+      params.delete('checkout');
+      params.delete('session_id');
+      params.delete('portal');
+      params.delete('signup');
+      const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+      history.replaceState({}, '', newUrl);
+    }
+  }
+
+  // 既存セッションの確認
+  const { data: { session } } = await S.sb.auth.getSession();
+  S.session = session;
+
+  // セッション変更監視
+  S.sb.auth.onAuthStateChange(async (event, sess) => {
+    S.session = sess;
+    if(event === 'SIGNED_IN'){
+      if(sess) await routeToView();
+    }
+    if(event === 'SIGNED_OUT'){
+      switchToAuth();
+    }
+  });
+
+  // 初回ルーティング
+  await routeToView();
+
+  // ★【アカウント作成導線】?signup=1 で来訪した場合、認証画面の「新規登録」タブを自動で開く。
+  //   ・未ログイン → 新規登録タブを表示し、表示名欄にフォーカス
+  //   ・ログイン済み → 既にアカウントがあるため何もしない (通常アプリ表示のまま案内)
+  if(wantSignup){
+    if(S.session){
+      setTimeout(() => toast('既にログイン済みです', 'ok'), 500);
+    } else {
+      goToLoginScreen('register');
+      setTimeout(() => { try{ $('reg-name').focus(); }catch(_){} }, 200);
+    }
+  }
+
+  // 決済成功トースト (ログイン後)
+  if(checkoutResult === 'success'){
+    setTimeout(() => toast('✅ 決済が完了しました! 反映に少し時間がかかる場合があります', 'ok'), 500);
+    // 数秒後にプロフィール再取得 (Webhookで反映されているはず)
+    setTimeout(async () => {
+      await loadProfile();
+      await loadPurchases();
+      renderVideos();
+    }, 2000);
+  } else if(checkoutResult === 'canceled'){
+    setTimeout(() => toast('決済はキャンセルされました', ''), 500);
+  } else if(portalReturn === 'return'){
+    setTimeout(() => toast('契約管理画面から戻りました', 'ok'), 500);
+    // プロフィール再取得 (解約等を反映)
+    setTimeout(async () => {
+      await loadProfile();
+      await loadPurchases();
+      renderVideos();
+      updateCtaBanner();
+    }, 1000);
+  }
+
+  // 動画直リンク (?v=xxx)
+  if(directVideoId){
+    setTimeout(() => handleVideoClick(directVideoId), 800);
+  }
+})();
+
+//═══════════════════════════════════════════════════════════════
+//  ルーティング: URL とセッション状態で表示モードを切替
+//═══════════════════════════════════════════════════════════════
+async function routeToView(){
+  if(S.tournamentSlug){
+    // 大会別ランディング (ログイン状態問わず動作)
+    await switchToTournament();
+  } else if(S.session){
+    // ログイン済み → 通常アプリ
+    await switchToApp();
+  } else {
+    // 未ログイン → 認証画面
+    switchToAuth();
+  }
+}
+
+function switchToAuth(){
+  S.mode = 'auth';
+  $('loading').style.display = 'none';
+  $('auth-view').style.display = '';
+  $('app-view').classList.remove('on');
+  $('tournament-hero').classList.remove('on');
+  S.profile = null; S.dojos = []; S.videos = [];
+  S.purchasedVideoIds = new Set();
+}
+
+async function switchToApp(){
+  S.mode = 'app';
+  $('loading').style.display = 'flex';
+  $('auth-view').style.display = 'none';
+  $('tournament-hero').classList.remove('on');
+  
+  // ヘッダーUI調整 (ログイン済み)
+  $('btn-user-menu').style.display = '';
+  $('btn-anon-login').style.display = 'none';
+
+  // ユーザープロフィール取得
+  await loadProfile();
+
+  // 自分の所属道場取得
+  await loadUserDojos();
+  
+  // 購入済み動画ID取得
+  await loadPurchases();
+
+  // 道場フィルタチップを構築
+  buildFilterChips();
+
+  // CTA バナー表示判定
+  updateCtaBanner();
+
+  // 動画取得
+  await loadVideos();
+
+  $('loading').style.display = 'none';
+  $('app-view').classList.add('on');
+  
+  // ログイン後の pending action 復元
+  await restorePendingAction();
+}
+
+async function restorePendingAction(){
+  try{
+    // 保存された大会へ戻る
+    const savedTournament = localStorage.getItem('kw_pending_tournament');
+    if(savedTournament){
+      localStorage.removeItem('kw_pending_tournament');
+      // URLを大会別に変更してリロード
+      window.location.href = `/t/${encodeURIComponent(savedTournament)}`;
+      return;
+    }
+    
+    // 保存されたアクション (動画クリック)を実行
+    const savedAction = localStorage.getItem('kw_pending_action');
+    if(savedAction){
+      localStorage.removeItem('kw_pending_action');
+      const action = JSON.parse(savedAction);
+      if(action.type === 'play' && action.videoId){
+        // 動画一覧の再取得後に開く
+        setTimeout(() => handleVideoClick(action.videoId), 500);
+      }
+    }
+  }catch(err){
+    console.warn('pending action restore error:', err);
+  }
+}
+
+//═══════════════════════════════════════════════════════════════
+//  大会別ランディング (公開プレビュー対応)
+//═══════════════════════════════════════════════════════════════
+async function switchToTournament(){
+  S.mode = S.session ? 'tournament' : 'anon-tournament';
+  $('loading').style.display = 'flex';
+  $('auth-view').style.display = 'none';
+  
+  // ヘッダーUI調整
+  if(S.session){
+    $('btn-user-menu').style.display = '';
+    $('btn-anon-login').style.display = 'none';
+  } else {
+    $('btn-user-menu').style.display = 'none';
+    $('btn-anon-login').style.display = '';
+  }
+
+  // 大会データ取得
+  const { data: tournament, error: tErr } = await S.sb
+    .from('tournaments')
+    .select(`
+      id, slug, name, description,
+      date_start, date_end, location,
+      organizer_dojo_id,
+      is_public, allow_public_preview, preview_message,
+      organizer:organizer_dojo_id (id, name)
+    `)
+    .eq('slug', S.tournamentSlug)
+    .single();
+
+  if(tErr || !tournament){
+    toast('大会が見つかりませんでした', 'ng');
+    S.tournamentSlug = null;
+    history.replaceState({}, '', window.location.pathname);
+    if(S.session) await switchToApp();
+    else switchToAuth();
+    return;
+  }
+
+  S.tournament = tournament;
+
+  // 参加道場取得
+  const { data: tdData } = await S.sb
+    .from('tournament_dojos')
+    .select('dojo:dojo_id (id, name, prefecture)')
+    .eq('tournament_id', tournament.id);
+  S.tournamentDojos = (tdData || []).map(d => d.dojo).filter(Boolean);
+
+  // ログイン済みなら個人プロフィール・購入履歴も取得
+  if(S.session){
+    await loadProfile();
+    await loadUserDojos();
+    await loadPurchases();
+  }
+
+  // ヒーロー表示
+  renderTournamentHero();
+
+  // 大会用フィルタチップ (参加道場で絞り込み)
+  buildTournamentFilterChips();
+
+  // CTA バナー
+  updateCtaBanner();
+
+  // 動画取得 (大会IDで絞り込み)
+  await loadVideos();
+
+  $('loading').style.display = 'none';
+  $('app-view').classList.add('on');
+}
+
+function renderTournamentHero(){
+  const t = S.tournament;
+  $('th-name').textContent = t.name || '大会';
+  
+  const dateStr = formatDateRange(t.date_start, t.date_end);
+  $('th-dates').textContent = dateStr || '日程未定';
+  $('th-venue').textContent = t.location || '会場未定';
+  $('th-host').textContent  = '主催: ' + (t.organizer?.name || '—');
+  
+  $('th-videos').textContent = '—'; // 動画ロード後に更新
+  $('th-dojos').textContent  = String(S.tournamentDojos.length);
+  
+  $('th-desc').textContent = t.description || '';
+  $('th-desc').style.display = t.description ? '' : 'none';
+
+  $('section-title').textContent = '試合動画';
+  $('tournament-hero').classList.add('on');
+}
+
+function formatDateRange(start, end){
+  if(!start) return '';
+  try{
+    const fmtJP = new Intl.DateTimeFormat('ja-JP', {month:'long', day:'numeric'});
+    const fmtY  = new Intl.DateTimeFormat('ja-JP', {year:'numeric'});
+    const s = new Date(start);
+    if(end && end !== start){
+      const e = new Date(end);
+      return `${fmtY.format(s)} ${fmtJP.format(s)} 〜 ${fmtJP.format(e)}`;
+    }
+    return `${fmtY.format(s)} ${fmtJP.format(s)}`;
+  }catch{ return start }
+}
+
+function buildTournamentFilterChips(){
+  const bar = $('filter-bar');
+  bar.querySelectorAll('.chip:not([data-filter="all"])').forEach(c => c.remove());
+  
+  for(const d of S.tournamentDojos){
+    const chip = document.createElement('button');
+    chip.className = 'chip';
+    chip.dataset.filter = d.id;
+    chip.textContent = d.name;
+    bar.appendChild(chip);
+  }
+  
+  bar.querySelectorAll('.chip').forEach(c => {
+    c.onclick = () => {
+      bar.querySelectorAll('.chip').forEach(x => x.classList.remove('active'));
+      c.classList.add('active');
+      S.filter = c.dataset.filter;
+      renderVideos();  // クライアント側フィルタ
+    };
+  });
+}
+
+function updateCtaBanner(){
+  const banner = $('cta-banner');
+  
+  // 表示条件: ログインしていない or 無料会員のとき
+  const tier = S.profile?.membership_tier || 'free';
+  const showBanner = !S.session || tier === 'free';
+  
+  if(showBanner){
+    banner.style.display = '';
+    if(!S.session){
+      $('cta-title').textContent = 'ログインして試合動画を視聴';
+      $('cta-desc').textContent  = '登録は無料。動画購入(¥500/本)または月額プラン(¥500/月〜)でお楽しみください。';
+    } else {
+      $('cta-title').textContent = '会員になって動画を見放題に';
+      $('cta-desc').textContent  = '¥500/月から。自道場の動画と参加大会の動画が見放題になります。';
+    }
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+//═══════════════════════════════════════════════════════════════
+//  購入履歴の取得
+//═══════════════════════════════════════════════════════════════
+async function loadPurchases(){
+  S.purchasedVideoIds = new Set();
+  if(!S.session) return;
+  
+  const { data, error } = await S.sb
+    .from('video_purchases')
+    .select('video_id, status')
+    .eq('user_id', S.session.user.id)
+    .eq('status', 'completed');
+  
+  if(error){
+    console.warn('購入履歴取得失敗:', error);
+    return;
+  }
+  
+  S.purchasedVideoIds = new Set((data || []).map(p => p.video_id));
+}
+
+//═══════════════════════════════════════════════════════════════
+//  認証 - フォーム制御
+//═══════════════════════════════════════════════════════════════
+document.querySelectorAll('.auth-tab').forEach(tab => {
+  tab.onclick = () => {
+    document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    const which = tab.dataset.tab;
+    $('form-login').style.display    = (which === 'login')    ? '' : 'none';
+    $('form-register').style.display = (which === 'register') ? '' : 'none';
+    clearAuthMsg();
+  };
+});
+
+// ログイン
+$('form-login').onsubmit = async (e) => {
+  e.preventDefault();
+  clearAuthMsg();
+  const email = $('login-email').value.trim();
+  const password = $('login-password').value;
+  if(!email || !password) return;
+
+  $('btn-login').disabled = true;
+  $('btn-login').textContent = '認証中...';
+  try{
+    const { data, error } = await S.sb.auth.signInWithPassword({ email, password });
+    if(error){
+      let msg = error.message;
+      if(msg.includes('Invalid login credentials')) msg = 'メールアドレスかパスワードが違います';
+      else if(msg.includes('Email not confirmed')) msg = 'メール確認が完了していません。受信メール内のリンクをクリックしてください。';
+      showAuthMsg(msg);
+      return;
+    }
+    // 成功時は onAuthStateChange で switchToApp が呼ばれる
+  }catch(err){
+    showAuthMsg('予期しないエラー: ' + err.message);
+  }finally{
+    $('btn-login').disabled = false;
+    $('btn-login').textContent = 'ログイン';
+  }
+};
+
+// 新規登録
+$('form-register').onsubmit = async (e) => {
+  e.preventDefault();
+  clearAuthMsg();
+  const name = $('reg-name').value.trim();
+  const email = $('reg-email').value.trim();
+  const password = $('reg-password').value;
+  if(!name || !email || password.length < 8){
+    showAuthMsg('入力値を確認してください');
+    return;
+  }
+
+  $('btn-register').disabled = true;
+  $('btn-register').textContent = '登録中...';
+  try{
+    const { data, error } = await S.sb.auth.signUp({
+      email, password,
+      options: {
+        data: { display_name: name },
+        emailRedirectTo: window.location.origin
+      }
+    });
+    // ★【診断ログ】signUp レスポンスの生データを出力。
+    //   テストメールが本当に identities:[] を返すのか、開発者ツールのコンソールで確認できる。
+    try{
+      console.log('[signUp] response =', {
+        user_id: data?.user?.id || null,
+        email: data?.user?.email || null,
+        identities: data?.user?.identities,                     // ← ここが [] なら auth 側に既存(未確認含む)
+        identities_len: Array.isArray(data?.user?.identities) ? data.user.identities.length : '(なし)',
+        has_session: !!data?.session,
+        error: error ? { message: error.message, status: error.status } : null
+      });
+    }catch(_){}
+
+    if(error){
+      let msg = error.message;
+      if(msg.includes('already registered') || msg.includes('User already registered')){
+        // メール確認 OFF 時のみここに来る。再送ではなくログイン案内。
+        showAuthMsg('このメールアドレスは既に登録されています。「ログイン」タブからログインしてください。', 'info');
+        return;
+      } else if(msg.includes('Password')){
+        msg = 'パスワードは8文字以上にしてください';
+      } else if(msg.includes('rate') || msg.includes('Rate')){
+        msg = 'メール送信制限に達しました。しばらく時間をおいてから再度お試しください。';
+      } else if(msg.includes('invalid') && msg.includes('email')){
+        msg = 'メールアドレスの形式が正しくありません';
+      }
+      showAuthMsg(msg);
+      return;
+    }
+
+    // ─── 判定ロジック (Supabase 仕様に基づく) ───────────────────
+    //  A. session あり           → autoconfirm 環境。即ログイン済み。
+    //  B. identities.length === 0 → auth に同じメールが既に存在 (確認済み or 未確認で残存)。
+    //                               ★ 強制ログイン切替はしない (未確認だとログインできず行き止まりになるため)。
+    //                               → ログイン導線 + 「確認メール再送」ボタンを提示して救済する。
+    //  C. それ以外 (identities.length >= 1 / undefined) → 本当の新規。確認メール送信済み。
+    const identities = data?.user?.identities;
+    const isObfuscatedExisting = Array.isArray(identities) && identities.length === 0;
+
+    if(data.session){
+      // A: autoconfirm
+      showAuthMsg('登録が完了しました', 'success');
+      // onAuthStateChange で自動ログイン処理
+      return;
+    }
+
+    if(isObfuscatedExisting){
+      // B: 既存メール (確認済み / 未確認残存)
+      showAuthMsg(
+        'このメールアドレスは既に登録手続き中、または登録済みの可能性があります。\n' +
+        '・パスワードをお持ちの場合 →「ログイン」タブからログイン\n' +
+        '・確認メールが届いていない場合 → 下のボタンから確認メールを再送できます',
+        'info'
+      );
+      showResendConfirmButton(email);
+      return;
+    }
+
+    // C: 本当の新規
+    showAuthMsg(
+      '確認メールを「' + email + '」に送信しました。\n' +
+      'メール受信箱(迷惑メールフォルダも含む)を確認し、リンクをクリックして登録を完了してください。',
+      'info'
+    );
+    showResendConfirmButton(email);  // 届かない場合の再送導線も一応提示
+  }catch(err){
+    showAuthMsg('予期しないエラー: ' + err.message);
+  }finally{
+    $('btn-register').disabled = false;
+    $('btn-register').textContent = '新規登録';
+  }
+};
+
+// ★【確認メール再送】未確認ユーザー / メール未達を救済する。
+//   auth-msg 直後に動的なボタンを差し込む (重複生成しない)。
+function showResendConfirmButton(email){
+  const anchor = $('auth-msg');
+  if(!anchor) return;
+  let btn = document.getElementById('btn-resend-confirm');
+  if(!btn){
+    btn = document.createElement('button');
+    btn.id = 'btn-resend-confirm';
+    btn.type = 'button';
+    btn.className = 'btn-primary';
+    btn.style.marginTop = '12px';
+    btn.style.background = 'linear-gradient(180deg,#3a7adc,#1a4a90)';
+    anchor.insertAdjacentElement('afterend', btn);
+  }
+  btn.textContent = '📧 確認メールを再送する';
+  btn.disabled = false;
+  btn.onclick = async () => {
+    btn.disabled = true;
+    btn.textContent = '送信中...';
+    try{
+      const { error } = await S.sb.auth.resend({
+        type: 'signup',
+        email,
+        options: { emailRedirectTo: window.location.origin }
+      });
+      if(error){
+        // 確認済みユーザーに再送しようとすると here に来る (already confirmed)
+        let m = error.message || '';
+        if(/already|confirmed/i.test(m)){
+          showAuthMsg('このメールは既に確認済みです。「ログイン」タブからログインしてください。', 'info');
+        } else if(/rate|Rate/.test(m)){
+          showAuthMsg('メール送信制限に達しました。しばらく待ってから再度お試しください。', 'error');
+        } else {
+          showAuthMsg('再送に失敗しました: ' + m, 'error');
+        }
+        btn.textContent = '📧 確認メールを再送する';
+        btn.disabled = false;
+        return;
+      }
+      showAuthMsg('確認メールを再送しました。受信箱(迷惑メール含む)をご確認ください。', 'success');
+      btn.textContent = '✓ 再送しました';
+    }catch(e){
+      showAuthMsg('再送に失敗しました: ' + (e.message || e), 'error');
+      btn.textContent = '📧 確認メールを再送する';
+      btn.disabled = false;
+    }
+  };
+}
+
+// タブ切替・フォーム再表示のたびに再送ボタンを掃除する
+function removeResendConfirmButton(){
+  const b = document.getElementById('btn-resend-confirm');
+  if(b) b.remove();
+}
+
+// パスワードリセット
+$('link-reset').onclick = async (e) => {
+  e.preventDefault();
+  const email = $('login-email').value.trim();
+  if(!email){
+    showAuthMsg('メールアドレスを入力してから「パスワードを忘れた方」をクリックしてください');
+    return;
+  }
+  try{
+    const { error } = await S.sb.auth.resetPasswordForEmail(email);
+    if(error){
+      showAuthMsg('リセットメール送信失敗: ' + error.message);
+      return;
+    }
+    showAuthMsg('パスワードリセット用のメールを送信しました', 'success');
+  }catch(err){
+    showAuthMsg('予期しないエラー: ' + err.message);
+  }
+};
+
+// ログアウト
+$('btn-logout').onclick = async () => {
+  await S.sb.auth.signOut();
+  closeUserMenu();
+  toast('ログアウトしました', 'ok');
+};
+
+// プランを変更・契約する → プラン選択モーダルへ
+$('btn-change-plan').onclick = () => {
+  closeUserMenu();
+  openPlanModal();
+};
+
+// ★【招待コード】招待コード入力モーダルを開く
+$('btn-redeem-invite').onclick = () => {
+  closeUserMenu();
+  openInviteModal();
+};
+
+// ★【招待コード】モーダル関連の関数
+function openInviteModal(){
+  $('invite-code-input').value = '';
+  const msgEl = $('invite-msg');
+  msgEl.textContent = '';
+  msgEl.className = 'auth-msg';
+  msgEl.style.marginTop = '0';
+  $('btn-do-redeem-invite').disabled = false;
+  $('btn-do-redeem-invite').textContent = '道場に参加する';
+  $('invite-modal').classList.add('on');
+  document.body.style.overflow = 'hidden';
+  // 少し遅らせて入力欄にフォーカス(モーダル表示のトランジション後)
+  setTimeout(() => $('invite-code-input').focus(), 150);
+}
+
+function closeInviteModal(){
+  $('invite-modal').classList.remove('on');
+  document.body.style.overflow = '';
+}
+
+// 招待コード入力欄: 大文字に自動変換 + Enterで送信
+$('invite-code-input').addEventListener('input', (e) => {
+  const cursorPos = e.target.selectionStart;
+  e.target.value = e.target.value.toUpperCase().replace(/\s+/g, '');
+  e.target.setSelectionRange(cursorPos, cursorPos);
+});
+$('invite-code-input').addEventListener('keydown', (e) => {
+  if(e.key === 'Enter'){
+    e.preventDefault();
+    doRedeemInvite();
+  }
+});
+
+// モーダル閉じるボタン・背景クリック・Escで閉じる
+document.querySelectorAll('[data-close-invite]').forEach(b => b.onclick = closeInviteModal);
+$('invite-modal').onclick = (e) => {
+  if(e.target === $('invite-modal')) closeInviteModal();
+};
+
+// ★【招待コード】RPCで招待コードを検証・使用する
+async function doRedeemInvite(){
+  if(!S.session){
+    toast('ログインが必要です', 'ng');
+    return;
+  }
+
+  const code = $('invite-code-input').value.trim().toUpperCase();
+  const msgEl = $('invite-msg');
+
+  if(!code){
+    msgEl.textContent = '招待コードを入力してください';
+    msgEl.className = 'auth-msg error';
+    msgEl.style.marginTop = '10px';
+    return;
+  }
+
+  const btn = $('btn-do-redeem-invite');
+  btn.disabled = true;
+  btn.textContent = '確認中...';
+  msgEl.textContent = '';
+  msgEl.className = 'auth-msg';
+
+  try{
+    // Supabase RPC を呼び出し
+    const { data, error } = await S.sb.rpc('redeem_invite_code', {
+      p_code: code
+    });
+
+    if(error){
+      // ネットワークエラー等
+      msgEl.textContent = 'エラー: ' + (error.message || String(error));
+      msgEl.className = 'auth-msg error';
+      msgEl.style.marginTop = '10px';
+      return;
+    }
+
+    // RPC のレスポンス確認
+    if(!data?.success){
+      // 失敗理由を表示
+      let errMsg = data?.error || '招待コードの処理に失敗しました';
+      msgEl.textContent = errMsg;
+      msgEl.className = 'auth-msg error';
+      msgEl.style.marginTop = '10px';
+
+      // 既に加入済みの場合はモーダルを閉じる選択肢を表示
+      if(errMsg.includes('既にこの道場')){
+        setTimeout(() => {
+          closeInviteModal();
+          toast('この道場には既に加入しています', '');
+        }, 1500);
+      }
+      return;
+    }
+
+    // ── 成功 ──
+    msgEl.innerHTML = '✅ 道場に参加しました！<br>動画一覧を更新しています...';
+    msgEl.className = 'auth-msg success';
+    msgEl.style.marginTop = '10px';
+
+    // ユーザーの所属道場情報を再取得
+    await loadUserDojos();
+    await loadPurchases();
+
+    // フィルタチップを再構築
+    buildFilterChips();
+
+    // 動画一覧を再取得
+    await loadVideos();
+
+    // CTAバナー更新
+    updateCtaBanner();
+
+    // 少し待ってからモーダルを閉じる
+    setTimeout(() => {
+      closeInviteModal();
+      toast('🎉 道場に参加しました！視聴可能な動画が増えました', 'ok');
+    }, 1500);
+
+  }catch(err){
+    console.error('redeem_invite_code error:', err);
+    msgEl.textContent = '通信エラー: ' + (err.message || err);
+    msgEl.className = 'auth-msg error';
+    msgEl.style.marginTop = '10px';
+  }finally{
+    btn.disabled = false;
+    btn.textContent = '道場に参加する';
+  }
+}
+
+// 「道場に参加する」ボタンのクリック処理
+$('btn-do-redeem-invite').onclick = doRedeemInvite;
+
+// 契約を管理 → Customer Portal へ
+$('btn-customer-portal').onclick = async () => {
+  if(!S.session){ toast('ログインが必要です', 'ng'); return; }
+  toast('管理画面を準備中...', '');
+  
+  try{
+    const response = await fetch(
+      `${CFG.SUPABASE_URL}/functions/v1/customer-portal`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${S.session.access_token}`,
+          'apikey': CFG.SUPABASE_KEY,
+        },
+      }
+    );
+    const result = await response.json();
+    
+    if(!response.ok || !result.url){
+      const errMsg = result.message || result.error || `エラー (${response.status})`;
+      toast(errMsg, 'ng');
+      return;
+    }
+    
+    // Stripe Customer Portal へ遷移
+    window.location.href = result.url;
+  }catch(err){
+    toast('通信エラー: ' + err.message, 'ng');
+  }
+};
+
+//═══════════════════════════════════════════════════════════════
+//  プロフィール・道場情報の取得
+//═══════════════════════════════════════════════════════════════
+async function loadProfile(){
+  const uid = S.session?.user?.id;
+  if(!uid) return;
+  const { data, error } = await S.sb
+    .from('user_profiles')
+    .select('*')
+    .eq('id', uid)
+    .single();
+  if(error){
+    console.error('プロフィール取得失敗:', error);
+    S.profile = null;
+    return;
+  }
+  S.profile = data;
+}
+
+async function loadUserDojos(){
+  const uid = S.session?.user?.id;
+  if(!uid){ S.dojos = []; return }
+  const { data, error } = await S.sb
+    .from('user_dojos')
+    .select('role, joined_at, dojo:dojo_id (id, name, prefecture)')
+    .eq('user_id', uid);
+  if(error){
+    console.error('道場情報取得失敗:', error);
+    S.dojos = [];
+    return;
+  }
+  S.dojos = (data || []).map(d => ({
+    role: d.role,
+    joined_at: d.joined_at,
+    ...(d.dojo || {})
+  })).filter(d => d.id);
+}
+
+//═══════════════════════════════════════════════════════════════
+//  動画一覧の取得 (RLS が自動で権限フィルタ)
+//═══════════════════════════════════════════════════════════════
+// ★【会員体系v2】動画の有効期限 (公開日から365日)
+const VIDEO_LIFETIME_DAYS = 365;
+
+async function loadVideos(){
+  S.loading = true;
+  $('list-loading').style.display = '';
+  $('video-grid').innerHTML = '';
+  $('empty-state').style.display = 'none';
+
+  try{
+    // ★【修正】storage_path / thumbnail_path / published_at も取得
+    let query = S.sb
+      .from('video_master')
+      .select(`
+        id, match_key, title, tournament, class, court,
+        red_name, red_bib, blue_name, blue_bib,
+        video_id, youtube_url,
+        storage_path, thumbnail_path,
+        storage_bucket, thumbnail_bucket,
+        recorded_at, published_at, visibility,
+        host_dojo_id, tournament_id, metadata,
+        dojo:host_dojo_id (id, name)
+      `)
+      .order('recorded_at', { ascending: false })
+      .limit(100);
+
+    // 大会モード時は tournament_id または tournament名 で絞り込み
+    //  ★【フォールバック対応】
+    //   ・現状 Power Apps 側から動画作成時に tournament_id が NULL のケースあり
+    //   ・tournament カラム (テキスト) には大会名が入っているため、両方で OR 検索
+    //   ・PostgREST の or() 構文で「tournament_id 一致 OR tournament 名前一致」を実現
+    if(S.mode === 'tournament' || S.mode === 'anon-tournament'){
+      const tId = S.tournament.id;
+      const tName = (S.tournament.name || '').replace(/,/g, '\\,'); // カンマエスケープ
+      if(tName){
+        // tournament_id.eq.{UUID}  OR  tournament.eq.{名前}
+        query = query.or(`tournament_id.eq.${tId},tournament.eq.${tName}`);
+      } else {
+        query = query.eq('tournament_id', tId);
+      }
+    } else if(S.filter !== 'all'){
+      // 通常モード: 道場フィルタ
+      query = query.eq('host_dojo_id', S.filter);
+    }
+
+    const { data, error } = await query;
+    if(error){
+      console.error('動画取得失敗:', error);
+      toast('動画取得失敗: ' + error.message, 'ng');
+      S.videos = [];
+    } else {
+      S.videos = data || [];
+    }
+
+    // ★【追加】各動画に「期限切れ」フラグを付与
+    for(const v of S.videos){
+      const publishedAt = v.published_at || v.recorded_at;
+      v._isExpired = publishedAt
+        ? (new Date(publishedAt).getTime() + VIDEO_LIFETIME_DAYS * 86400_000 < Date.now())
+        : false;
+    }
+
+    // ★【追加】サムネイル Signed URL を一括プリフェッチ
+    await prefetchThumbnailUrls();
+
+    // 大会ヒーローの試合数更新
+    if(S.mode === 'tournament' || S.mode === 'anon-tournament'){
+      $('th-videos').textContent = String(S.videos.length);
+    }
+  } finally {
+    S.loading = false;
+    $('list-loading').style.display = 'none';
+    renderVideos();
+  }
+}
+
+// ★【追加】動画一覧のサムネイル URL を一括で Signed URL 化
+async function prefetchThumbnailUrls(){
+  if(!S.videos || S.videos.length === 0) return;
+
+  const byBucket = {};
+  for(const v of S.videos){
+    if(!v.thumbnail_path) continue;
+    const bucket = v.thumbnail_bucket || 'karate-videos';
+    if(!byBucket[bucket]) byBucket[bucket] = new Set();
+    byBucket[bucket].add(v.thumbnail_path);
+  }
+
+  for(const [bucket, pathSet] of Object.entries(byBucket)){
+    const paths = Array.from(pathSet);
+    try{
+      const { data, error } = await S.sb.storage
+        .from(bucket)
+        .createSignedUrls(paths, 3600);
+      if(error){
+        console.warn(`[thumb prefetch] bucket=${bucket} error:`, error);
+        continue;
+      }
+      const map = {};
+      for(const d of (data || [])){
+        if(d.signedUrl && d.path) map[d.path] = d.signedUrl;
+      }
+      for(const v of S.videos){
+        if(v.thumbnail_path && (v.thumbnail_bucket || 'karate-videos') === bucket){
+          v._thumbUrl = map[v.thumbnail_path] || null;
+        }
+      }
+    }catch(e){
+      console.warn(`[thumb prefetch] bucket=${bucket} exception:`, e);
+    }
+  }
+}
+
+//═══════════════════════════════════════════════════════════════
+//  ★【会員体系v2】視聴権限判定
+//    tier: free(一般) / member(選手) / premium(プレミアム) / dojo(道場主) / admin
+//    ・購入済み: 常に視聴可
+//    ・admin: 全動画視聴可
+//    ・期限切れ(365日経過): 購入済み・admin 以外は視聴不可
+//    ・visibility=public: 全員視聴可
+//    ・自道場動画: 会員全員視聴可 (free/member/premium/dojo)
+//    ・visibility=premium: premium/dojo/admin のみ
+//    ・大会動画: premium/dojo=全部OK / member=自道場参加大会のみ /
+//                free=購入必要
+//═══════════════════════════════════════════════════════════════
+function canViewVideo(v){
+  // 購入済み (永続視聴可・期限切れでも視聴可)
+  if(S.purchasedVideoIds.has(v.id)) return true;
+
+  // 未ログインは視聴不可
+  if(!S.session) return false;
+
+  const tier = S.profile?.membership_tier || 'free';
+
+  // 管理者は全動画視聴可 (期限切れも視聴可)
+  if(tier === 'admin') return true;
+
+  // 期限切れ動画は視聴不可 (購入済み・admin は上で通過済み)
+  if(v._isExpired) return false;
+
+  // private は admin 以外不可
+  if(v.visibility === 'private') return false;
+
+  // public は全会員視聴可
+  if(v.visibility === 'public') return true;
+
+  // ★【修正】自道場動画: member/premium/dojo 会員のみ視聴可
+  //   ・free 会員は自道場所属でも視聴不可 (Public動画のみ)
+  //   ・専用に個別購入することで視聴可
+  const isOwnDojoVideo = v.host_dojo_id && S.dojos.some(d => d.id === v.host_dojo_id);
+  if(isOwnDojoVideo){
+    if(tier === 'member' || tier === 'premium' || tier === 'dojo'){
+      return true;
+    }
+    // free 会員はここで false になる (Publicは上で通過済み)
+    return false;
+  }
+
+  // プレミアム/道場主は他道場・大会動画も視聴可
+  if(tier === 'premium' || tier === 'dojo'){
+    return true;
+  }
+
+  // visibility=premium は premium/dojo/admin のみ
+  if(v.visibility === 'premium') return false;
+
+  // 選手会員: 自道場が参加した大会の動画のみ視聴可
+  if(tier === 'member' && v.tournament_id){
+    // 自道場が参加している大会かチェック
+    if(v.tournament_id && S.tournamentDojos.some(d =>
+        S.dojos.some(my => my.id === d.id))){
+      return true;
+    }
+    // 大会モードで既に loadVideos で取れた場合 (RLS判定済み)
+    if((S.mode === 'tournament' || S.mode === 'anon-tournament') &&
+        S.tournamentDojos.length === 0){
+      return true;
+    }
+    return false;  // 他大会は購入必要
+  }
+
+  // free (一般会員): 大会動画は購入必要
+  return false;
+}
+
+// ★【追加】期限切れ動画かの判定 (再ロード後の即時判定用)
+function isVideoExpired(v){
+  return !!v._isExpired;
+}
+
+function renderVideos(){
+  const grid = $('video-grid');
+  let list = applySearch(S.videos);
+  
+  // 大会モード時はクライアント側で道場フィルタ
+  if((S.mode === 'tournament' || S.mode === 'anon-tournament') && S.filter !== 'all'){
+    list = list.filter(v => v.host_dojo_id === S.filter);
+  }
+  
+  $('video-count').textContent = list.length === 0 ? '' : `${list.length}件`;
+
+  if(list.length === 0){
+    grid.innerHTML = '';
+    $('empty-state').style.display = '';
+    if(S.search){
+      $('empty-msg').textContent = `「${S.search}」に一致する動画はありません`;
+    } else if(S.mode === 'tournament' || S.mode === 'anon-tournament'){
+      $('empty-msg').textContent = 'この大会の動画はまだ登録されていません';
+    } else if(S.filter !== 'all'){
+      $('empty-msg').textContent = 'この道場の動画はまだありません';
+    } else if(!S.session){
+      $('empty-msg').textContent = '視聴可能な動画がありません';
+    } else if(S.profile?.membership_tier === 'free'){
+      $('empty-msg').innerHTML = '視聴可能な動画がありません。<br>会員登録または個別購入をお試しください。';
+    } else {
+      $('empty-msg').textContent = '視聴可能な動画がまだ登録されていません';
+    }
+    return;
+  }
+  $('empty-state').style.display = 'none';
+
+  grid.innerHTML = list.map(v => {
+    const canView = canViewVideo(v);
+    const purchased = S.purchasedVideoIds.has(v.id);
+    const lockClass = canView ? '' : 'locked';
+    const purClass  = purchased ? 'purchased' : '';
+    
+    // ★【修正】サムネイルを Signed URL 対応 + 期限切れバッジ
+    const thumbSrc = v._thumbUrl
+      ? v._thumbUrl
+      : (v.video_id ? `https://img.youtube.com/vi/${escapeHtml(v.video_id)}/mqdefault.jpg` : '');
+    const isExpired = v._isExpired && !purchased && S.profile?.membership_tier !== 'admin';
+
+    return `
+    <div class="video-card ${lockClass} ${purClass} ${isExpired ? 'expired' : ''}" data-id="${v.id}">
+      <div class="video-thumb">
+        ${thumbSrc
+          ? `<img src="${escapeHtml(thumbSrc)}" alt="" loading="lazy"
+                  onerror="this.style.background='#1a2540';this.removeAttribute('src')">`
+          : `<div style="width:100%;height:100%;background:#1a2540;display:flex;align-items:center;justify-content:center;color:#4a5a70;font-size:32px">🎬</div>`}
+        ${isExpired ? '<span class="expired-badge">⏳ 期限切れ</span>' : ''}
+        ${canView
+          ? `<div class="play-overlay"><div class="play-icon">▶</div></div>`
+          : (isExpired
+              ? `<span class="price-badge" style="background:rgba(224,72,88,.9)">📦 購入で視聴可</span>
+                 <span class="lock-icon">🔒</span>`
+              : `<span class="price-badge">${purchased ? '✓ 購入済み' : '¥500で購入'}</span>
+                 <span class="lock-icon">🔒</span>`)}
+        ${v.visibility !== 'dojo' && v.visibility ? `<span class="visibility-badge">${visibilityLabel(v.visibility)}</span>` : ''}
+      </div>
+      <div class="video-info">
+        ${v.tournament ? `<div class="video-tournament">${escapeHtml(v.tournament)}</div>` : ''}
+        <div class="video-players">
+          <span class="player-name r">${escapeHtml(v.red_name || '赤')}</span>
+          <span class="player-vs">vs</span>
+          <span class="player-name b">${escapeHtml(v.blue_name || '青')}</span>
+        </div>
+        <div class="video-meta">
+          ${escapeHtml(v.class || '')}
+          ${v.court ? `<span class="dot">·</span>C${escapeHtml(v.court)}` : ''}
+          ${v.dojo?.name ? `<span class="dot">·</span>${escapeHtml(v.dojo.name)}` : ''}
+          <span class="dot">·</span><span class="video-time">${formatDateShort(v.recorded_at)}</span>
+        </div>
+      </div>
+    </div>
+  `}).join('');
+
+  // クリックイベント
+  grid.querySelectorAll('.video-card').forEach(card => {
+    card.onclick = () => handleVideoClick(card.dataset.id);
+  });
+}
+
+// ★【会員別視聴v3】視聴モード判定
+//   full    : 大画面視聴 (+購入済みならDL)
+//   preview : 小画面プレビュー + 購入バー (選手会員)
+//   locked  : 視聴不可 → 購入導線
+function decideViewMode(v){
+  // 購入済みは常に大画面
+  if(S.purchasedVideoIds.has(v.id)) return 'full';
+  const tier = S.profile?.membership_tier || 'free';
+  // 上位会員は従来どおり
+  if(tier === 'admin' || tier === 'dojo' || tier === 'premium'){
+    return canViewVideo(v) ? 'full' : 'locked';
+  }
+  // 無料公開動画は誰でも大画面
+  if(v.visibility === 'public' && !v._isExpired) return 'full';
+  // 選手会員: 視聴権のある動画は小画面プレビュー
+  if(tier === 'member'){
+    return canViewVideo(v) ? 'preview' : 'locked';
+  }
+  // free(一般会員): プレビュー不可
+  return 'locked';
+}
+
+// 動画カードクリック時の挙動分岐
+function handleVideoClick(videoId){
+  const v = S.videos.find(x => x.id === videoId);
+  if(!v) return;
+
+  const mode = decideViewMode(v);
+  if(mode === 'full'){ openPlayer(videoId); return; }
+  if(mode === 'preview'){ openPlayer(videoId, 'preview'); return; }
+
+  // locked
+  if(!S.session){
+    // 未ログイン → ログイン誘導モーダル
+    S.pendingAction = { type:'play', videoId };
+    openLoginPromptModal();
+    return;
+  }
+  // ログイン済みだが視聴権なし → 購入導線 (freeは購入のみ表示)
+  S.pendingAction = { type:'play', videoId };
+  openOptionsModal(v);
+}
+
+function visibilityLabel(v){
+  switch(v){
+    case 'premium': return 'PREMIUM';
+    case 'public':  return 'PUBLIC';
+    case 'private': return 'PRIVATE';
+    default:        return '';
+  }
+}
+
+function applySearch(list){
+  if(!S.search) return list;
+  const q = S.search.toLowerCase();
+  return list.filter(v =>
+    (v.title || '').toLowerCase().includes(q) ||
+    (v.tournament || '').toLowerCase().includes(q) ||
+    (v.class || '').toLowerCase().includes(q) ||
+    (v.red_name || '').toLowerCase().includes(q) ||
+    (v.blue_name || '').toLowerCase().includes(q) ||
+    (v.dojo?.name || '').toLowerCase().includes(q)
+  );
+}
+
+//═══════════════════════════════════════════════════════════════
+//  道場フィルタチップ
+//═══════════════════════════════════════════════════════════════
+function buildFilterChips(){
+  const bar = $('filter-bar');
+  // 既存のチップをクリア (「すべて」だけ残す)
+  bar.querySelectorAll('.chip:not([data-filter="all"])').forEach(c => c.remove());
+
+  for(const d of S.dojos){
+    const chip = document.createElement('button');
+    chip.className = 'chip';
+    chip.dataset.filter = d.id;
+    chip.textContent = d.name;
+    bar.appendChild(chip);
+  }
+
+  // 全チップにイベント
+  bar.querySelectorAll('.chip').forEach(c => {
+    c.onclick = () => {
+      bar.querySelectorAll('.chip').forEach(x => x.classList.remove('active'));
+      c.classList.add('active');
+      S.filter = c.dataset.filter;
+      $('section-title').textContent = (S.filter === 'all') ? '最新の試合'
+        : (S.dojos.find(d => d.id === S.filter)?.name || '道場別');
+      loadVideos();
+    };
+  });
+}
+
+//═══════════════════════════════════════════════════════════════
+//  検索
+//═══════════════════════════════════════════════════════════════
+let searchDebounce;
+$('search-input').oninput = (e) => {
+  S.search = e.target.value.trim();
+  clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(() => renderVideos(), 200);
+};
+
+// ロゴクリックでホームに戻る (検索クリア・全フィルタ)
+$('app-logo').onclick = () => {
+  $('search-input').value = '';
+  S.search = '';
+  S.filter = 'all';
+  $('filter-bar').querySelectorAll('.chip').forEach(c =>
+    c.classList.toggle('active', c.dataset.filter === 'all'));
+  $('section-title').textContent = '最新の試合';
+  loadVideos();
+};
+
+//═══════════════════════════════════════════════════════════════
+//  動画プレイヤー
+//═══════════════════════════════════════════════════════════════
+// ★【会員体系v2】現在再生中の動画を保持 (ダウンロードボタンから参照)
+let _currentPlayingVideo = null;
+let _previewMode = false;   // ★【会員別視聴v3】小画面プレビュー中フラグ
+
+async function openPlayer(videoId, viewMode){
+  const v = S.videos.find(x => x.id === videoId);
+  if(!v) return;
+
+  _currentPlayingVideo = v;
+  // ★【会員別視聴v3】プレビュー(小画面)モードの切替
+  _previewMode = (viewMode === 'preview');
+  $('player-modal').classList.toggle('preview-open', _previewMode);
+  const pbar = $('pm-preview-bar');
+  if(pbar){
+    pbar.style.display = _previewMode ? 'flex' : 'none';
+    if(_previewMode){
+      $('pm-preview-buy').onclick = () => startCheckout({ type:'video_purchase', video_id: v.id });
+    }
+  }
+  const wrap = $('pm-iframe-wrap');
+
+  // ローディング表示
+  wrap.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:center;
+                width:100%;height:100%;color:#8090a8;font-size:14px;
+                background:#000;flex-direction:column;gap:10px">
+      <div style="font-size:32px">⏳</div>
+      <div>動画URLを取得中...</div>
+    </div>`;
+
+  // 動画情報表示
+  renderPlayerInfo(v);
+  // ダウンロードボタン表示制御
+  updateDownloadButton(v);
+
+  $('player-modal').classList.add('on');
+  document.body.style.overflow = 'hidden';
+
+  try{
+    // 優先1: storage_path から直接 Signed URL 発行
+    if(v.storage_path){
+      const bucket = v.storage_bucket || 'karate-videos';
+      const { data: signed, error } = await S.sb.storage
+        .from(bucket).createSignedUrl(v.storage_path, 3600);
+
+      if(error){
+        console.warn('[openPlayer] Signed URL 取得エラー → Edge Function 切替:', error);
+        return await openPlayerViaEdgeFunction(v);
+      }
+      if(!signed?.signedUrl) return await openPlayerViaEdgeFunction(v);
+
+      renderVideoPlayer(signed.signedUrl, v._thumbUrl);
+      return;
+    }
+
+    // 優先2: Edge Function 経由
+    if(v.id) return await openPlayerViaEdgeFunction(v);
+
+    // フォールバック: 従来 YouTube
+    if(v.video_id){
+      wrap.innerHTML =
+        `<iframe src="https://www.youtube.com/embed/${escapeHtml(v.video_id)}?rel=0&modestbranding=1&autoplay=1"
+           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+           allowfullscreen></iframe>`;
+      return;
+    }
+
+    renderPlayerError('動画ソースが見つかりませんでした');
+  }catch(e){
+    console.error('[openPlayer] 例外:', e);
+    renderPlayerError('動画を読み込めませんでした: ' + (e.message || e));
+  }
+}
+
+// ★【追加】プレイヤー下の情報エリアを更新
+function renderPlayerInfo(v){
+  $('pm-tournament').textContent = v.tournament || '';
+  $('pm-red-name').textContent  = v.red_name  || '赤';
+  $('pm-blue-name').textContent = v.blue_name || '青';
+
+  const metaParts = [];
+  if(v.class)   metaParts.push(`🎓 ${escapeHtml(v.class)}`);
+  if(v.court)   metaParts.push(`🏟 コート ${escapeHtml(String(v.court))}`);
+  if(v.dojo?.name) metaParts.push(`🏯 ${escapeHtml(v.dojo.name)}`);
+  if(v.recorded_at){
+    const d = new Date(v.recorded_at);
+    if(!isNaN(d.getTime())){
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      metaParts.push(`📅 ${yyyy}/${mm}/${dd}`);
+    }
+  }
+  $('pm-meta').innerHTML = metaParts.join('<span class="meta-sep">·</span>');
+
+  const badges = [];
+  const visMap = {
+    public:   { cls: 'green', label: '🌐 公開' },
+    dojo:     { cls: 'gold',  label: '🏯 道場会員' },
+    premium:  { cls: 'gold',  label: '💎 プレミアム' },
+    private:  { cls: 'blue',  label: '🔒 非公開' }
+  };
+  if(v.visibility && visMap[v.visibility]){
+    const b = visMap[v.visibility];
+    badges.push(`<span class="p-badge ${b.cls}">${b.label}</span>`);
+  }
+  if(v._isExpired){
+    badges.push(`<span class="p-badge red">⏳ 期限切れ (365日超過)</span>`);
+  }
+  if(v.red_bib || v.blue_bib){
+    const parts = [];
+    if(v.red_bib)  parts.push(`赤 #${escapeHtml(String(v.red_bib))}`);
+    if(v.blue_bib) parts.push(`青 #${escapeHtml(String(v.blue_bib))}`);
+    badges.push(`<span class="p-badge blue">${parts.join(' / ')}</span>`);
+  }
+  $('pm-badges').innerHTML = badges.join('');
+
+  // ★【チャプター機能】試合イベントを描画
+  renderChapters(v);
+}
+
+//═══════════════════════════════════════════════════════════════
+//  ★【チャプター機能】試合イベントの表示・シーク処理
+//═══════════════════════════════════════════════════════════════
+// video_master.metadata.match_events から試合イベントを描画
+function renderChapters(v){
+  const area = $('pm-chapters-area');
+  const listEl = $('pm-chapters-list');
+  const countEl = $('pm-chapters-count');
+  const timelineEl = $('pm-chapters-timeline');
+
+  // metadata から試合イベントを取得
+  const md = v?.metadata || {};
+  const me = md.match_events;
+  const events = me?.events;
+
+  if(!events || !Array.isArray(events) || events.length === 0){
+    area.style.display = 'none';
+    return;
+  }
+
+  // 動画の総時間を推定 (duration_sec があれば最優先、なければ最後のイベント秒数から)
+  const duration = me.duration_sec ||
+    Math.max(...events.map(e => Number(e.sec) || 0)) + 5;
+  S._chaptersDuration = duration;
+  S._chaptersEvents = events;
+
+  countEl.textContent = String(events.length);
+  area.style.display = 'block';
+
+  // タイムラインマーカーを配置
+  const oldMarkers = timelineEl.querySelectorAll('.tl-marker');
+  oldMarkers.forEach(m => m.remove());
+  events.forEach((ev, idx) => {
+    const sec = Number(ev.sec) || 0;
+    const pct = duration > 0 ? (sec / duration) * 100 : 0;
+    const marker = document.createElement('div');
+    marker.className = 'tl-marker ' + getChapterColorClass(ev);
+    marker.style.left = `calc(${pct}% - 1px)`;
+    marker.title = `${formatChapterTime(sec)} ${getChapterLabel(ev)}`;
+    marker.dataset.idx = String(idx);
+    marker.onclick = (e) => {
+      e.stopPropagation();
+      seekTo(sec);
+    };
+    timelineEl.appendChild(marker);
+  });
+
+  // チャプターリスト描画
+  listEl.innerHTML = events.map((ev, idx) => {
+    const sec = Number(ev.sec) || 0;
+    const time = formatChapterTime(sec);
+    const icon = getChapterIcon(ev);
+    const iconCls = getChapterIconColorClass(ev);
+    const label = getChapterLabel(ev);
+    const playerName = getChapterPlayerName(v, ev);
+    const scoreBadge = ev.cumulative
+      ? `<span class="ci-score">${escapeHtml(String(ev.cumulative))}点</span>`
+      : '';
+    return `
+      <div class="chapter-item" data-idx="${idx}" data-sec="${sec}">
+        <span class="ci-time">${escapeHtml(time)}</span>
+        <span class="ci-icon ${iconCls}">${icon}</span>
+        <span class="ci-label">
+          ${escapeHtml(label)}
+          ${playerName ? `<span class="ci-player"> · ${escapeHtml(playerName)}</span>` : ''}
+        </span>
+        ${scoreBadge}
+      </div>
+    `;
+  }).join('');
+
+  // クリックでシーク
+  listEl.querySelectorAll('.chapter-item').forEach(item => {
+    item.onclick = () => {
+      const sec = Number(item.dataset.sec) || 0;
+      seekTo(sec);
+    };
+  });
+
+  // タイムラインバー自体をクリックしてもシーク
+  timelineEl.onclick = (e) => {
+    if(e.target !== timelineEl && !e.target.classList.contains('tl-progress')) return;
+    const rect = timelineEl.getBoundingClientRect();
+    const pct = (e.clientX - rect.left) / rect.width;
+    const sec = Math.max(0, Math.min(duration, pct * duration));
+    seekTo(sec);
+  };
+
+  // 再生位置の追従 (video 要素の timeupdate)
+  setupChapterProgressTracking();
+}
+
+// 動画をシーク
+function seekTo(sec){
+  const video = document.querySelector('#pm-iframe-wrap video');
+  if(video && !isNaN(sec)){
+    video.currentTime = Math.max(0, sec);
+    // 一時停止中なら再生開始
+    if(video.paused){
+      video.play().catch(() => {/* 自動再生ブロック時は無視 */});
+    }
+    toast(`⏭ ${formatChapterTime(sec)} にジャンプ`, 'ok');
+  }
+}
+
+// 動画の再生位置に応じて進捗バー・現在チャプターを更新
+function setupChapterProgressTracking(){
+  const video = document.querySelector('#pm-iframe-wrap video');
+  if(!video) return;
+
+  const progressEl = $('pm-chapters-progress');
+  const listEl = $('pm-chapters-list');
+  const duration = S._chaptersDuration || 0;
+  const events = S._chaptersEvents || [];
+
+  // 既存のリスナを外してから貼り直す
+  if(S._chapterProgressHandler){
+    video.removeEventListener('timeupdate', S._chapterProgressHandler);
+  }
+
+  S._chapterProgressHandler = () => {
+    const t = video.currentTime;
+    // 進捗バー
+    if(progressEl && duration > 0){
+      const pct = Math.min(100, (t / duration) * 100);
+      progressEl.style.width = pct + '%';
+    }
+    // 現在のチャプターをハイライト (経過秒がイベント秒を超えた最後のもの)
+    let currentIdx = -1;
+    for(let i = 0; i < events.length; i++){
+      if(t >= (Number(events[i].sec) || 0)) currentIdx = i;
+      else break;
+    }
+    const items = listEl.querySelectorAll('.chapter-item');
+    items.forEach((item, idx) => {
+      item.classList.toggle('current', idx === currentIdx);
+    });
+  };
+  video.addEventListener('timeupdate', S._chapterProgressHandler);
+}
+
+// mm:ss 表示
+function formatChapterTime(sec){
+  const s = Math.floor(sec);
+  const m = Math.floor(s / 60);
+  return `${String(m).padStart(2,'0')}:${String(s % 60).padStart(2,'0')}`;
+}
+
+// イベント種別ごとのアイコン
+function getChapterIcon(ev){
+  const type = (ev.type || '').toLowerCase();
+  if(type === 'start') return '▶';
+  if(type === 'end')   return '🏁';
+  if(type === 'warning') return '⚠';
+  const point = ev.point || '';
+  if(point === '一本') return '🥇';
+  if(point === '技あり') return '⭐';
+  if(point === '有効') return '✨';
+  return '•';
+}
+
+function getChapterIconColorClass(ev){
+  const t = (ev.type || '').toLowerCase();
+  if(t === 'start' || t === 'end') return 'gold';
+  if(t === 'warning') return 'orange';
+  const side = (ev.side || '').toLowerCase();
+  if(side === 'red') return 'red';
+  if(side === 'blue') return 'blue';
+  return 'gold';
+}
+
+// タイムラインマーカーの色クラス
+function getChapterColorClass(ev){
+  const t = (ev.type || '').toLowerCase();
+  if(t === 'start') return 'start';
+  if(t === 'end')   return 'end';
+  if(t === 'warning') return 'warning';
+  const side = (ev.side || '').toLowerCase();
+  if(side === 'red') return 'red';
+  if(side === 'blue') return 'blue';
+  return 'start';
+}
+
+// イベント種別のラベル
+function getChapterLabel(ev){
+  const type = (ev.type || '').toLowerCase();
+  if(type === 'start') return ev.label || '試合開始';
+  if(type === 'end'){
+    const winner = ev.winner === 'red' ? '赤勝ち' : ev.winner === 'blue' ? '青勝ち' : '試合終了';
+    return ev.label || winner;
+  }
+  if(type === 'warning') return ev.note || '警告';
+  if(type === 'score'){
+    return ev.point || '得点';
+  }
+  return ev.label || ev.type || 'イベント';
+}
+
+// イベントの選手名を取得 (side から選手を特定)
+function getChapterPlayerName(v, ev){
+  const side = (ev.side || '').toLowerCase();
+  if(side === 'red')  return v.red_name || '赤';
+  if(side === 'blue') return v.blue_name || '青';
+  return '';
+}
+
+// ★【追加】ダウンロードボタンの表示制御 (プレミアム会員以上のみ)
+async function updateDownloadButton(v){
+  const area = $('pm-download-area');
+  const countEl = $('pm-download-count');
+  const tier = S.profile?.membership_tier || 'free';
+  const isPremiumOrAbove = ['premium','dojo','admin'].includes(tier);
+  const purchased = S.purchasedVideoIds.has(v.id);
+
+  // ★【会員別視聴v3】プレビュー(小画面)中はダウンロード不可
+  if(_previewMode){
+    area.style.display = 'none';
+    return;
+  }
+  if(!isPremiumOrAbove && !purchased){
+    area.style.display = 'none';
+    return;
+  }
+  area.style.display = 'block';
+  // 購入済み+軽量版ありは720Pダウンロード表記
+  const dlLabel = document.querySelector('#pm-download-btn .pm-dl-label');
+  if(dlLabel){
+    dlLabel.textContent = (purchased && v?.metadata?.proxy_path)
+      ? '720P動画をダウンロード' : '動画をダウンロード';
+  }
+
+  // 月間ダウンロード数を取得
+  if(!purchased && tier !== 'admin'){
+    try{
+      const monthKey = new Date().toISOString().slice(0, 7);
+      const { count } = await S.sb
+        .from('video_downloads')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', S.session.user.id)
+        .eq('month_key', monthKey);
+      const used = count || 0;
+      const remaining = 10 - used;
+      countEl.innerHTML = remaining > 3
+        ? `📊 今月のダウンロード: <span class="count-num">${used}/10 動画</span>`
+        : `⚠ 今月のダウンロード残り: <span class="count-num">${remaining} 動画</span>`;
+      countEl.className = 'pm-download-count' + (remaining <= 3 ? ' warning' : '');
+    }catch(e){
+      countEl.textContent = '';
+    }
+  } else if(purchased){
+    countEl.innerHTML = `✓ 購入済み動画 (無制限ダウンロード可)`;
+    countEl.className = 'pm-download-count';
+  } else {
+    countEl.innerHTML = `👑 管理者 (無制限ダウンロード可)`;
+    countEl.className = 'pm-download-count';
+  }
+}
+
+// ★【追加】Edge Function 経由で Signed URL 取得
+async function openPlayerViaEdgeFunction(v){
+  try{
+    const { data: { session } } = await S.sb.auth.getSession();
+    if(!session){ renderPlayerError('ログインが必要です'); return; }
+
+    const response = await fetch(`${CFG.SUPABASE_URL}/functions/v1/get-signed-urls`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+        'apikey': CFG.SUPABASE_KEY
+      },
+      body: JSON.stringify({ video_ids: [v.id], type: 'both' })
+    });
+
+    if(!response.ok){ throw new Error(`HTTP ${response.status}`); }
+
+    const result = await response.json();
+    const entry = result.urls?.[v.id];
+
+    if(!entry){ renderPlayerError('動画情報が返されませんでした'); return; }
+    if(entry.error === 'expired'){
+      renderPlayerError('この動画は公開から1年が経過し、視聴期限が切れています。\n購入すれば期限に関係なく視聴できます。');
+      return;
+    }
+    if(entry.error === 'permission_denied'){ renderPlayerError('この動画の視聴権限がありません'); return; }
+    if(!entry.video_url){ renderPlayerError('動画URLが取得できませんでした'); return; }
+
+    renderVideoPlayer(entry.video_url, entry.thumbnail_url || v._thumbUrl);
+  }catch(e){
+    console.error('[openPlayerViaEdgeFunction] error:', e);
+    renderPlayerError('動画を読み込めませんでした: ' + (e.message || e));
+  }
+}
+
+// ★【追加】HTML5 <video> タグを描画
+function renderVideoPlayer(videoUrl, posterUrl){
+  const wrap = $('pm-iframe-wrap');
+  wrap.innerHTML = `
+    <video
+      src="${escapeHtml(videoUrl)}"
+      ${posterUrl ? `poster="${escapeHtml(posterUrl)}"` : ''}
+      controls autoplay playsinline preload="metadata"
+      controlsList="nodownload">
+      お使いのブラウザは動画再生に対応していません
+    </video>
+  `;
+  // ★【チャプター機能】動画要素生成後に、metadata から総時間を補正 + 追従開始
+  const video = wrap.querySelector('video');
+  if(video){
+    // メタデータ読込後に duration が判明したら、S._chaptersDuration が
+    // 未設定・過小なら実測値で上書きしてタイムラインを再描画する
+    video.addEventListener('loadedmetadata', () => {
+      if(video.duration && isFinite(video.duration)){
+        const md = _currentPlayingVideo?.metadata?.match_events;
+        const stored = md?.duration_sec;
+        // 保存値が無い or 動画長より短い場合のみ実測で更新
+        if((!stored || stored < video.duration) && _currentPlayingVideo){
+          if(S._chaptersDuration !== video.duration){
+            S._chaptersDuration = video.duration;
+            // タイムラインマーカーを再配置
+            renderChapters(_currentPlayingVideo);
+          }
+        }
+      }
+      // 追従を有効化 (シーク時のハイライト・進捗バー更新)
+      setupChapterProgressTracking();
+    });
+    // loadedmetadata が既に発火済みの端末対策
+    if(video.readyState >= 1){
+      setupChapterProgressTracking();
+    }
+  }
+}
+
+// ★【追加】プレイヤーにエラー表示
+function renderPlayerError(msg){
+  const wrap = $('pm-iframe-wrap');
+  wrap.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:center;
+                width:100%;height:100%;color:#ff9aa5;font-size:14px;
+                background:#000;flex-direction:column;gap:10px;padding:20px;text-align:center">
+      <div style="font-size:36px">⚠</div>
+      <div style="white-space:pre-wrap">${escapeHtml(msg)}</div>
+    </div>
+  `;
+}
+
+// ★【ダウンロード名】日本語の見やすいファイル名を生成する。
+//   形式: 大会名_YYYYMMDD_HHmm_赤選手名+赤点-青点+青選手名.ext
+//   例:   第37回京都市空手道選手権大会_20260724_2121_桑原蒼次朗3-2山口翔真.mp4
+function sanitizeFileNamePart(s){
+  return String(s || '')
+    .replace(/[\uFF01-\uFF5E]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)) // 全角→半角
+    .replace(/[\/\\?<>:"|*\u0000-\u001F]/g, '') // ファイル名禁止文字
+    .replace(/\s+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .trim();
+}
+
+// metadata.match_events の cumulative から赤/青の最終スコアを推定する。
+// (video_master に点数列が無いため、イベント履歴の side ごとの最後の cumulative を採用)
+function extractFinalScores(v){
+  const events = v?.metadata?.match_events?.events;
+  if(!Array.isArray(events)) return { r: '', b: '' };
+  let r = '', b = '';
+  for(const ev of events){
+    const side = (ev.side || '').toLowerCase();
+    const cum = ev.cumulative;
+    if(cum === undefined || cum === null || cum === '') continue;
+    if(side === 'red')  r = String(cum);
+    if(side === 'blue') b = String(cum);
+  }
+  return { r, b };
+}
+
+function buildKarateDownloadName(v, fallbackName){
+  // 拡張子: フォールバック名 or storage_path から流用
+  let ext = 'mp4';
+  const extSrc = fallbackName || v?.storage_path || '';
+  if(extSrc.includes('.')) ext = extSrc.split('.').pop().split('?')[0].toLowerCase() || 'mp4';
+
+  // 日時: recorded_at (ISO/日時文字列) を JST の YYYYMMDD_HHmm に整形
+  let dateSeg = '';
+  if(v?.recorded_at){
+    const d = new Date(v.recorded_at);
+    if(!isNaN(d.getTime())){
+      // JST に変換
+      const j = new Date(d.getTime() + (9 * 3600 * 1000 - d.getTimezoneOffset() * 60 * 1000));
+      const p2 = n => String(n).padStart(2, '0');
+      const ymd = `${j.getUTCFullYear()}${p2(j.getUTCMonth()+1)}${p2(j.getUTCDate())}`;
+      const hm  = `${p2(j.getUTCHours())}${p2(j.getUTCMinutes())}`;
+      dateSeg = `${ymd}_${hm}`;
+    }
+  }
+
+  // 選手名 + 点数
+  const rName = sanitizeFileNamePart(v?.red_name || '') || '赤';
+  const bName = sanitizeFileNamePart(v?.blue_name || '') || '青';
+  let { r: rScore, b: bScore } = extractFinalScores(v);
+  // ★【修正】片方だけ得点イベントがある試合(もう一方が無得点=0)でも点数を表示する。
+  //   どちらか一方でもスコアが取れていれば、空の側は '0' として補完する。
+  if(rScore !== '' || bScore !== ''){
+    if(rScore === '') rScore = '0';
+    if(bScore === '') bScore = '0';
+  }
+  const players = (rScore !== '' && bScore !== '')
+    ? `${rName}${rScore}-${bScore}${bName}`
+    : `${rName}_${bName}`;
+
+  const tournament = sanitizeFileNamePart(v?.tournament || '');
+  const stem = [tournament, dateSeg, players].filter(Boolean).join('_');
+  let safeStem = sanitizeFileNamePart(stem) || (fallbackName ? fallbackName.replace(/\.[^.]+$/, '') : 'karate_video');
+  if(safeStem.length > 180) safeStem = safeStem.slice(0, 180);
+
+  return `${safeStem}.${ext}`;
+}
+
+// ★【追加】動画ダウンロード実行 (プレミアム会員 or 購入済み)
+async function downloadCurrentVideo(){
+  const v = _currentPlayingVideo;
+  if(!v){ toast('動画情報が見つかりません', 'ng'); return; }
+
+  const btn = $('pm-download-btn');
+  const originalLabel = btn.querySelector('.pm-dl-label').textContent;
+  btn.disabled = true;
+  btn.querySelector('.pm-dl-label').textContent = '準備中...';
+
+  try{
+    const { data: { session } } = await S.sb.auth.getSession();
+    if(!session){ toast('ログインが必要です', 'ng'); return; }
+
+    // ★【会員別視聴v3】購入済み × 軽量版(720p)あり → 720Pを直接ダウンロード
+    //   (購入済みはダウンロード無制限のため、回数管理のEdge Functionを経由しない)
+    const proxyPath = v?.metadata?.proxy_path;
+    if(S.purchasedVideoIds.has(v.id) && proxyPath){
+      const pBucket = v?.metadata?.proxy_bucket || v.storage_bucket || 'karate-videos';
+      const { data: pSigned, error: pErr } = await S.sb.storage
+        .from(pBucket).createSignedUrl(proxyPath, 3600);
+      if(pSigned?.signedUrl){
+        let dlName = buildKarateDownloadName(v, proxyPath);
+        dlName = dlName.replace(/\.([A-Za-z0-9]+)$/, '_720p.$1');
+        let dlUrl = pSigned.signedUrl;
+        try{
+          const u = new URL(dlUrl);
+          u.searchParams.set('download', dlName);
+          dlUrl = u.toString();
+        }catch(_){
+          dlUrl += (dlUrl.includes('?') ? '&' : '?') + 'download=' + encodeURIComponent(dlName);
+        }
+        const a = document.createElement('a');
+        a.href = dlUrl; a.download = dlName; a.rel = 'noopener';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        toast('✓ 720P動画のダウンロードを開始しました', 'ok');
+        return;
+      }
+      console.warn('[download] 720p署名URL取得失敗 → 通常経路へ:', pErr);
+    }
+
+    const response = await fetch(`${CFG.SUPABASE_URL}/functions/v1/download-video`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+        'apikey': CFG.SUPABASE_KEY
+      },
+      body: JSON.stringify({ video_id: v.id })
+    });
+
+    const result = await response.json();
+
+    if(!response.ok || !result.success){
+      if(result.upgrade_required){
+        toast('プレミアム会員のみダウンロード可能です', 'warn');
+        openPlanModal();
+        return;
+      }
+      if(result.limit_reached){
+        toast(`月間ダウンロード上限 (${result.count_limit}動画) に達しました`, 'warn');
+        return;
+      }
+      throw new Error(result.error || `HTTP ${response.status}`);
+    }
+
+    // ダウンロード実行
+    // ★ 生成した日本語ファイル名
+    const dlName = buildKarateDownloadName(v, result.filename) || result.filename || 'karate-video.mp4';
+
+    // ★【クロスオリジン対策】署名付きURL(別オリジン)では a.download 属性が無視され、
+    //   サーバ側の Content-Disposition (=Storageキー名) が優先されてしまう。
+    //   Supabase Storage は URL に download=<ファイル名> を付けると
+    //   Content-Disposition: attachment; filename*=UTF-8''... をサーバ側で発行するため、
+    //   これを利用してクロスオリジンでも日本語名で保存させる。
+    let dlUrl = result.download_url;
+    try{
+      const u = new URL(dlUrl);
+      // 既存の download パラメータがあれば上書き
+      u.searchParams.set('download', dlName);
+      dlUrl = u.toString();
+    }catch(_){
+      // URL parse に失敗した場合は素朴に付与
+      dlUrl += (dlUrl.includes('?') ? '&' : '?') + 'download=' + encodeURIComponent(dlName);
+    }
+
+    const a = document.createElement('a');
+    a.href = dlUrl;
+    a.download = dlName;  // 同一オリジン時のフォールバックとして残す
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    toast(`✓ ダウンロード開始 (今月 ${result.count_used}/${result.count_limit})`, 'ok');
+    // カウント表示を更新
+    await updateDownloadButton(v);
+  }catch(e){
+    console.error('[download] error:', e);
+    toast('ダウンロード失敗: ' + (e.message || e), 'ng');
+  }finally{
+    btn.disabled = false;
+    btn.querySelector('.pm-dl-label').textContent = originalLabel;
+  }
+}
+
+function closePlayer(){
+  // ★【チャプター機能】追従リスナと状態をクリーンアップ
+  if(S._chapterProgressHandler){
+    const oldVideo = document.querySelector('#pm-iframe-wrap video');
+    if(oldVideo){
+      try{ oldVideo.removeEventListener('timeupdate', S._chapterProgressHandler); }catch{}
+    }
+    S._chapterProgressHandler = null;
+  }
+  S._chaptersDuration = 0;
+  S._chaptersEvents = null;
+  $('pm-chapters-area').style.display = 'none';
+
+  $('player-modal').classList.remove('on');
+  $('player-modal').classList.remove('preview-open');
+  $('pm-preview-bar').style.display = 'none';
+  _previewMode = false;
+  $('pm-iframe-wrap').innerHTML = '';
+  document.body.style.overflow = '';
+  _currentPlayingVideo = null;
+}
+
+// 閉じるボタン
+document.querySelectorAll('[data-close-player]').forEach(b => b.onclick = closePlayer);
+// ★【追加】ダウンロードボタン
+$('pm-download-btn').onclick = downloadCurrentVideo;
+// 背景クリックでも閉じる
+$('player-modal').onclick = (e) => {
+  if(e.target === $('player-modal')) closePlayer();
+};
+// Escキーで閉じる
+document.addEventListener('keydown', (e) => {
+  if(e.key === 'Escape'){
+    if($('player-modal').classList.contains('on')) closePlayer();
+    else if($('user-menu').classList.contains('on')) closeUserMenu();
+    // ★【招待コード】招待モーダルもEscで閉じる
+    else if($('invite-modal').classList.contains('on')) closeInviteModal();
+  }
+});
+
+//═══════════════════════════════════════════════════════════════
+//  ユーザーメニュー
+//═══════════════════════════════════════════════════════════════
+$('btn-user-menu').onclick = () => openUserMenu();
+$('btn-close-user-menu').onclick = () => closeUserMenu();
+$('user-menu-overlay').onclick = () => closeUserMenu();
+
+function openUserMenu(){
+  // 表示内容を反映
+  const p = S.profile || {};
+  $('um-email').textContent = p.email || S.session?.user?.email || '—';
+  $('um-name').textContent  = p.display_name || '—';
+
+  const tier = p.membership_tier || 'free';
+  const tierEl = $('um-tier');
+  tierEl.textContent = tierLabel(tier);
+  tierEl.className = 'tier-badge ' + tier;
+
+  $('um-dojos').textContent = S.dojos.length === 0
+    ? '所属なし'
+    : S.dojos.map(d => d.name).join(', ');
+
+  $('um-expires').textContent = p.subscription_expires_at
+    ? formatDateTime(p.subscription_expires_at) + ' まで'
+    : '—';
+
+  // 「プランを変更・契約する」ボタンの文言調整
+  const changeBtn = $('btn-change-plan');
+  if(tier === 'free'){
+    changeBtn.textContent = 'プランを契約する';
+    changeBtn.style.display = '';
+  } else if(tier === 'admin'){
+    changeBtn.style.display = 'none';
+  } else if(tier === 'dojo'){
+    changeBtn.style.display = 'none';  // 道場主会員は別フローで管理
+  } else {
+    changeBtn.textContent = 'プランを変更する (アップグレード)';
+    changeBtn.style.display = '';
+  }
+
+  // 「契約を管理」ボタン (有料プラン契約中のみ表示)
+  const portalBtn = $('btn-customer-portal');
+  if(p.stripe_customer_id && tier !== 'free' && tier !== 'admin'){
+    portalBtn.style.display = '';
+  } else {
+    portalBtn.style.display = 'none';
+  }
+
+  $('user-menu').classList.add('on');
+  $('user-menu-overlay').classList.add('on');
+}
+
+function closeUserMenu(){
+  $('user-menu').classList.remove('on');
+  $('user-menu-overlay').classList.remove('on');
+}
+
+function tierLabel(t){
+  switch(t){
+    case 'free':    return '無料会員';
+    case 'member':  return '一般会員 (¥500/月)';
+    case 'premium': return 'プレミアム会員 (¥1,000/月)';
+    case 'dojo':    return '道場主会員 (¥3,000/月)';
+    case 'admin':   return '管理者';
+    default:        return t;
+  }
+}
+
+//═══════════════════════════════════════════════════════════════
+//  視聴方法選択モーダル
+//═══════════════════════════════════════════════════════════════
+function openOptionsModal(video){
+  $('om-title').textContent = video.title || `${video.red_name||'赤'} vs ${video.blue_name||'青'}`;
+  // ★【会員別視聴v3】free(一般会員)は購入のみ提示
+  const tier = S.profile?.membership_tier || 'free';
+  const subCard = document.querySelector('#options-modal [data-action="subscribe"]');
+  if(subCard) subCard.style.display = (tier === 'free') ? 'none' : '';
+  $('om-sub').textContent = (tier === 'free')
+    ? 'この動画は¥500で購入すると視聴できます'
+    : 'いずれかの方法で視聴できます';
+  $('options-modal').classList.add('on');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeOptionsModal(){
+  $('options-modal').classList.remove('on');
+  document.body.style.overflow = '';
+}
+
+document.querySelectorAll('[data-close-options]').forEach(b => b.onclick = closeOptionsModal);
+$('options-modal').onclick = (e) => {
+  if(e.target === $('options-modal')) closeOptionsModal();
+};
+
+// 視聴方法カードのクリック
+document.querySelectorAll('#options-modal .option-card').forEach(card => {
+  card.onclick = async () => {
+    const action = card.dataset.action;
+    const videoId = S.pendingAction?.videoId;
+    
+    if(action === 'purchase'){
+      if(!videoId){ toast('動画IDが特定できません', 'ng'); return; }
+      closeOptionsModal();
+      await startCheckout({ type: 'video_purchase', video_id: videoId });
+    } else if(action === 'subscribe'){
+      closeOptionsModal();
+      openPlanModal();
+    }
+  };
+});
+
+//═══════════════════════════════════════════════════════════════
+//  プラン選択モーダル
+//═══════════════════════════════════════════════════════════════
+// ★【会員体系v2】3プラン制対応
+function openPlanModal(){
+  const tier = S.profile?.membership_tier || 'free';
+  const freeBtn    = document.querySelector('[data-plan="free"]');
+  const memberBtn  = document.querySelector('[data-plan="member"]');
+  const premiumBtn = document.querySelector('[data-plan="premium"]');
+
+  // ボタン状態を初期化
+  [freeBtn, memberBtn, premiumBtn].forEach(btn => {
+    if(btn){ btn.disabled = false; }
+  });
+  if(freeBtn)    freeBtn.textContent = '無料プランで続ける';
+  if(memberBtn)  memberBtn.textContent = 'この内容で契約する';
+  if(premiumBtn) premiumBtn.textContent = 'この内容で契約する';
+
+  if(tier === 'free'){
+    // 未加入 → 無料は「継続」表示
+    if(freeBtn){ freeBtn.disabled = true; freeBtn.textContent = '✓ 現在のプラン'; }
+  } else if(tier === 'member'){
+    // 選手会員: 無料へダウングレードは非活性、プレミアムはアップグレード
+    if(freeBtn){ freeBtn.disabled = true; freeBtn.textContent = '上位プラン契約中'; }
+    if(memberBtn){ memberBtn.disabled = true; memberBtn.textContent = '✓ 契約中'; }
+    if(premiumBtn) premiumBtn.textContent = '💎 プレミアムにアップグレード';
+  } else if(tier === 'premium' || tier === 'dojo' || tier === 'admin'){
+    // プレミアム以上
+    if(freeBtn){ freeBtn.disabled = true; freeBtn.textContent = '上位プラン契約中'; }
+    if(memberBtn){ memberBtn.disabled = true; memberBtn.textContent = '上位プラン契約中'; }
+    if(premiumBtn){
+      premiumBtn.disabled = true;
+      premiumBtn.textContent = (tier === 'premium') ? '✓ 契約中' :
+                                (tier === 'admin') ? '👑 管理者' : '✓ 道場主契約中';
+    }
+  }
+
+  $('plan-modal').classList.add('on');
+  document.body.style.overflow = 'hidden';
+}
+
+function closePlanModal(){
+  $('plan-modal').classList.remove('on');
+  document.body.style.overflow = '';
+}
+
+document.querySelectorAll('[data-close-plan]').forEach(b => b.onclick = closePlanModal);
+$('plan-modal').onclick = (e) => {
+  if(e.target === $('plan-modal')) closePlanModal();
+};
+
+// ★【会員体系v2】プラン契約ボタン (無料プランは Stripe を経由しない)
+document.querySelectorAll('[data-plan]').forEach(btn => {
+  btn.onclick = async () => {
+    if(btn.disabled) return;
+    const plan = btn.dataset.plan;
+    closePlanModal();
+
+    // ★【追加】無料プランは Stripe checkout を呼ばず、そのまま利用継続
+    if(plan === 'free'){
+      toast('無料プランでご利用いただけます', 'ok');
+      return;
+    }
+
+    await startCheckout({ type: 'subscription', plan });
+  };
+});
+
+// CTAバナー → プラン選択
+$('cta-btn').onclick = () => {
+  if(!S.session){
+    openLoginPromptModal();
+  } else {
+    openPlanModal();
+  }
+};
+$('cta-banner').onclick = (e) => {
+  if(e.target.tagName !== 'BUTTON') $('cta-btn').click();
+};
+
+//═══════════════════════════════════════════════════════════════
+//  ログイン誘導モーダル (匿名ユーザー向け)
+//═══════════════════════════════════════════════════════════════
+function openLoginPromptModal(){
+  $('login-prompt-modal').classList.add('on');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeLoginPromptModal(){
+  $('login-prompt-modal').classList.remove('on');
+  document.body.style.overflow = '';
+}
+
+document.querySelectorAll('[data-close-login-prompt]').forEach(b => b.onclick = closeLoginPromptModal);
+$('login-prompt-modal').onclick = (e) => {
+  if(e.target === $('login-prompt-modal')) closeLoginPromptModal();
+};
+
+$('btn-go-login').onclick = () => {
+  closeLoginPromptModal();
+  goToLoginScreen('login');
+};
+$('btn-go-register').onclick = () => {
+  closeLoginPromptModal();
+  goToLoginScreen('register');
+};
+
+// 右上のログインボタン (大会別ランディング・未ログイン時)
+$('btn-anon-login').onclick = () => goToLoginScreen('login');
+
+function goToLoginScreen(tab){
+  // pendingAction があれば localStorage に退避 (ログイン後に復元)
+  if(S.pendingAction){
+    try{ localStorage.setItem('kw_pending_action', JSON.stringify(S.pendingAction)); }catch{}
+  }
+  
+  // 大会スラッグも保存して、ログイン後同じ大会に戻れるようにする
+  if(S.tournamentSlug){
+    try{ localStorage.setItem('kw_pending_tournament', S.tournamentSlug); }catch{}
+  }
+  
+  // 認証画面へ
+  $('app-view').classList.remove('on');
+  $('tournament-hero').classList.remove('on');
+  $('auth-view').style.display = '';
+  
+  // タブ切替
+  document.querySelectorAll('.auth-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.tab === tab);
+  });
+  $('form-login').style.display    = (tab === 'login')    ? '' : 'none';
+  $('form-register').style.display = (tab === 'register') ? '' : 'none';
+}
+
+//═══════════════════════════════════════════════════════════════
+//  Stripe Checkout 呼び出し
+//═══════════════════════════════════════════════════════════════
+async function startCheckout(body){
+  if(!S.session){
+    toast('ログインが必要です', 'ng');
+    return;
+  }
+  
+  toast('決済画面を準備中...', '');
+  
+  try{
+    const response = await fetch(
+      `${CFG.SUPABASE_URL}/functions/v1/create-checkout`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${S.session.access_token}`,
+          'apikey': CFG.SUPABASE_KEY,
+        },
+        body: JSON.stringify(body),
+      }
+    );
+    
+    const result = await response.json();
+    
+    if(!response.ok || !result.url){
+      const errMsg = result.error || `エラー (${response.status})`;
+      console.error('Checkout error:', result);
+      toast('決済の開始に失敗: ' + errMsg, 'ng');
+      return;
+    }
+    
+    // Stripe決済画面へ遷移
+    window.location.href = result.url;
+  }catch(err){
+    console.error('Checkout exception:', err);
+    toast('通信エラー: ' + err.message, 'ng');
+  }
+}
+
+//═══════════════════════════════════════════════════════════════
+//  Esc/背景クリックで閉じる: 全モーダル共通対応
+//═══════════════════════════════════════════════════════════════
+document.addEventListener('keydown', (e) => {
+  if(e.key === 'Escape'){
+    if($('options-modal').classList.contains('on')) closeOptionsModal();
+    else if($('plan-modal').classList.contains('on')) closePlanModal();
+    else if($('login-prompt-modal').classList.contains('on')) closeLoginPromptModal();
+  }
+});
+</script>
+</body>
+</html>
