@@ -1,5 +1,33 @@
 {
-  "version": "1.9k",
-  "downloadUrl": "https://karate-win-pc.vercel.app/karate-all-in-one.html",
-  "notes": "・不具合修正と機能改善\n・コート No 入力欄を廃止\n・勝者ボタン連動の敗者自動マーク機能を追加\n・オンライン更新チェック機能を追加"
+  "appName": "Karate Win PC",
+  "latestVersion": "1.0.2",
+  "releaseDate": "2026-08-19",
+  "notes": [
+    "更新確認機能を改善",
+    "複数ファイルの更新に対応",
+    "保存先フォルダー選択に対応"
+  ],
+  "files": [
+    {
+      "name": "karate-all-in-one.html",
+      "url": "https://karate-win-pc.vercel.app/karate-all-in-one.html",
+      "type": "html",
+      "required": true,
+      "description": "空手アプリ本体"
+    },
+    {
+      "name": "karate-monitor.html",
+      "url": "https://karate-win-pc.vercel.app/karate-monitor.html",
+      "type": "json",
+      "required": false,
+      "description": "観客用モニター"
+    },
+    {
+      "name": "keiko-studio.html",
+      "url": "https://karate-win-pc.vercel.app/keiko-studio.html",
+      "type": "excel",
+      "required": false,
+      "description": "稽古分析ツール"
+    }
+  ]
 }
