@@ -1254,7 +1254,7 @@ html,body{
             font-family:inherit;
             white-space:nowrap;
           ">
-          💾 端末保存
+          ⬆ サーバーアップロード
         </button>
         <button
           id="lv-cancel"
@@ -1906,6 +1906,9 @@ html,body{
       <button onclick="expL()" style="background:#1a3a6a;border:1px solid #4a80c8;border-radius:4px;padding:4px 14px;color:#8ab8f0;cursor:pointer;font-size:11px;font-weight:700;">
        📥 Excel出力
       </button>
+      <button onclick="kwUploadAllMatchJsonFromFolder()" title="ローカルフォルダー内の試合結果JSONを一括アップロードします" style="background:#0d3018;border:1px solid #2a7048;border-radius:4px;padding:4px 14px;color:#48e878;cursor:pointer;font-size:11px;font-weight:900;">
+       試合結果送信
+      </button>
      </div>
     </div>
     <div style="flex:1;overflow:auto;padding:0 8px 8px;">
@@ -2550,8 +2553,14 @@ function warmupAudio(){
   }catch(e){}
 }
 function buz15(){if(!T._snd15){T._snd15=true;playBuz();}alog('Warning15',T.rem,'15秒警告ブザー');toast('⚠ 15秒警告！','w');}
-function buz00(){
+// 終了ブザー音だけを鳴らす。
+// 実際の試合終了処理、ログ、録画停止は buz00() 側で0秒到達時に行う。
+function playFinishBuzzerSound(){
   for(let i=0;i<cfg.bc;i++)setTimeout(()=>playBuz(),i*cfg.bi);
+}
+function buz00(){
+  // 終了ブザー音を5秒前に前倒し済みの場合は、0秒時点で二重に鳴らさない。
+  if(!T._snd00){T._snd00=true;playFinishBuzzerSound();}
   alog('Finish',0,'終了ブザー×'+cfg.bc);toast('🔴 試合終了！','f');
   // カメラ録画を自動停止・保存（少し遅らせてブザー音を拾う）
   setTimeout(()=>camStopRec(), 800);
@@ -2559,7 +2568,7 @@ function buz00(){
 
 // ══ STATE ══
 const T={mid:'---',court:1,cls:'',rn:'',bn:'',
-  baseMs:60000,initMs:60000,endTime:0,run:false,status:'Ready',w15:false,_snd15:false,fin:false,finByWin:false,rem:60000,_extRec:false};
+  baseMs:60000,initMs:60000,endTime:0,run:false,status:'Ready',w15:false,_snd15:false,_snd00:false,fin:false,finByWin:false,rem:60000,_extRec:false};
 // scores: y=有効(1pt), w=技有(2pt), i=一本(3pt), p=ペナルティ(表示のみ)
 const SC={r:{y:0,w:0,i:0,p:0,hantei:0},b:{y:0,w:0,i:0,p:0,hantei:0}};
 const cfg={it:60,bc:2,bi:400,op:'JudgePC01',dojo:''};
@@ -2579,7 +2588,7 @@ function sc(side,type,d){
       +'［OK］今すぐリセットする（この入力は取り消し）\n'
       +'［キャンセル］前の試合の記録を修正する（このまま加点）')){
       rstSc(); rstSentoku();
-      Object.assign(T,{baseMs:T.initMs,run:false,status:'Ready',w15:false,_snd15:false,fin:false,finByWin:false});
+      Object.assign(T,{baseMs:T.initMs,run:false,status:'Ready',w15:false,_snd15:false,_snd00:false,fin:false,finByWin:false});
       rend(T.baseMs); updB(); updBg();
       alog('AutoReset',T.baseMs,'終了後の得点入力を検知しリセット');
       toast('リセットしました。選手選択またはそのまま ▶開始 してください');
@@ -2636,12 +2645,18 @@ function fmt(ms){
   }
 }
 let _loopId=0; // 並走ループ防止用世代カウンタ
+// ブザー前倒し設定
+// 15秒警告ブザー音は残り17秒で鳴らす（15秒より0.8秒早め）。表示・ログは従来どおり残り15秒。
+// 終了ブザー音は残り0.8秒で鳴らす。実際の試合終了処理は従来どおり0秒。
+const KW_BUZZER_15_EARLY_MS = 400;
+const KW_BUZZER_FINISH_EARLY_MS = 400;
 // ブザー用タイマーID（setTimeoutで絶対時刻管理）
 let _buzTimer00=null, _buzTimer15=null, _buzCheckInterval=null;
 
-let _buzTimer15snd=null;
+let _buzTimer15snd=null, _buzTimer00snd=null;
 function _cancelBuzzers(){
   if(_buzTimer15snd){clearTimeout(_buzTimer15snd);_buzTimer15snd=null;}
+  if(_buzTimer00snd){clearTimeout(_buzTimer00snd);_buzTimer00snd=null;}
   if(_buzTimer00){clearTimeout(_buzTimer00);_buzTimer00=null;}
   if(_buzTimer15){clearTimeout(_buzTimer15);_buzTimer15=null;}
   if(_buzCheckInterval){clearInterval(_buzCheckInterval);_buzCheckInterval=null;}
@@ -2658,12 +2673,24 @@ function _scheduleBuzzers(){
   // 「音の発火だけ」前倒しする。表示・警告色・ログは従来どおり残り15.000秒
   const latMs = Math.round(getAudioLatency()*1000);
   window._latMs = latMs;
-  if(!T._snd15 && toEnd > 15000 + latMs){
+  const warnSoundAtMs = 15000 + KW_BUZZER_15_EARLY_MS;
+  const finishSoundAtMs = KW_BUZZER_FINISH_EARLY_MS;
+
+  if(!T._snd15 && toEnd > warnSoundAtMs + latMs){
     _buzTimer15snd=setTimeout(()=>{
       _buzTimer15snd=null;
       if(!T.run||T.fin||T._snd15)return;
       T._snd15=true; playBuz();
-    }, toEnd - 15000 - latMs);
+    }, toEnd - warnSoundAtMs - latMs);
+  }
+
+  // 終了ブザー音: 5秒前に前倒し。実際の終了処理は0秒で行う。
+  if(!T._snd00 && toEnd > finishSoundAtMs + latMs){
+    _buzTimer00snd=setTimeout(()=>{
+      _buzTimer00snd=null;
+      if(!T.run||T.fin||T._snd00)return;
+      T._snd00=true; playFinishBuzzerSound();
+    }, toEnd - finishSoundAtMs - latMs);
   }
 
   // 15秒ブザー: 壁時計ベースの setTimeout 一発
@@ -2685,7 +2712,8 @@ function _scheduleBuzzers(){
     const lm=Math.round(getAudioLatency()*1000);
     if(lm!==window._latMs)window._latMs=lm;
     const rem=getMs();
-    if(!T._snd15&&rem<=15000+lm&&rem>0){T._snd15=true;playBuz();}
+    if(!T._snd15&&rem<=15000+KW_BUZZER_15_EARLY_MS+lm&&rem>0){T._snd15=true;playBuz();}
+    if(!T._snd00&&rem<=KW_BUZZER_FINISH_EARLY_MS+lm&&rem>0){T._snd00=true;playFinishBuzzerSound();}
     if(!T.w15&&rem<=15000&&rem>0){T.w15=true;buz15();updF();}
   },250);
 
@@ -2707,13 +2735,16 @@ function loop(id){
   const rem=getMs();T.rem=rem;
   const d=fmt(rem),ch=d!==ld;
   if(ch){ld=d;rend(rem);}
-  // 音の前倒し発火（バックアップ）: 残り15秒＋レイテンシで発音
+  // 音の前倒し発火（バックアップ）: 15秒警告は2秒前倒し、終了は5秒前倒しで発音
   // レイテンシは毎フレーム再取得する（AudioContext起動後に0→実値へ変わるため、
   //   開始時点の値で予約したsetTimeoutだけに頼ると遅れて鳴る）
   {const _lm=Math.round(getAudioLatency()*1000);
    if(_lm!==window._latMs)window._latMs=_lm;}
-  if(!T._snd15&&rem<=15000+(window._latMs||0)&&rem>0&&T.run&&!T.fin){
+  if(!T._snd15&&rem<=15000+KW_BUZZER_15_EARLY_MS+(window._latMs||0)&&rem>0&&T.run&&!T.fin){
     T._snd15=true;playBuz();
+  }
+  if(!T._snd00&&rem<=KW_BUZZER_FINISH_EARLY_MS+(window._latMs||0)&&rem>0&&T.run&&!T.fin){
+    T._snd00=true;playFinishBuzzerSound();
   }
   // 15秒警告：ループ内バックアップ（rem<=15000 を必ずキャッチ／表示・ログ）
   if(!T.w15&&rem<=15000&&rem>0&&T.run&&!T.fin){
@@ -2830,6 +2861,7 @@ function dA(d){
   alog(d>0?'AdjPlus':'AdjMinus',T.baseMs,'補正'+(d>0?'+':'')+d+'ms');
   rend(T.baseMs);updB();updBg();
   if(T.baseMs>=15100){T.w15=false;T._snd15=false;updF();}
+  if(T.baseMs>=KW_BUZZER_FINISH_EARLY_MS+100){T._snd00=false;}
   if(T.run){_scheduleBuzzers();}
 }
 function doReset(){
@@ -2837,7 +2869,7 @@ function doReset(){
   _cancelBuzzers();
   const resetMs=cfg.it*1000;
   T.initMs=resetMs;
-  Object.assign(T,{baseMs:resetMs,run:false,status:'Ready',w15:false,_snd15:false,fin:false,_extRec:false});
+  Object.assign(T,{baseMs:resetMs,run:false,status:'Ready',w15:false,_snd15:false,_snd00:false,fin:false,_extRec:false});
   rstSc();
   rstSentoku();
   alog('Reset',resetMs,'リセット');rend(resetMs);updB();updBg();updF();
@@ -2866,7 +2898,7 @@ function doLoad(){
   const initMs=cfg.it*1000||Math.round((parseFloat(document.getElementById('i-t').value)||60)*1000);
   if(T.run)dX();
   Object.assign(T,{mid,court:(document.getElementById('i-ct').value||'').trim()||'1',
-    cls,rn,bn,baseMs:initMs,initMs,run:false,status:'Ready',w15:false,_snd15:false,fin:false,finByWin:false});
+    cls,rn,bn,baseMs:initMs,initMs,run:false,status:'Ready',w15:false,_snd15:false,_snd00:false,fin:false,finByWin:false});
   rstSc();
   rstSentoku();   // 先取バッジも次試合に持ち越さない
   // 選手情報・大会情報をdetailに埋め込む（Excel出力で全試合を正確に再現するため）
@@ -3048,83 +3080,389 @@ function getCurrentMatchDurationSec(matchInitMs){
   return Math.max(0, Math.round((base - rem) / 1000));
 }
 function buildMatchJsonPayload(side, type){
-  const labels={normal:'勝ち',decision:'判定勝ち',foul:'勝ち（相手反則）',forfeit:'勝ち（相手棄権）'};
+  // Dataverse 連携用 JSON フォーマット
+  // 出力形式:
+  // {
+  //   "p_red_name": "...",
+  //   "p_blue_name": "...",
+  //   "p_tournament": "...",
+  //   "p_match_events": {
+  //     "version": 1,
+  //     "source": "dataverse",
+  //     "started_at": "yyyy-MM-dd HH:mm:ss",
+  //     "ended_at": "",
+  //     "duration_sec": 69,
+  //     "red": {"name":"...", "org":"..."},
+  //     "blue": {"name":"...", "org":"..."},
+  //     "events": []
+  //   }
+  // }
   const ctx = parseLoadMatchContext();
-  const redName = ctx.redName || '赤選手';
-  const blueName = ctx.blueName || '青選手';
-  const redOrg = ctx.redOrg || '—';
-  const blueOrg = ctx.blueOrg || '—';
+  const tournament = (ctx.tournament || '大会').trim() || '大会';
+  const redName = (ctx.redName || '赤選手').trim() || '赤選手';
+  const blueName = (ctx.blueName || '青選手').trim() || '青選手';
+  const redOrg = (ctx.redOrg || '').trim();
+  const blueOrg = (ctx.blueOrg || '').trim();
   const winner = (side === 'blue') ? 'blue' : 'red';
-  const scorePointMap = {y:'有効', w:'技有', i:'一本', p:'反則'};
+
+  // 既存ログの得点キーを指定フォーマットの名称に変換します。
+  // 以前は「技有」でしたが、指定フォーマットに合わせて「技あり」に統一します。
+  const scorePointMap = {y:'有効', w:'技あり', i:'一本', p:'反則'};
+  const scoreValueMap = {y:1, w:2, i:3, p:0};
   const scoreTotals = { red: 0, blue: 0 };
-  const events=[];
+  const events = [];
 
   let currentLoadIndex = -1;
-  for(let i=EL.length-1;i>=0;i--){
-    if(EL[i] && EL[i].act === 'LoadMatch') { currentLoadIndex = i; break; }
-  }
-  const matchLogs = currentLoadIndex >= 0 ? EL.slice(currentLoadIndex + 1) : EL;
-  const lastMatchTime = currentLoadIndex >= 0 ? EL[currentLoadIndex] : null;
-  const matchInitMs = Number((lastMatchTime && lastMatchTime.rem) || ctx.initMs || 120000);
-  const startedAt = ctx.startedAt || fmtMatchStartedAt(new Date().toISOString());
-
-  for(const e of matchLogs){
-    if(e.act === 'Score'){
-      const m = String(e.detail||'').match(/^([rb])_([ywip])([+-]\d+)/);
-      if(!m) continue;
-      const sideKey = m[1];
-      const key = m[2];
-      const delta = parseInt(m[3],10);
-      if(delta <= 0) continue;
-      const scoreSide = sideKey === 'r' ? 'red' : 'blue';
-      const pointValue = {y:1,w:2,i:3,p:0}[key] || 0;
-      scoreTotals[scoreSide] += pointValue;
-      const sec = Math.max(0, Math.round((matchInitMs - Number(e.rem || 0)) / 1000));
-      events.push({
-        sec,
-        side: scoreSide,
-        type: 'score',
-        point: scorePointMap[key] || '',
-        cumulative: scoreTotals[scoreSide]
-      });
-    }
-    if((e.act === 'WinDecision' || e.act === 'Finish' || e.act === 'ForceFinish') && !events.some(ev => ev.type === 'end')){
-      const sec = Math.max(0, Math.round((matchInitMs - Number(e.rem || 0)) / 1000));
-      const winnerSide = e.act === 'WinDecision'
-        ? (String(e.detail||'').startsWith('青勝利') ? 'blue' : 'red')
-        : winner;
-      events.push({ sec, type: 'end', winner: winnerSide });
+  for(let i = EL.length - 1; i >= 0; i--){
+    if(EL[i] && EL[i].act === 'LoadMatch'){
+      currentLoadIndex = i;
       break;
     }
   }
 
-  if(!events.length && (side === 'blue' || side === 'red')){
-    events.push({ sec: 117, type: 'end', winner: winner });
+  const matchLogs = currentLoadIndex >= 0 ? EL.slice(currentLoadIndex + 1) : EL;
+  const lastMatchTime = currentLoadIndex >= 0 ? EL[currentLoadIndex] : null;
+  const matchInitMs = Number((lastMatchTime && lastMatchTime.rem) || ctx.initMs || T.initMs || cfg.it * 1000 || 120000);
+  const startedAt = ctx.startedAt || fmtMatchStartedAt(new Date().toISOString());
+
+  for(const e of matchLogs){
+    if(e.act === 'Score'){
+      const m = String(e.detail || '').match(/^([rb])_([ywip])([+-]\d+)/);
+      if(!m) continue;
+
+      const sideKey = m[1];
+      const key = m[2];
+      const delta = parseInt(m[3], 10);
+
+      // 取り消し操作はイベント履歴に含めません。
+      // 必要になった場合は type:'revoke' として別イベント化できます。
+      if(delta <= 0) continue;
+
+      const scoreSide = sideKey === 'r' ? 'red' : 'blue';
+      const pointValue = scoreValueMap[key] || 0;
+      if(pointValue <= 0) continue;
+
+      scoreTotals[scoreSide] += pointValue;
+
+      const sec = Math.max(0, Math.round((matchInitMs - Number(e.rem || 0)) / 1000));
+      events.push({
+        sec: sec,
+        type: 'score',
+        side: scoreSide,
+        point: scorePointMap[key] || '',
+        cumulative: scoreTotals[scoreSide]
+      });
+    }
+
+    if((e.act === 'WinDecision' || e.act === 'Finish' || e.act === 'ForceFinish') && !events.some(ev => ev.type === 'end')){
+      const sec = Math.max(0, Math.round((matchInitMs - Number(e.rem || 0)) / 1000));
+      const winnerSide = e.act === 'WinDecision'
+        ? (String(e.detail || '').startsWith('青勝利') ? 'blue' : 'red')
+        : winner;
+      events.push({ sec: sec, type: 'end', winner: winnerSide });
+      break;
+    }
   }
 
-  const durationSec = Math.max(0, getCurrentMatchDurationSec(matchInitMs));
+  const currentDurationSec = Math.max(0, getCurrentMatchDurationSec(matchInitMs));
+
+  if(!events.length && (side === 'blue' || side === 'red')){
+    events.push({ sec: currentDurationSec, type: 'end', winner: winner });
+  }
+
   const effectiveEvents = events
     .filter(ev => !(ev.type === 'end' && ev.sec === 0 && events.some(x => x.type === 'score' && x.sec > 0)))
-    .sort((a,b) => (a.sec || 0) - (b.sec || 0));
+    .sort((a, b) => (a.sec || 0) - (b.sec || 0));
 
-  if (effectiveEvents.length && effectiveEvents[effectiveEvents.length - 1].type !== 'end') {
-    effectiveEvents.push({ sec: durationSec || Math.max(...effectiveEvents.map(x => x.sec || 0), 0), type: 'end', winner: winner });
+  if(effectiveEvents.length && effectiveEvents[effectiveEvents.length - 1].type !== 'end'){
+    const lastSec = Math.max.apply(null, effectiveEvents.map(x => Number(x.sec) || 0));
+    effectiveEvents.push({
+      sec: currentDurationSec || lastSec,
+      type: 'end',
+      winner: winner
+    });
   }
 
+  const endEvent = effectiveEvents.find(ev => ev && ev.type === 'end');
+  const maxEventSec = effectiveEvents.length
+    ? Math.max.apply(null, effectiveEvents.map(ev => Number(ev.sec) || 0))
+    : 0;
+  const durationSec = endEvent
+    ? Number(endEvent.sec || 0)
+    : (currentDurationSec || maxEventSec || 0);
+
   return {
-    match_events: {
-      red: { org: redOrg, name: redName },
-      blue: { org: blueOrg, name: blueName },
-      events: effectiveEvents,
-      source: 'dataverse',
+    p_red_name: redName,
+    p_blue_name: blueName,
+    p_tournament: tournament,
+    p_match_events: {
       version: 1,
-      ended_at: '',
+      source: 'dataverse',
       started_at: startedAt,
-      duration_sec: durationSec || Math.max(...effectiveEvents.map(ev => Number(ev.sec) || 0), 0) || 117
-    },
-    proxy_bucket: 'karate-videos'
+      ended_at: '',
+      duration_sec: durationSec,
+      red: {
+        name: redName,
+        org: redOrg
+      },
+      blue: {
+        name: blueName,
+        org: blueOrg
+      },
+      events: effectiveEvents
+    }
   };
 }
+
+// ============================================================
+// JSON一括アップロード機能
+// ------------------------------------------------------------
+// ローカルフォルダー内のJSONファイルを読み込み、
+// Supabase Edge Functionへ1件ずつPOSTします。
+// HTML側にはSupabaseのsecret key / service role keyを置きません。
+// ============================================================
+const KW_MATCH_UPLOAD_URL =
+  'https://ocxyycuasswuztjkbwuf.supabase.co/functions/v1/upload-match-events';
+
+const KW_MATCH_UPLOAD_HEADERS = {
+  'Content-Type': 'application/json'
+};
+
+async function kwUploadAllMatchJsonFromFolder(){
+  try{
+    if(!('showDirectoryPicker' in window)){
+      alert('このブラウザはフォルダー読み込みに対応していません。\n\nMicrosoft Edge または Google Chrome をご利用ください。');
+      return;
+    }
+
+    const dirHandle = await window.showDirectoryPicker({
+      id: 'kw-json-upload',
+      mode: 'read'
+    });
+
+    const files = await kwCollectJsonFilesFromDirectory(dirHandle);
+
+    if(!files.length){
+      alert('選択したフォルダー内にJSONファイルが見つかりませんでした。');
+      return;
+    }
+
+    const yes = confirm(
+      'JSONファイルを一括アップロードします。\n\n' +
+      '対象ファイル数: ' + files.length + ' 件\n\n' +
+      '実行しますか？'
+    );
+
+    if(!yes) return;
+
+    kwShowUploadProgress('アップロードを開始しました...', files.length, 0, 0);
+    const result = await kwUploadJsonFiles(files);
+    kwShowUploadResult(result);
+  }catch(error){
+    if(error && error.name === 'AbortError'){
+      alert('フォルダー選択をキャンセルしました。');
+      return;
+    }
+    console.error('JSON一括アップロードエラー:', error);
+    alert('JSON一括アップロードに失敗しました。\n\n詳細: ' + kwUploadErrorMessage(error));
+  }
+}
+
+async function kwCollectJsonFilesFromDirectory(dirHandle, basePath){
+  const files = [];
+  const currentPath = basePath || '';
+
+  for await(const entry of dirHandle.values()){
+    if(entry.kind === 'file'){
+      if(entry.name.toLowerCase().endsWith('.json')){
+        const file = await entry.getFile();
+        files.push({
+          name: entry.name,
+          path: currentPath ? currentPath + '/' + entry.name : entry.name,
+          file: file
+        });
+      }
+    }else if(entry.kind === 'directory'){
+      const childPath = currentPath ? currentPath + '/' + entry.name : entry.name;
+      const childFiles = await kwCollectJsonFilesFromDirectory(entry, childPath);
+      files.push.apply(files, childFiles);
+    }
+  }
+
+  return files;
+}
+
+async function kwUploadJsonFiles(files){
+  const result = {
+    total: files.length,
+    success: 0,
+    failed: 0,
+    details: []
+  };
+
+  for(let i = 0; i < files.length; i++){
+    const item = files[i];
+
+    try{
+      kwShowUploadProgress(
+        'アップロード中: ' + item.path,
+        result.total,
+        result.success,
+        result.failed
+      );
+
+      const text = await item.file.text();
+      let payload;
+
+      try{
+        payload = JSON.parse(text);
+      }catch(jsonError){
+        throw new Error('JSON形式が正しくありません。');
+      }
+
+      kwValidateMatchEventPayload(payload);
+      await kwPostMatchEventPayload(payload);
+
+      result.success++;
+      result.details.push({
+        file: item.path,
+        status: 'success',
+        message: 'アップロード成功'
+      });
+    }catch(error){
+      result.failed++;
+      result.details.push({
+        file: item.path,
+        status: 'failed',
+        message: kwUploadErrorMessage(error)
+      });
+      console.error('アップロード失敗:', item.path, error);
+    }
+  }
+
+  return result;
+}
+
+function kwValidateMatchEventPayload(payload){
+  if(!payload || typeof payload !== 'object'){
+    throw new Error('JSON本文がオブジェクトではありません。');
+  }
+  if(!payload.p_red_name){
+    throw new Error('p_red_name がありません。');
+  }
+  if(!payload.p_blue_name){
+    throw new Error('p_blue_name がありません。');
+  }
+  if(!payload.p_tournament){
+    throw new Error('p_tournament がありません。');
+  }
+  if(!payload.p_match_events || typeof payload.p_match_events !== 'object'){
+    throw new Error('p_match_events がありません。');
+  }
+  if(!Array.isArray(payload.p_match_events.events)){
+    throw new Error('p_match_events.events が配列ではありません。');
+  }
+}
+
+async function kwPostMatchEventPayload(payload){
+  const response = await fetch(KW_MATCH_UPLOAD_URL, {
+    method: 'POST',
+    headers: KW_MATCH_UPLOAD_HEADERS,
+    body: JSON.stringify(payload)
+  });
+
+  const responseText = await response.text();
+
+  if(!response.ok){
+    throw new Error(
+      'HTTP ' + response.status + ' ' + response.statusText +
+      (responseText ? '\n' + responseText : '')
+    );
+  }
+
+  if(!responseText) return null;
+
+  try{
+    return JSON.parse(responseText);
+  }catch(e){
+    return responseText;
+  }
+}
+
+function kwShowUploadProgress(message, total, success, failed){
+  const body = document.getElementById('kw-up-body');
+  const actions = document.getElementById('kw-up-actions');
+  const overlay = document.getElementById('kw-update-ov');
+
+  const html =
+    '<div style="font-size:14px;color:#8ab8f0;font-weight:700;">JSON一括アップロード</div>' +
+    '<div style="margin-top:8px;line-height:1.8;">' +
+    kwUploadEscapeHtml(message) +
+    '<br><br>' +
+    '対象: ' + total + ' 件<br>' +
+    '成功: ' + success + ' 件<br>' +
+    '失敗: ' + failed + ' 件' +
+    '</div>';
+
+  if(overlay && body){
+    overlay.style.display = 'flex';
+    body.innerHTML = html;
+    if(actions){
+      actions.innerHTML = '<button onclick="kwCloseUpdate && kwCloseUpdate()" style="padding:8px 16px;border-radius:5px;font-size:12px;font-weight:700;border:1px solid #2a3a52;color:#8098b8;background:transparent;cursor:pointer;font-family:inherit;">閉じる</button>';
+    }
+  }else{
+    console.log(message, {total:total, success:success, failed:failed});
+  }
+}
+
+function kwShowUploadResult(result){
+  let message = '';
+  message += 'JSON一括アップロードが完了しました。\n\n';
+  message += '対象: ' + result.total + ' 件\n';
+  message += '成功: ' + result.success + ' 件\n';
+  message += '失敗: ' + result.failed + ' 件\n';
+
+  if(result.failed > 0){
+    message += '\n失敗したファイル:\n';
+    result.details
+      .filter(function(x){ return x.status === 'failed'; })
+      .slice(0, 20)
+      .forEach(function(x){
+        message += '・' + x.file + '\n  ' + x.message + '\n';
+      });
+    if(result.failed > 20){
+      message += 'ほか ' + (result.failed - 20) + ' 件\n';
+    }
+  }
+
+  alert(message);
+
+  const body = document.getElementById('kw-up-body');
+  if(body){
+    body.innerHTML =
+      '<div style="font-size:14px;color:#48d878;font-weight:700;">JSON一括アップロード完了</div>' +
+      '<div style="margin-top:8px;line-height:1.8;">' +
+      '対象: ' + result.total + ' 件<br>' +
+      '成功: ' + result.success + ' 件<br>' +
+      '失敗: ' + result.failed + ' 件' +
+      '</div>';
+  }
+}
+
+function kwUploadErrorMessage(error){
+  if(!error) return '不明なエラー';
+  if(error.message) return error.message;
+  return String(error);
+}
+
+function kwUploadEscapeHtml(value){
+  return String(value == null ? '' : value).replace(/[&<>"]/g, function(c){
+    return {'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;'}[c];
+  });
+}
+
+window.kwUploadAllMatchJsonFromFolder = kwUploadAllMatchJsonFromFolder;
+
 function saveWinnerDecisionJson(side, type){
   const labels={normal:'勝ち',decision:'判定勝ち',foul:'勝ち（相手反則）',forfeit:'勝ち（相手棄権）'};
   const eventInfo = (()=>{try{return JSON.parse(localStorage.getItem('karate_eventInfo')||'{}');}catch(e){return {};}})();
@@ -4125,362 +4463,101 @@ function toast(msg,cls){
   window.KW_VER='1.9j';
   try{console.log('[Karate Win] version', KW_VER);}catch(e){}
 
-  // ══ オンライン更新チェック機能 完全版 ══
-  // 単一ファイル更新と複数ファイル更新の両方に対応します。
-  // version.json の例:
-  // {
-  //   "appName": "Karate Win PC",
-  //   "latestVersion": "1.9k",
-  //   "releaseDate": "2026-08-19",
-  //   "notes": ["複数ファイル更新に対応"],
-  //   "files": [
-  //     {"name":"karate-all-in-one.html", "url":"https://karate-win-pc.vercel.app/karate-all-in-one.html", "description":"空手アプリ本体"},
-  //     {"name":"sample-data.xlsx", "url":"https://karate-win-pc.vercel.app/sample-data.xlsx", "description":"サンプルデータ"}
-  //   ]
-  // }
-  // 互換用として downloadUrl / url の単一ファイル形式にも対応します。
+  // ══ オンライン更新チェック機能 ══
   window.KW_UPDATE_CONFIG = {
     manifestUrl: 'https://karate-win-pc.vercel.app/version.json',
-    defaultFileName: 'karate-all-in-one.html',
-    autoCheckOnStart: false,
-    savePickerId: 'karate-win-update-save-file',
-    directoryPickerId: 'karate-win-update-save-directory'
+    autoCheckOnStart: false
   };
-
   window.kwParseVer = function(v){
-    v = String(v || '').trim().replace(/^v/i, '');
+    v = String(v||'').trim().replace(/^v/i,'');
+    var out = [];
     var m = v.match(/^(\d+(?:\.\d+)*)([a-zA-Z]*)$/);
     if(!m){ return {nums:[0], suf:0, raw:v}; }
-    var nums = m[1].split('.').map(function(n){ return parseInt(n, 10) || 0; });
+    out = m[1].split('.').map(function(n){return parseInt(n,10)||0;});
     var suf = 0;
     if(m[2]){ suf = m[2].toLowerCase().charCodeAt(0) - 96; }
-    return {nums:nums, suf:suf, raw:v};
+    return {nums:out, suf:suf, raw:v};
   };
-
-  window.kwCmpVer = function(a, b){
+  window.kwCmpVer = function(a,b){
     var pa = kwParseVer(a), pb = kwParseVer(b);
     var len = Math.max(pa.nums.length, pb.nums.length);
-    for(var i = 0; i < len; i++){
-      var x = pa.nums[i] || 0;
-      var y = pb.nums[i] || 0;
-      if(x > y) return 1;
-      if(x < y) return -1;
+    for(var i=0;i<len;i++){
+      var x = pa.nums[i]||0, y = pb.nums[i]||0;
+      if(x>y) return 1; if(x<y) return -1;
     }
-    if(pa.suf > pb.suf) return 1;
-    if(pa.suf < pb.suf) return -1;
+    if(pa.suf>pb.suf) return 1; if(pa.suf<pb.suf) return -1;
     return 0;
   };
-
   window.kwCloseUpdate = function(){
     var ov = document.getElementById('kw-update-ov');
-    if(ov) ov.style.display = 'none';
+    if(ov) ov.style.display='none';
   };
-
-  function _kwShowOverlay(){
-    var ov = document.getElementById('kw-update-ov');
-    if(ov) ov.style.display = 'flex';
-  }
-
-  function _kwSetBody(html){
-    var b = document.getElementById('kw-up-body');
-    if(b) b.innerHTML = html;
-  }
-
+  function _kwShowOverlay(){ var ov=document.getElementById('kw-update-ov'); if(ov) ov.style.display='flex'; }
+  function _kwSetBody(html){ var b=document.getElementById('kw-up-body'); if(b) b.innerHTML=html; }
   function _kwSetActions(html){
-    var a = document.getElementById('kw-up-actions');
-    if(!a) return;
-    a.innerHTML = html + '<button onclick="kwCloseUpdate()" style="padding:8px 16px;border-radius:5px;font-size:12px;font-weight:700;border:1px solid #2a3a52;color:#8098b8;background:transparent;cursor:pointer;font-family:inherit;">閉じる</button>';
+    var a=document.getElementById('kw-up-actions');
+    if(a) a.innerHTML = html + '<button onclick="kwCloseUpdate()" style="padding:8px 16px;border-radius:5px;font-size:12px;font-weight:700;border:1px solid #2a3a52;color:#8098b8;background:transparent;cursor:pointer;font-family:inherit;">閉じる</button>';
   }
-
-  function _kwEsc(s){
-    return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){
-      return {'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;'}[c];
-    });
-  }
-
-  function _kwErrMsg(error){
-    if(!error) return '不明なエラー';
-    return error.message ? error.message : String(error);
-  }
-
-  function _kwFileNameFromUrl(url){
-    try{
-      var u = new URL(url, location.href);
-      var name = decodeURIComponent((u.pathname.split('/').pop() || '').trim());
-      return name || (window.KW_UPDATE_CONFIG.defaultFileName || 'karate-all-in-one.html');
-    }catch(e){
-      return window.KW_UPDATE_CONFIG.defaultFileName || 'karate-all-in-one.html';
-    }
-  }
-
-  function _kwNormalizeFiles(mf){
-    var files = [];
-    if(Array.isArray(mf.files) && mf.files.length > 0){
-      mf.files.forEach(function(f){
-        if(!f) return;
-        var url = f.url || f.downloadUrl || f.href || '';
-        if(!url) return;
-        files.push({
-          name: f.name || _kwFileNameFromUrl(url),
-          url: url,
-          description: f.description || '',
-          required: f.required !== false
-        });
-      });
-    }
-    if(files.length === 0){
-      var singleUrl = mf.downloadUrl || mf.url || '';
-      if(singleUrl){
-        files.push({
-          name: mf.fileName || window.KW_UPDATE_CONFIG.defaultFileName || _kwFileNameFromUrl(singleUrl),
-          url: singleUrl,
-          description: '空手アプリ本体',
-          required: true
-        });
-      }
-    }
-    return files;
-  }
-
-  function _kwNormalizeManifest(mf){
-    if(!mf || typeof mf !== 'object'){
-      throw new Error('version.json の内容が正しくありません。');
-    }
-    var latest = mf.latestVersion || mf.version || mf.ver || '';
-    if(!latest){
-      throw new Error('version.json に latestVersion がありません。');
-    }
-    var files = _kwNormalizeFiles(mf);
-    if(files.length === 0){
-      throw new Error('version.json に files または downloadUrl がありません。');
-    }
-    return {
-      appName: mf.appName || 'Karate Win PC',
-      latestVersion: latest,
-      releaseDate: mf.releaseDate || '',
-      notes: Array.isArray(mf.notes) ? mf.notes : (mf.notes ? [String(mf.notes)] : []),
-      files: files
-    };
-  }
-
-  function _kwBuildNotesHtml(info){
-    if(!info.notes || info.notes.length === 0) return '';
-    var lines = info.notes.map(function(n){ return '・' + _kwEsc(n); }).join('<br>');
-    return '<div style="margin-top:10px;padding:10px;background:#0d1420;border:1px solid #16233a;border-radius:6px;color:#8ca8c8;font-size:12px;line-height:1.7;">' + lines + '</div>';
-  }
-
-  function _kwBuildFileListHtml(files){
-    if(!files || files.length === 0) return '';
-    var html = '<div style="margin-top:10px;padding:10px;background:#080d16;border:1px solid #16233a;border-radius:6px;color:#8ca8c8;font-size:12px;line-height:1.8;">';
-    html += '<div style="color:#c8d8f0;font-weight:700;margin-bottom:4px;">更新ファイル</div>';
-    files.forEach(function(f){
-      html += '・' + _kwEsc(f.name);
-      if(f.description){ html += ' <span style="color:#5a7898;">' + _kwEsc(f.description) + '</span>'; }
-      html += '<br>';
-    });
-    html += '</div>';
-    return html;
-  }
-
-  async function _kwFetchBlob(url){
-    var res = await fetch(url, {method:'GET', cache:'no-store'});
-    if(!res.ok){ throw new Error('HTTP ' + res.status); }
-    return await res.blob();
-  }
-
-  function _kwDownloadBlobByAnchor(blob, fileName){
-    var objectUrl = URL.createObjectURL(blob);
-    try{
-      var a = document.createElement('a');
-      a.href = objectUrl;
-      a.download = fileName;
-      a.style.display = 'none';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    }finally{
-      setTimeout(function(){ URL.revokeObjectURL(objectUrl); }, 1000);
-    }
-  }
-
-  window.kwSaveSingleUpdateFile = async function(fileInfo){
-    var fileName = fileInfo.name || window.KW_UPDATE_CONFIG.defaultFileName || 'karate-all-in-one.html';
-    var blob = await _kwFetchBlob(fileInfo.url);
-
-    if('showSaveFilePicker' in window){
-      var handle = await window.showSaveFilePicker({
-        id: window.KW_UPDATE_CONFIG.savePickerId,
-        suggestedName: fileName,
-        types: [{
-          description: '更新ファイル',
-          accept: {
-            'text/html': ['.html', '.htm'],
-            'application/json': ['.json'],
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-            'application/octet-stream': ['.html', '.htm', '.json', '.xlsx', '.csv', '.txt']
-          }
-        }],
-        excludeAcceptAllOption: false
-      });
-      var writable = await handle.createWritable();
-      await writable.write(blob);
-      await writable.close();
-      return true;
-    }
-
-    _kwDownloadBlobByAnchor(blob, fileName);
-    return true;
-  };
-
-  window.kwSaveMultipleUpdateFiles = async function(files){
-    if(!Array.isArray(files) || files.length === 0){
-      throw new Error('保存対象ファイルがありません。');
-    }
-
-    // 複数ファイルの場合は、対応ブラウザではフォルダーを1回だけ選択します。
-    if(files.length > 1 && 'showDirectoryPicker' in window){
-      var dir = await window.showDirectoryPicker({
-        id: window.KW_UPDATE_CONFIG.directoryPickerId,
-        mode: 'readwrite'
-      });
-      var ok = 0;
-      var ng = [];
-      for(var i = 0; i < files.length; i++){
-        var f = files[i];
-        try{
-          var blob = await _kwFetchBlob(f.url);
-          var fh = await dir.getFileHandle(f.name, {create:true});
-          var w = await fh.createWritable();
-          await w.write(blob);
-          await w.close();
-          ok++;
-        }catch(e){
-          ng.push({name:f.name || '不明なファイル', error:_kwErrMsg(e)});
-        }
-      }
-      if(ng.length > 0){
-        var msg = '一部のファイル保存に失敗しました。<br><br>成功: ' + ok + ' 件<br>失敗: ' + ng.length + ' 件<br><br>';
-        ng.forEach(function(x){ msg += '・' + _kwEsc(x.name) + ' : ' + _kwEsc(x.error) + '<br>'; });
-        _kwSetBody(msg);
-        return false;
-      }
-      return true;
-    }
-
-    // 単一ファイル、またはフォルダー選択非対応ブラウザの場合
-    for(var j = 0; j < files.length; j++){
-      await kwSaveSingleUpdateFile(files[j]);
-    }
-    return true;
-  };
-
-  window.kwStartUpdateDownload = async function(){
-    try{
-      var files = window.KW_PENDING_UPDATE_FILES || [];
-      if(!files.length) throw new Error('更新ファイル情報がありません。もう一度「更新確認」を押してください。');
-
-      _kwSetBody('<div style="font-size:14px;color:#c8d8f0;font-weight:700;">保存処理を開始します</div><div style="margin-top:8px;line-height:1.9;">保存先の選択画面が表示された場合は、現在のHTMLファイルと同じフォルダーを選択してください。<br>同じファイル名を選ぶと上書き保存できます。</div>');
-      _kwSetActions('');
-
-      var ok = await kwSaveMultipleUpdateFiles(files);
-      if(ok){
-        _kwSetBody('<div style="font-size:14px;color:#48d878;font-weight:700;">更新ファイルを保存しました</div><div style="margin-top:8px;line-height:1.9;">保存した新しいHTMLファイルを開き直してご利用ください。<br>古いHTMLファイルを上書きした場合は、現在の画面を閉じてから開き直してください。<br><br><span style="color:#5a7898;">※選手データや試合結果はブラウザに保存されているため、同じブラウザで開いた場合は引き継がれます。</span></div>');
-      }
-      _kwSetActions('');
-    }catch(e){
-      if(e && e.name === 'AbortError'){
-        _kwSetBody('保存をキャンセルしました。');
-      }else{
-        _kwSetBody('更新ファイルの保存に失敗しました。<br><span style="color:#5a7898;font-size:12px;">' + _kwEsc(_kwErrMsg(e)) + '</span><br><br>・配信URLが正しいかご確認ください<br>・CORS設定をご確認ください<br>・ネットワーク接続をご確認ください');
-      }
-      _kwSetActions('<button onclick="kwStartUpdateDownload()" style="padding:8px 16px;border-radius:5px;font-size:12px;font-weight:700;border:1px solid #2a7048;color:#48e878;background:#0a2012;cursor:pointer;font-family:inherit;">再実行</button>');
-    }
-  };
+  function _kwEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
 
   window.kwCheckUpdate = function(manual){
     var cfg = window.KW_UPDATE_CONFIG || {};
-
     if(navigator.onLine === false){
       if(manual){
         _kwShowOverlay();
         _kwSetBody('現在オフラインです。<br>ネットワークに接続してから、もう一度「更新確認」を押してください。<br><br><span style="color:#5a7898;">※オフラインでもアプリは通常どおりご利用いただけます。</span>');
-        _kwSetActions('<button onclick="kwCheckUpdate(true)" style="padding:8px 16px;border-radius:5px;font-size:12px;font-weight:700;border:1px solid #2a3a52;color:#8ab8f0;background:transparent;cursor:pointer;font-family:inherit;">再試行</button>');
+        _kwSetActions('');
       }
       return;
     }
-
-    if(manual){
-      _kwShowOverlay();
-      _kwSetBody('更新情報を確認しています...');
-      _kwSetActions('');
-    }
-
-    var controller = null;
-    var timeoutId = null;
-    if(window.AbortController){
-      controller = new AbortController();
-      timeoutId = setTimeout(function(){ try{ controller.abort(); }catch(e){} }, 10000);
-    }
-
-    fetch(cfg.manifestUrl, {
-      method: 'GET',
-      cache: 'no-store',
-      signal: controller ? controller.signal : undefined
-    })
-    .then(function(res){
-      if(timeoutId) clearTimeout(timeoutId);
-      if(!res.ok) throw new Error('HTTP ' + res.status);
-      return res.json();
-    })
-    .then(function(raw){
-      var info = _kwNormalizeManifest(raw);
-      var latest = info.latestVersion;
-      var hasUpdate = kwCmpVer(latest, window.KW_VER) > 0;
-      var badge = document.getElementById('tb-update-badge');
-
-      if(hasUpdate){
-        if(badge) badge.style.display = 'inline-block';
-        window.KW_PENDING_UPDATE_FILES = info.files;
-
-        if(manual){
-          _kwSetBody(
-            '<div style="font-size:14px;color:#48d878;font-weight:700;">新しいバージョンがあります</div>' +
-            '<div style="margin-top:8px;">現在：<b style="color:#c8d8f0;">v' + _kwEsc(window.KW_VER) + '</b>　→　最新：<b style="color:#48d878;">v' + _kwEsc(latest) + '</b></div>' +
-            (info.releaseDate ? '<div style="margin-top:4px;color:#8ca8c8;">公開日：' + _kwEsc(info.releaseDate) + '</div>' : '') +
-            _kwBuildNotesHtml(info) +
-            _kwBuildFileListHtml(info.files) +
-            '<div style="margin-top:10px;color:#5a7898;font-size:12px;line-height:1.7;">複数ファイルがある場合、対応ブラウザでは保存先フォルダーを1回選択してまとめて保存します。<br>非対応ブラウザではファイルごとに通常ダウンロードします。</div>'
-          );
-          _kwSetActions('<button onclick="kwStartUpdateDownload()" style="padding:8px 18px;border-radius:5px;font-size:12px;font-weight:900;border:1px solid #2a7048;color:#48e878;background:#0a2012;cursor:pointer;font-family:inherit;">⬇ 更新ファイルを保存</button>');
-        }
-      }else{
-        if(badge) badge.style.display = 'none';
-        window.KW_PENDING_UPDATE_FILES = [];
-
-        if(manual){
-          if(kwCmpVer(window.KW_VER, latest) > 0){
-            _kwSetBody('<div style="font-size:14px;color:#ffb84a;font-weight:700;">ローカル版の方が新しい可能性があります</div><div style="margin-top:8px;">現在：<b style="color:#c8d8f0;">v' + _kwEsc(window.KW_VER) + '</b>（サーバー最新：v' + _kwEsc(latest) + '）</div>');
-          }else{
-            _kwSetBody('<div style="font-size:14px;color:#48d878;font-weight:700;">最新バージョンです</div><div style="margin-top:8px;">現在：<b style="color:#c8d8f0;">v' + _kwEsc(window.KW_VER) + '</b>（サーバー最新：v' + _kwEsc(latest || window.KW_VER) + '）</div>');
+    if(manual){ _kwShowOverlay(); _kwSetBody('最新バージョンを確認しています…'); _kwSetActions(''); }
+    var url = cfg.manifestUrl + (cfg.manifestUrl.indexOf('?')>=0?'&':'?') + '_t=' + Date.now();
+    var ctrl = (typeof AbortController!=='undefined') ? new AbortController() : null;
+    var to = ctrl ? setTimeout(function(){ try{ctrl.abort();}catch(e){}}, 10000) : null;
+    fetch(url, {cache:'no-store', signal: ctrl?ctrl.signal:undefined})
+      .then(function(res){ if(!res.ok) throw new Error('HTTP '+res.status); return res.json(); })
+      .then(function(mf){
+        if(to) clearTimeout(to);
+        var latest = mf.version || mf.latest || '';
+        var cmp = kwCmpVer(latest, window.KW_VER);
+        if(cmp > 0){
+          var badge = document.getElementById('tb-update-badge');
+          if(badge) badge.style.display='inline-block';
+          if(manual){
+            var notes = mf.notes ? '<div style="margin-top:10px;padding:10px 12px;background:#0d1420;border:1px solid #16233a;border-radius:6px;color:#8ca8c8;font-size:12px;line-height:1.7;white-space:pre-wrap;">'+_kwEsc(mf.notes)+'</div>' : '';
+            var dlUrl = mf.downloadUrl || mf.url || '';
+            _kwSetBody(
+              '<div style="font-size:14px;color:#48d878;font-weight:700;">新しいバージョンがあります</div>'+
+              '<div style="margin-top:8px;">現在：<b style="color:#c8d8f0;">v'+_kwEsc(window.KW_VER)+'</b>　→　最新：<b style="color:#48d878;">v'+_kwEsc(latest)+'</b></div>'+notes
+            );
+            var actions = '';
+            if(dlUrl){
+              actions += '<a href="'+_kwEsc(dlUrl)+'" download="karate-all-in-one.html" onclick="kwOnDownloadClick()" style="padding:8px 18px;border-radius:5px;font-size:12px;font-weight:900;border:1px solid #2a7048;color:#48e878;background:#0a2012;cursor:pointer;font-family:inherit;text-decoration:none;">⬇ 最新版をダウンロード</a>';
+            }else{
+              actions += '<span style="align-self:center;color:#c07030;font-size:12px;">配信URL未設定</span>';
+            }
+            _kwSetActions(actions);
           }
-          _kwSetActions('');
+        }else{
+          var badge2 = document.getElementById('tb-update-badge');
+          if(badge2) badge2.style.display='none';
+          if(manual){
+            _kwSetBody('<div style="font-size:14px;color:#48d878;font-weight:700;">最新バージョンです</div><div style="margin-top:8px;">現在：<b style="color:#c8d8f0;">v'+_kwEsc(window.KW_VER)+'</b>（サーバー最新：v'+_kwEsc(latest||window.KW_VER)+'）</div>');
+            _kwSetActions('');
+          }
         }
-      }
-    })
-    .catch(function(err){
-      if(timeoutId) clearTimeout(timeoutId);
-      if(manual){
-        _kwSetBody('更新情報を取得できませんでした。<br><span style="color:#5a7898;font-size:12px;">' + _kwEsc(_kwErrMsg(err)) + '</span><br><br>・ネットワーク接続をご確認ください<br>・配信サーバーの version.json が公開されているかご確認ください<br>・CORS設定をご確認ください<br><br><span style="color:#5a7898;">※アプリはオフラインでも通常どおり動作します。</span>');
-        _kwSetActions('<button onclick="kwCheckUpdate(true)" style="padding:8px 16px;border-radius:5px;font-size:12px;font-weight:700;border:1px solid #2a3a52;color:#8ab8f0;background:transparent;cursor:pointer;font-family:inherit;">再試行</button>');
-      }
-    });
+      })
+      .catch(function(err){
+        if(to) clearTimeout(to);
+        if(manual){
+          _kwSetBody('更新情報を取得できませんでした。<br><span style="color:#5a7898;font-size:12px;">'+_kwEsc(err && err.message || err)+'</span><br><br>・ネットワーク接続をご確認ください<br>・配信サーバー（version.json）が公開されているかご確認ください<br><br><span style="color:#5a7898;">※アプリはオフラインでも通常どおり動作します。</span>');
+          _kwSetActions('<button onclick="kwCheckUpdate(true)" style="padding:8px 16px;border-radius:5px;font-size:12px;font-weight:700;border:1px solid #2a3a52;color:#8ab8f0;background:transparent;cursor:pointer;font-family:inherit;">再試行</button>');
+        }
+      });
   };
-
-  // 旧コード互換
-  window.checkForAppUpdate = function(){ kwCheckUpdate(true); };
-  window.checkUpdate = window.checkForAppUpdate;
-  window.checkForUpdate = window.checkForAppUpdate;
-
+  window.kwOnDownloadClick = function(){
+    _kwSetBody('<div style="font-size:14px;color:#48d878;font-weight:700;">ダウンロードを開始しました</div><div style="margin-top:8px;line-height:1.9;">保存後、<b>現在のファイルを新しいファイルに置き換えて</b>ください。<br>その後、ブラウザで開き直すと最新版が起動します。<br><br><span style="color:#5a7898;">※選手データや試合結果はブラウザに保存されているため、更新後も引き継がれます（同じブラウザで開いた場合）。</span></div>');
+  };
   if(window.KW_UPDATE_CONFIG.autoCheckOnStart){
     setTimeout(function(){ try{ kwCheckUpdate(false); }catch(e){} }, 5000);
   }
@@ -4800,11 +4877,12 @@ function vdbOpen(){
     req.onerror   = () => rej();
   });
 }
-async function vdbSave(fname, blob, redName, blueName){
+async function vdbSave(fname, blob, redName, blueName, extra){
   try{
+    const meta = extra || {};
     const db = await vdbOpen();
     db.transaction('videos','readwrite').objectStore('videos')
-      .put({fname, blob, redName, blueName, savedAt:Date.now()});
+      .put(Object.assign({fname, blob, redName, blueName, savedAt:Date.now()}, meta));
   }catch(e){}
 }
 async function vdbLoadAll(){
@@ -4823,6 +4901,16 @@ async function vdbDelete(fname){
     db.transaction('videos','readwrite').objectStore('videos').delete(fname);
   }catch(e){}
 }
+async function vdbGet(fname){
+  try{
+    const db = await vdbOpen();
+    return await new Promise(res=>{
+      const req = db.transaction('videos','readonly').objectStore('videos').get(fname);
+      req.onsuccess = e => res(e.target.result || null);
+      req.onerror = () => res(null);
+    });
+  }catch(e){ return null; }
+}
 // 起動時にIndexedDBから復元
 async function vdbRestore(){
   try{
@@ -4830,7 +4918,7 @@ async function vdbRestore(){
     rows.forEach(r=>{
       if(!_localFiles.has(r.fname)){
         const url = URL.createObjectURL(r.blob);
-        _localFiles.set(r.fname, {url, file:null, redName:r.redName, blueName:r.blueName});
+        _localFiles.set(r.fname, Object.assign({url, file:null}, r));
       }
     });
     if(rows.length) console.log('[vdb] restored', rows.length, 'videos');
@@ -4838,27 +4926,176 @@ async function vdbRestore(){
 }
 
 // ── 動画ファイル手動追加（過去の録画ファイルを追加する場合） ──
+function vwKeepMetaText(s){
+  return String(s || '').replace(/\u3000/g, ' ').replace(/\s+/g, ' ').trim();
+}
+function vwBaseName(name){
+  return String(name || '').replace(/\.[^.]+$/,'');
+}
+function vwJsonNameForVideo(fname){
+  return vwBaseName(fname) + '.json';
+}
+function vwParseAddedVideoFileName(fileName){
+  const base = vwBaseName(fileName);
+  const m = base.match(/^(.+?)(?:vs|対)(.+?)_(.+?)_(\d{4}-\d{2}-\d{2})_(\d{4,6})(?:_\d+)?$/i)
+         || base.match(/^(.+?)(?:vs|対)(.+?)_(.+)$/i);
+  if(!m) return { redName:'', blueName:'', tournament:'' };
+  return {
+    redName: vwKeepMetaText(m[1]),
+    blueName: vwKeepMetaText(m[2]),
+    tournament: vwKeepMetaText(m[3])
+  };
+}
+function vwNormalizeSidecarMeta(raw){
+  if(!raw || typeof raw !== 'object') return {};
+  const src = raw.video_meta || raw.meta || raw;
+  const redName = src.redName || src.red_name || src.r_name || '';
+  const blueName = src.blueName || src.blue_name || src.b_name || '';
+  const tournament = src.tournament || src.tn || '';
+  const cls = src.cls || src.class || src.class_name || '';
+  const redClub = src.redClub || src.red_org || src.r_org || '';
+  const blueClub = src.blueClub || src.blue_org || src.b_org || '';
+  return {
+    redName: vwKeepMetaText(redName),
+    blueName: vwKeepMetaText(blueName),
+    tournament: vwKeepMetaText(tournament),
+    cls: vwKeepMetaText(cls),
+    class: vwKeepMetaText(cls),
+    court: vwKeepMetaText(src.court || src.court_no || src.courtNumber || ''),
+    r_bib: vwKeepMetaText(src.r_bib || src.red_bib || src.redBib || ''),
+    b_bib: vwKeepMetaText(src.b_bib || src.blue_bib || src.blueBib || ''),
+    redClub: vwKeepMetaText(redClub),
+    blueClub: vwKeepMetaText(blueClub),
+    r_org: vwKeepMetaText(redClub),
+    b_org: vwKeepMetaText(blueClub),
+    r_score: String(src.r_score ?? src.red_score ?? src.redScore ?? ''),
+    b_score: String(src.b_score ?? src.blue_score ?? src.blueScore ?? ''),
+    recorded_at_jst: src.recorded_at_jst || src.recordedAtJst || '',
+    recorded_at_iso: src.recorded_at_iso || src.recordedAtIso || '',
+    savedAt: src.savedAt || src.saved_at || Date.now(),
+    source_meta_file: raw.fileName || src.source_meta_file || ''
+  };
+}
+function vwBuildVideoSidecarMeta(fname, row){
+  const r = row || {};
+  return {
+    version: 1,
+    source: 'karate-all-in-one',
+    kind: 'video_meta',
+    fileName: fname,
+    createdAt: new Date().toISOString(),
+    video_meta: {
+      redName: r.redName || '',
+      blueName: r.blueName || '',
+      tournament: r.tournament || '',
+      class: r.cls || r.class || '',
+      cls: r.cls || r.class || '',
+      court: r.court || '',
+      r_bib: r.r_bib || '',
+      b_bib: r.b_bib || '',
+      redClub: r.redClub || r.r_org || '',
+      blueClub: r.blueClub || r.b_org || '',
+      r_org: r.r_org || r.redClub || '',
+      b_org: r.b_org || r.blueClub || '',
+      r_score: r.r_score || '',
+      b_score: r.b_score || '',
+      recorded_at_jst: r.recorded_at_jst || '',
+      recorded_at_iso: r.recorded_at_iso || '',
+      savedAt: r.savedAt || Date.now(),
+      size: r.size || (r.blob && r.blob.size) || 0,
+      mime: r.mime || (r.blob && r.blob.type) || ''
+    }
+  };
+}
+function vwDownloadBlob(blob, fileName){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+}
+async function vwReadJsonFile(file){
+  const text = await file.text();
+  const obj = JSON.parse(text);
+  obj.fileName = file.name;
+  return obj;
+}
 async function vwPickFolder(){
   const input = document.createElement('input');
   input.type = 'file';
-  input.accept = 'video/webm,video/mp4,video/quicktime,.webm,.mp4,.mov';
+  input.accept = 'video/webm,video/mp4,video/quicktime,.webm,.mp4,.mov,application/json,.json';
   input.multiple = true;
-  input.onchange = e => {
-    const files = Array.from(e.target.files);
-    if(!files.length) return;
-    files.forEach(f => {
+  input.onchange = async e => {
+    const selected = Array.from(e.target.files || []);
+    if(!selected.length) return;
+
+    const videoFiles = selected.filter(f => /\.(webm|mp4|mov)$/i.test(f.name) || String(f.type||'').startsWith('video/'));
+    const jsonFiles = selected.filter(f => /\.json$/i.test(f.name) || String(f.type||'').includes('json'));
+
+    const metaByBase = new Map();
+    for(const jf of jsonFiles){
+      try{
+        const raw = await vwReadJsonFile(jf);
+        metaByBase.set(vwBaseName(jf.name), vwNormalizeSidecarMeta(raw));
+      }catch(err){
+        console.warn('メタJSONの読み込みに失敗:', jf.name, err);
+      }
+    }
+
+    let savedCount = 0;
+    for(const f of videoFiles){
       const url = URL.createObjectURL(f);
-      // ファイル名から選手名を解析: 赤対青_大会名_日時.webm
-      const base = f.name.replace(/\.[^.]+$/,'');
-      const m = base.match(/^([^_]+)対([^_]+)_/);
-      _localFiles.set(f.name, {
-        url, file:f,
-        redName: m ? m[1] : '',
-        blueName: m ? m[2] : ''
-      });
-    });
+      const parsed = vwParseAddedVideoFileName(f.name);
+      const sidecar = metaByBase.get(vwBaseName(f.name)) || {};
+      const meta = Object.assign({}, parsed, sidecar);
+      const rowMeta = {
+        redName: meta.redName || parsed.redName,
+        blueName: meta.blueName || parsed.blueName,
+        tournament: meta.tournament || parsed.tournament,
+        cls: meta.cls || meta.class || '',
+        class: meta.class || meta.cls || '',
+        court: meta.court || '',
+        r_bib: meta.r_bib || '',
+        b_bib: meta.b_bib || '',
+        redClub: meta.redClub || meta.r_org || '',
+        blueClub: meta.blueClub || meta.b_org || '',
+        r_org: meta.r_org || meta.redClub || '',
+        b_org: meta.b_org || meta.blueClub || '',
+        r_score: meta.r_score || '',
+        b_score: meta.b_score || '',
+        recorded_at_jst: meta.recorded_at_jst || '',
+        recorded_at_iso: meta.recorded_at_iso || '',
+        size: f.size || 0,
+        mime: f.type || '',
+        uploadStatus: 'stored',
+        uploadProgress: 0,
+        uploadedAt: null,
+        error: null,
+        source_meta_file: meta.source_meta_file || (metaByBase.has(vwBaseName(f.name)) ? vwJsonNameForVideo(f.name) : '')
+      };
+
+      _localFiles.set(f.name, Object.assign({url, file:f}, rowMeta));
+      if(typeof vdbSave === 'function'){
+        try{
+          await vdbSave(f.name, f, rowMeta.redName, rowMeta.blueName, rowMeta);
+          savedCount++;
+        }catch(err){
+          console.warn('動画追加のIndexedDB保存に失敗:', f.name, err);
+        }
+      }
+    }
+
     vwShowList();
-    toast('📁 ' + files.length + '件の動画を追加しました（合計' + _localFiles.size + '件）');
+    if(typeof lvEnsureRestored === 'function') await lvEnsureRestored();
+    if(typeof lvRefreshBadges === 'function') await lvRefreshBadges();
+    if(document.getElementById('modal-local-videos')?.style.display === 'flex' && typeof lvRenderLocalVideos === 'function'){
+      await lvRenderLocalVideos();
+    }
+
+    toast('📁 動画' + videoFiles.length + '件、メタJSON' + jsonFiles.length + '件を読み込みました（サーバーアップロード対象 ' + savedCount + '件）');
   };
   input.click();
 }
@@ -4883,13 +5120,23 @@ function vwFindLocalFileName(m){
   return null;
 }
 // 動画をファイルとして書き出し（ユーザー操作時のみ・v1.9で自動DL廃止に伴い新設）
-function vwExportVideo(fname){
+async function vwExportVideo(fname){
   const e = _localFiles.get(fname);
   if(!e || !e.url){ toast('動画データが見つかりません'); return; }
+
   const a = document.createElement('a');
-  a.href = e.url; a.download = fname;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  toast('💾 書き出し: ' + fname);
+  a.href = e.url;
+  a.download = fname;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
+  const stored = (typeof vdbGet === 'function') ? await vdbGet(fname) : null;
+  const metaSource = Object.assign({}, e || {}, stored || {});
+  const metaJson = JSON.stringify(vwBuildVideoSidecarMeta(fname, metaSource), null, 2);
+  vwDownloadBlob(new Blob([metaJson], {type:'application/json;charset=utf-8'}), vwJsonNameForVideo(fname));
+
+  toast('💾 動画とメタJSONを書き出しました: ' + fname);
 }
 function vwFindLocalFile(m){
   if(m && m._file && _localFiles.has(m._file)) return _localFiles.get(m._file);
@@ -5020,6 +5267,24 @@ function buildMatchList(){
   return matches;
 }
 
+function vwGetYoutubeSessions(){
+  try{ return JSON.parse(localStorage.getItem('kw_yt_sessions')||'[]') || []; }
+  catch(e){ return []; }
+}
+function vwFindYtForMatch(m){
+  const ytSessions = vwGetYoutubeSessions();
+  const tMs = new Date(String(m.startIso || '').replace(' ','T')).getTime();
+  if(!Number.isFinite(tMs)) return null;
+  return ytSessions
+    .filter(s => String(s.court) === String(m.court) && Number(s.startMs || 0) <= tMs)
+    .sort((a,b) => Number(b.startMs || 0) - Number(a.startMs || 0))[0] || null;
+}
+function vwMatchHasVideo(m){
+  // ローカル追加/録画済み動画、またはYouTube連携がある試合だけを動画一覧に表示する。
+  // 試合結果ログだけが残っていて動画がないカードは、アップロード後の整理時に残らないよう非表示にする。
+  return !!vwFindLocalFileName(m) || !!vwFindYtForMatch(m);
+}
+
 async function vwShowList(){
   // IndexedDBから復元（まだ読み込まれていない場合）
   await vdbRestore();
@@ -5071,19 +5336,13 @@ function vwRenderCards(matches){
           <button onclick="vwExportVideo('${n.replace(/'/g,"\\'")}')" style="background:#0a2418;border:1px solid #2a8050;border-radius:6px;color:#5ad090;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">💾 書き出し</button>
         </div>`).join('')}
     </div>` : '';
-  if(!matches.length){
-    cont.innerHTML=orphanHtml+'<div style="text-align:center;padding:40px;color:#3a5070;">試合データがありません</div>';
+  const visibleMatches = matches.filter(vwMatchHasVideo);
+  if(!visibleMatches.length){
+    cont.innerHTML=orphanHtml+'<div style="text-align:center;padding:40px;color:#3a5070;">表示できる動画はありません</div>';
     return;
   }
-  const ytSessions=JSON.parse(localStorage.getItem('kw_yt_sessions')||'[]');
-  // コートごとに最も近い（試合開始以前の）セッションを探す
-  function findYt(m){
-    const tMs=new Date(m.startIso.replace(' ','T')).getTime();
-    return ytSessions.filter(s=>String(s.court)===String(m.court)&&s.startMs<=tMs)
-      .sort((a,b)=>b.startMs-a.startMs)[0]||null;
-  }
-  cont.innerHTML=orphanHtml+matches.map((m,idx)=>{
-    const yt=findYt(m);
+  cont.innerHTML=orphanHtml+visibleMatches.map((m,idx)=>{
+    const yt=vwFindYtForMatch(m);
     const matchUrl=yt?ytMakeUrl(yt.url,m.startIso,yt.startMs):null;
     const st=m.startAt?m.startAt.replace('T',' ').substring(0,16):'—';
     const hlN=m.highlights.length;
@@ -5490,11 +5749,49 @@ async function camStartRec(){
     if(e.data && e.data.size > 0) _rc.push(e.data);
   };
 
+  // 録画停止時に、後からローカル保存/再読込しても失われない試合メタ情報を取得する。
+  const kwRecText = v => String(v || '').replace(/\u3000/g, ' ').replace(/\s+/g, ' ').trim();
+  const kwRecTextById = (id, fallback) => {
+    const el = document.getElementById(id);
+    if(!el) return kwRecText(fallback || '');
+    return kwRecText(el.textContent || el.value || fallback || '');
+  };
+  const kwRecScore = side => {
+    try{ if(typeof tot === 'function') return String(tot(side) || 0); }catch(e){}
+    return '0';
+  };
+  const kwBuildRecordingMeta = () => {
+    const tournament = kwRecTextById('tb-tournament', '大会').replace('大会名未設定', '大会');
+    const cls = kwRecTextById('tb-cls', '');
+    const redClub = kwRecTextById('dn-r-club', '').replace(/^—$/, '');
+    const blueClub = kwRecTextById('dn-b-club', '').replace(/^—$/, '');
+    const courtRaw = kwRecTextById('tb-court', '0');
+    const courtMatch = courtRaw.match(/\d+/);
+    const court = courtMatch ? courtMatch[0] : (courtRaw || '0');
+    return {
+      tournament,
+      cls,
+      class: cls,
+      court,
+      redName: kwRecTextById('dn-r', '赤'),
+      blueName: kwRecTextById('dn-b', '青'),
+      r_bib: kwRecTextById('dn-r-bib', '').replace(/^—$/, ''),
+      b_bib: kwRecTextById('dn-b-bib', '').replace(/^—$/, ''),
+      redClub,
+      blueClub,
+      r_org: redClub,
+      b_org: blueClub,
+      r_score: kwRecScore('r'),
+      b_score: kwRecScore('b')
+    };
+  };
+
   _mr.onstop = () => {
-    const norm = s => (s||'').replace(/[\s\u3000]+/g,'');
-    const rn  = norm(document.getElementById('dn-r')?.textContent||'赤');
-    const bn  = norm(document.getElementById('dn-b')?.textContent||'青');
-    const tn  = norm((document.getElementById('tb-tournament')?.textContent||'大会').replace('大会名未設定','大会'));
+    // DB登録・JSON照合に使う選手名/大会名は、姓名間のスペースを保持する。
+    const metaNow = kwBuildRecordingMeta();
+    const rn  = metaNow.redName || '赤';
+    const bn  = metaNow.blueName || '青';
+    const tn  = metaNow.tournament || '大会';
     const jst  = new Date(Date.now() + 9*60*60*1000);
     const dt   = jst.toISOString().slice(0,16).replace('T','_').replace(':','');
     const ext = (_mr.mimeType||'webm').includes('mp4') ? 'mp4' : 'webm';
@@ -5517,10 +5814,11 @@ async function camStartRec(){
     //        動画閲覧画面の「💾 書き出し」から必要時にファイル保存できる
 
     // 閲覧画面に登録（URLを解放しない）
-    _localFiles.set(fname, {url, file:null, redName:rn, blueName:bn});
+    _localFiles.set(fname, Object.assign({url, file:null, redName:rn, blueName:bn}, metaNow));
 
     // IndexedDB に保存（リロード後も復元）
-    vdbSave(fname, blob, rn, bn);
+    // metaNowを保持し、書き出し時に同名JSONへ出力することで、後からローカル読込してもメタ情報を復元できる。
+    vdbSave(fname, blob, rn, bn, metaNow);
 
     _rc = [];
     camUpdateUI();
@@ -5631,6 +5929,148 @@ function camUpdateUI(){
     });
     return _kwSb;
   }
+  // ─────────────────────────────────────────────
+  // 動画アップロード用ログイン確認
+  // Storage policy が authenticated 前提のため、動画一覧表示および送信前に
+  // Supabase Auth セッションを確認し、未ログインならログインを促します。
+  // ─────────────────────────────────────────────
+  const KW_VIDEO_LOGIN_EMAIL_KEY = 'kw_video_upload_login_email';
+  let _kwVideoLoginPromptOpen = false;
+
+  function kwVideoAuthErr(e){
+    return e && e.message ? e.message : String(e || '不明なエラー');
+  }
+
+  async function kwVideoGetSession(){
+    const sb = kwSb();
+    if(!sb.auth || typeof sb.auth.getSession !== 'function'){
+      throw new Error('Supabase Auth が利用できません。');
+    }
+    const { data, error } = await sb.auth.getSession();
+    if(error) throw error;
+    return data && data.session ? data.session : null;
+  }
+
+  async function kwVideoIsLoggedIn(){
+    const session = await kwVideoGetSession();
+    return !!session;
+  }
+
+  function kwVideoEnsureLoginOverlay(){
+    let ov = document.getElementById('kw-video-login-ov');
+    if(ov) return ov;
+
+    ov = document.createElement('div');
+    ov.id = 'kw-video-login-ov';
+    ov.style.cssText = 'display:none;position:fixed;inset:0;z-index:10050;background:rgba(3,5,10,.86);align-items:center;justify-content:center;color:#d8e6ff;font-family:inherit;';
+    ov.innerHTML =
+      '<div style="width:min(460px,94vw);background:#0d1b33;border:1px solid #31527c;border-radius:8px;box-shadow:0 22px 70px rgba(0,0,0,.65);overflow:hidden;">' +
+        '<div style="height:46px;display:flex;align-items:center;gap:10px;padding:0 14px;border-bottom:1px solid #31527c;background:#111f38;box-sizing:border-box;">' +
+          '<div style="font-size:15px;font-weight:900;letter-spacing:.5px;flex:1;">🔐 動画アップロードにはログインが必要です</div>' +
+          '<button id="kw-video-login-close" type="button" style="width:34px;height:34px;border:0;background:transparent;color:#9fb8d8;font-size:22px;cursor:pointer;font-family:inherit;">×</button>' +
+        '</div>' +
+        '<div style="padding:18px 20px;font-size:13px;line-height:1.8;color:#a8b8cc;">' +
+          '<div style="margin-bottom:12px;">現在、Supabaseにログインしていないため、動画をアップロードできません。<br>ログイン後に動画一覧を表示し、アップロードできるようになります。</div>' +
+          '<label style="display:block;margin-bottom:6px;color:#c8d8f0;font-weight:700;">メールアドレス</label>' +
+          '<input id="kw-video-login-email" type="email" autocomplete="username" style="width:100%;height:40px;box-sizing:border-box;border-radius:5px;border:1px solid #31527c;background:#071020;color:#e8f0ff;padding:0 10px;font-size:14px;font-family:inherit;margin-bottom:12px;">' +
+          '<label style="display:block;margin-bottom:6px;color:#c8d8f0;font-weight:700;">パスワード</label>' +
+          '<input id="kw-video-login-password" type="password" autocomplete="current-password" style="width:100%;height:40px;box-sizing:border-box;border-radius:5px;border:1px solid #31527c;background:#071020;color:#e8f0ff;padding:0 10px;font-size:14px;font-family:inherit;">' +
+          '<div id="kw-video-login-msg" style="margin-top:12px;min-height:20px;color:#ff9a9a;font-size:12px;white-space:pre-wrap;"></div>' +
+        '</div>' +
+        '<div style="display:flex;gap:8px;padding:14px 20px;border-top:1px solid #14223a;background:#0b1830;">' +
+          '<button id="kw-video-login-cancel" type="button" style="flex:1;height:42px;border-radius:5px;border:1px solid #2a3a52;color:#8098b8;background:transparent;cursor:pointer;font-weight:700;font-family:inherit;">キャンセル</button>' +
+          '<button id="kw-video-login-submit" type="button" style="flex:1;height:42px;border-radius:5px;border:1px solid #2a7048;color:#48e878;background:#0a2012;cursor:pointer;font-weight:900;font-family:inherit;">ログイン</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(ov);
+    return ov;
+  }
+
+  function kwVideoShowLoginDialog(){
+    return new Promise(resolve => {
+      if(_kwVideoLoginPromptOpen){ resolve(false); return; }
+      _kwVideoLoginPromptOpen = true;
+      const ov = kwVideoEnsureLoginOverlay();
+      const email = document.getElementById('kw-video-login-email');
+      const pass = document.getElementById('kw-video-login-password');
+      const msg = document.getElementById('kw-video-login-msg');
+      const btn = document.getElementById('kw-video-login-submit');
+      const cancel = document.getElementById('kw-video-login-cancel');
+      const closeBtn = document.getElementById('kw-video-login-close');
+
+      try{ email.value = localStorage.getItem(KW_VIDEO_LOGIN_EMAIL_KEY) || ''; }catch(e){ email.value = ''; }
+      pass.value = '';
+      msg.style.color = '#ff9a9a';
+      msg.textContent = '';
+
+      function close(ok){
+        ov.style.display = 'none';
+        btn.onclick = null;
+        cancel.onclick = null;
+        closeBtn.onclick = null;
+        email.onkeydown = null;
+        pass.onkeydown = null;
+        _kwVideoLoginPromptOpen = false;
+        resolve(ok);
+      }
+
+      async function submit(){
+        const e = String(email.value || '').trim();
+        const pw = String(pass.value || '');
+        if(!e){ msg.textContent = 'メールアドレスを入力してください。'; email.focus(); return; }
+        if(!pw){ msg.textContent = 'パスワードを入力してください。'; pass.focus(); return; }
+        try{
+          btn.disabled = true;
+          btn.textContent = 'ログイン中...';
+          msg.textContent = '';
+          const sb = kwSb();
+          const { data, error } = await sb.auth.signInWithPassword({ email:e, password:pw });
+          if(error) throw error;
+          if(!data || !data.session) throw new Error('ログインセッションを取得できませんでした。');
+          try{ localStorage.setItem(KW_VIDEO_LOGIN_EMAIL_KEY, e); }catch(_e){}
+          msg.style.color = '#48e878';
+          msg.textContent = 'ログインしました。';
+          close(true);
+        }catch(err){
+          console.error('動画アップロード用ログイン失敗:', err);
+          msg.style.color = '#ff9a9a';
+          msg.textContent = 'ログインに失敗しました: ' + kwVideoAuthErr(err);
+        }finally{
+          btn.disabled = false;
+          btn.textContent = 'ログイン';
+        }
+      }
+
+      btn.onclick = submit;
+      cancel.onclick = () => close(false);
+      closeBtn.onclick = () => close(false);
+      email.onkeydown = ev => { if(ev.key === 'Enter') pass.focus(); };
+      pass.onkeydown = ev => { if(ev.key === 'Enter') submit(); };
+      ov.style.display = 'flex';
+      setTimeout(() => { (email.value ? pass : email).focus(); }, 50);
+    });
+  }
+
+  async function kwEnsureVideoUploadLogin(){
+    try{
+      if(await kwVideoIsLoggedIn()) return true;
+      return await kwVideoShowLoginDialog();
+    }catch(e){
+      console.error('動画アップロード認証確認エラー:', e);
+      alert('動画アップロードのログイン状態を確認できませんでした。\n\n詳細: ' + kwVideoAuthErr(e));
+      return false;
+    }
+  }
+
+  window.kwEnsureVideoUploadLogin = kwEnsureVideoUploadLogin;
+  window.kwVideoUploadLogout = async function(){
+    try{
+      await kwSb().auth.signOut();
+      lvToast('ログアウトしました', 'ok');
+    }catch(e){
+      alert('ログアウトに失敗しました。\n\n' + kwVideoAuthErr(e));
+    }
+  };
   function pad(n){ return String(n).padStart(2,'0'); }
   function jstParts(dt){
     const z = new Date(dt.getTime() + 9 * 60 * 60 * 1000);
@@ -5726,6 +6166,59 @@ function camUpdateUI(){
       xhr.send(blob);
     });
   }
+  function kwVideoThumbBlob(videoBlob){
+    return new Promise((resolve, reject) => {
+      const video = document.createElement('video');
+      const canvas = document.createElement('canvas');
+      const url = URL.createObjectURL(videoBlob);
+      let done = false;
+      const finish = (err, blob) => {
+        if(done) return;
+        done = true;
+        try{ URL.revokeObjectURL(url); }catch(e){}
+        if(err) reject(err); else resolve(blob);
+      };
+      const timer = setTimeout(() => finish(new Error('サムネイル生成がタイムアウトしました')), 8000);
+      video.preload = 'metadata';
+      video.muted = true;
+      video.playsInline = true;
+      video.src = url;
+      video.onloadedmetadata = () => {
+        try{
+          const dur = Number.isFinite(video.duration) ? video.duration : 0;
+          video.currentTime = Math.min(1, Math.max(0, dur * 0.2));
+        }catch(e){ try{ video.currentTime = 0; }catch(_e){} }
+      };
+      video.onseeked = () => {
+        try{
+          clearTimeout(timer);
+          const vw = video.videoWidth || 640;
+          const vh = video.videoHeight || 360;
+          const scale = Math.min(1, 640 / vw);
+          canvas.width = Math.max(1, Math.round(vw * scale));
+          canvas.height = Math.max(1, Math.round(vh * scale));
+          canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+          canvas.toBlob(blob => blob ? finish(null, blob) : finish(new Error('サムネイル画像を生成できませんでした')), 'image/jpeg', 0.82);
+        }catch(e){ clearTimeout(timer); finish(e); }
+      };
+      video.onerror = () => { clearTimeout(timer); finish(new Error('動画を読み込めないためサムネイルを生成できませんでした')); };
+    });
+  }
+  async function uploadThumbnail(sb, videoBlob, videoPath){
+    try{
+      const thumbBlob = await kwVideoThumbBlob(videoBlob);
+      const thumbPath = videoPath
+        .replace(/\.(webm|mp4|mov)$/i, '.jpg')
+        .replace(/\/([^/]+)\.jpg$/i, '/thumb_$1.jpg');
+      const { error } = await sb.storage.from(KW_SUPABASE_BUCKET).upload(thumbPath, thumbBlob, {upsert:true, contentType:'image/jpeg'});
+      if(error) throw error;
+      return thumbPath;
+    }catch(e){
+      console.warn('サムネイル生成またはアップロードに失敗しました:', e);
+      return null;
+    }
+  }
+
   async function insertVideoMaster(sb, meta, path){
     const session = (await sb.auth.getSession()).data.session;
     const { error } = await sb.from('video_master').insert({
@@ -5734,9 +6227,9 @@ function camUpdateUI(){
       filename: meta.filename,
       storage_path: path,
       storage_bucket: KW_SUPABASE_BUCKET,
-      thumb_path: null,
-      thumbnail_path: null,
-      thumbnail_bucket: null,
+      thumb_path: meta.thumb_path || null,
+      thumbnail_path: meta.thumbnail_path || meta.thumb_path || null,
+      thumbnail_bucket: meta.thumbnail_bucket || (meta.thumb_path ? KW_SUPABASE_BUCKET : null),
       youtube_title: meta.youtube_title,
       tournament: meta.tournament,
       class: meta.class,
@@ -5765,13 +6258,17 @@ function camUpdateUI(){
     const meta = buildMeta(Object.assign({}, record || {}, { fname }), blob);
     const path = storagePath(meta);
     await uploadWithProgress(sb, blob, path, onProgress);
+    const thumbPath = await uploadThumbnail(sb, blob, path);
+    meta.thumb_path = thumbPath;
+    meta.thumbnail_path = thumbPath;
+    meta.thumbnail_bucket = thumbPath ? KW_SUPABASE_BUCKET : null;
     await insertVideoMaster(sb, meta, path);
-    return { path, meta };
+    return { path, thumbPath, meta };
   };
 })();
 
 // ══════════════════════════════════════════════════════════════
-//  端末保存動画管理: camera-control-mobile-indexeddb.html のボタン処理を統合
+//  サーバーアップロード動画管理: camera-control-mobile-indexeddb.html のボタン処理を統合
 //  - 既存の kw_videos IndexedDB を拡張し、未送信/送信済/失敗/進捗を管理
 //  - karate-all-in-one 側にはアップロード先が未定義のため、以下のいずれかがあれば送信する
 //      1) window.KW_UPLOAD_HANDLER({ fname, blob, record, onProgress })
@@ -5928,7 +6425,7 @@ function camUpdateUI(){
       + `端末内データ <b style="color:#fff;">${lvFmtBytes(st.size)}</b><br>`
       + `空き容量 約<b style="color:#fff;">${lvFmtBytes(free)}</b> → この平均ペースであと約<b style="color:#d8e6ff;">${remain}</b>試合保存可能`;
     if(!st.rows.length){
-      list.innerHTML = '<div style="text-align:center;color:#516582;font-size:13px;margin-top:34px;">端末に保存された動画はありません</div>';
+      list.innerHTML = '<div style="text-align:center;color:#516582;font-size:13px;margin-top:34px;">アップロード対象動画はありません</div>';
       return;
     }
     const rows = st.rows.sort((a,b) => (b.savedAt||0) - (a.savedAt||0));
@@ -5960,7 +6457,7 @@ function camUpdateUI(){
       const st = await lvStats();
       const btn = document.getElementById('lv-upload-all');
       if(btn){
-        btn.textContent = st.pending ? `💾 端末保存 未送信${st.pending}件` : '💾 端末保存';
+        btn.textContent = st.pending ? `⬆ サーバーアップロード 未送信${st.pending}件` : '⬆ サーバーアップロード';
         btn.style.borderColor = st.pending ? '#3f78c8' : '#2b4a70';
       }
       const cnt = document.getElementById('vw-folder-count');
@@ -6033,6 +6530,8 @@ function camUpdateUI(){
 
   // public functions used by buttons
   window.lvOpenLocalVideos = async function(){
+    const loginOk = await kwEnsureVideoUploadLogin();
+    if(!loginOk){ lvToast('動画アップロードにはログインが必要です', 'ng'); return; }
     await lvEnsureRestored();
     const cfg = lvCfg();
     lvSetDeleteToggle(cfg.deleteAfterUpload !== false);
@@ -6049,15 +6548,19 @@ function camUpdateUI(){
     await lvEnsureRestored();
     await lvRenderLocalVideos();
     await lvRefreshBadges();
-    lvToast('端末保存一覧を更新しました');
+    lvToast('サーバーアップロード一覧を更新しました');
   };
   window.lvUploadOneFromButton = async function(fname){
+    const loginOk = await kwEnsureVideoUploadLogin();
+    if(!loginOk){ lvToast('動画アップロードにはログインが必要です', 'ng'); return; }
     if(_lvRunning){ lvToast('アップロード処理中です'); return; }
     _lvRunning = true;
     try{ await lvUploadOne(fname); }
     finally{ _lvRunning = false; await lvRenderLocalVideos(); }
   };
   window.lvUploadAllPending = async function(){
+    const loginOk = await kwEnsureVideoUploadLogin();
+    if(!loginOk){ lvToast('動画アップロードにはログインが必要です', 'ng'); return; }
     if(_lvRunning){ _lvCancel = true; lvToast('アップロード中止を予約しました'); return; }
     _lvRunning = true; _lvCancel = false;
     try{
@@ -6077,7 +6580,7 @@ function camUpdateUI(){
   };
   window.lvCancelUpload = function(){ _lvCancel = true; lvToast('アップロード中止を予約しました'); };
   window.lvDeleteOne = async function(fname){
-    if(!confirm('この端末保存動画を削除しますか？\n' + fname)) return;
+    if(!confirm('このサーバーアップロード対象動画を削除しますか？\n' + fname)) return;
     await lvDelete(fname);
     await lvRenderLocalVideos();
     await lvRefreshBadges();
@@ -6098,10 +6601,19 @@ function camUpdateUI(){
 
   // Override existing persistence functions to store status metadata while preserving compatibility.
   if(_lvOriginalVdbSave){
-    window.vdbSave = vdbSave = async function(fname, blob, redName, blueName){
-      const row = { fname, blob, redName, blueName, savedAt:Date.now(), size:blob?.size||0, mime:blob?.type||'', uploadStatus:'stored', uploadProgress:0, uploadedAt:null, error:null };
+    window.vdbSave = vdbSave = async function(fname, blob, redName, blueName, extra){
+      const row = Object.assign({
+        fname, blob, redName, blueName,
+        savedAt: Date.now(),
+        size: blob?.size || 0,
+        mime: blob?.type || '',
+        uploadStatus: 'stored',
+        uploadProgress: 0,
+        uploadedAt: null,
+        error: null
+      }, extra || {});
       try{ await lvPut(row); }
-      catch(e){ console.warn('[lv] extended vdbSave failed, fallback to original', e); return await _lvOriginalVdbSave(fname, blob, redName, blueName); }
+      catch(e){ console.warn('[lv] extended vdbSave failed, fallback to original', e); return await _lvOriginalVdbSave(fname, blob, redName, blueName, extra); }
       await lvRefreshBadges();
     };
   }
@@ -6120,12 +6632,16 @@ function camUpdateUI(){
   });
   document.addEventListener('click', function(e){
     const t = e.target;
-    if(t && (t.id === 'lv-delete-toggle-visual' || t.closest?.('label')?.querySelector?.('#lv-delete-after-upload'))){
-      const chk = document.getElementById('lv-delete-after-upload');
-      if(chk && t.id === 'lv-delete-toggle-visual'){
-        chk.checked = !chk.checked;
-        chk.dispatchEvent(new Event('change', { bubbles:true }));
-      }
+    if(!t) return;
+    const visual = t.closest?.('#lv-delete-toggle-visual');
+    const label = t.closest?.('label');
+    const chk = document.getElementById('lv-delete-after-upload');
+    if(!chk) return;
+    // スイッチ本体、白い丸、ラベル文字、ラベル余白のどこを押してもON/OFFを切り替える
+    if(visual || (label && label.querySelector?.('#lv-delete-after-upload'))){
+      e.preventDefault();
+      chk.checked = !chk.checked;
+      chk.dispatchEvent(new Event('change', { bubbles:true }));
     }
   });
   document.addEventListener('keydown', function(e){
@@ -6267,11 +6783,11 @@ function camUpdateUI(){
   </div>
   <!-- /root169 -->
 
-  <!-- 端末保存動画管理モーダル（camera-control-mobile-indexeddb.html のボタン処理を karate-all-in-one 用に統合） -->
+  <!-- サーバーアップロード動画管理モーダル（camera-control-mobile-indexeddb.html のボタン処理を karate-all-in-one 用に統合） -->
   <div id="modal-local-videos" style="display:none;position:fixed;inset:0;z-index:8500;background:rgba(3,8,18,.86);align-items:center;justify-content:center;padding:0;box-sizing:border-box;font-family:inherit;">
    <div style="width:min(720px,96vw);height:min(720px,94vh);background:#0d1b33;border:1px solid #31527c;box-shadow:0 22px 70px rgba(0,0,0,.65);display:flex;flex-direction:column;color:#d8e6ff;">
     <div style="height:44px;display:flex;align-items:center;gap:10px;padding:0 12px;border-bottom:1px solid #31527c;background:#111f38;box-sizing:border-box;">
-     <div style="font-size:15px;font-weight:900;letter-spacing:.5px;flex:1;">💾 端末に保存した動画</div>
+     <div style="font-size:15px;font-weight:900;letter-spacing:.5px;flex:1;">⬆ サーバーアップロード</div>
      <button onclick="lvCloseLocalVideos()" style="background:transparent;border:none;color:#aab8d0;font-size:22px;line-height:1;cursor:pointer;padding:4px 6px;font-family:inherit;">×</button>
     </div>
     <div style="flex:1;overflow:auto;padding:14px 12px 10px;box-sizing:border-box;">
@@ -6288,7 +6804,7 @@ function camUpdateUI(){
      </div>
      <label style="display:flex;align-items:center;gap:10px;font-size:13px;color:#d8e6ff;margin-bottom:20px;cursor:pointer;user-select:none;">
       <span id="lv-delete-toggle-visual" style="width:40px;height:22px;border-radius:999px;background:#2ecc71;position:relative;display:inline-block;box-shadow:inset 0 0 0 1px rgba(255,255,255,.15);"><span style="position:absolute;width:18px;height:18px;border-radius:50%;background:#fff;right:2px;top:2px;"></span></span>
-      <input type="checkbox" id="lv-delete-after-upload" checked style="display:none;">
+      <input type="checkbox" id="lv-delete-after-upload" checked style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;">
       アップロード成功後、端末内の動画を削除して容量を空ける
      </label>
      <div id="lv-list" style="display:flex;flex-direction:column;gap:9px;min-height:180px;">
