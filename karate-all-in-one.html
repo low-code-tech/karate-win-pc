@@ -4125,101 +4125,362 @@ function toast(msg,cls){
   window.KW_VER='1.9j';
   try{console.log('[Karate Win] version', KW_VER);}catch(e){}
 
-  // ══ オンライン更新チェック機能 ══
+  // ══ オンライン更新チェック機能 完全版 ══
+  // 単一ファイル更新と複数ファイル更新の両方に対応します。
+  // version.json の例:
+  // {
+  //   "appName": "Karate Win PC",
+  //   "latestVersion": "1.9k",
+  //   "releaseDate": "2026-08-19",
+  //   "notes": ["複数ファイル更新に対応"],
+  //   "files": [
+  //     {"name":"karate-all-in-one.html", "url":"https://karate-win-pc.vercel.app/karate-all-in-one.html", "description":"空手アプリ本体"},
+  //     {"name":"sample-data.xlsx", "url":"https://karate-win-pc.vercel.app/sample-data.xlsx", "description":"サンプルデータ"}
+  //   ]
+  // }
+  // 互換用として downloadUrl / url の単一ファイル形式にも対応します。
   window.KW_UPDATE_CONFIG = {
     manifestUrl: 'https://karate-win-pc.vercel.app/version.json',
-    autoCheckOnStart: false
+    defaultFileName: 'karate-all-in-one.html',
+    autoCheckOnStart: false,
+    savePickerId: 'karate-win-update-save-file',
+    directoryPickerId: 'karate-win-update-save-directory'
   };
+
   window.kwParseVer = function(v){
-    v = String(v||'').trim().replace(/^v/i,'');
-    var out = [];
+    v = String(v || '').trim().replace(/^v/i, '');
     var m = v.match(/^(\d+(?:\.\d+)*)([a-zA-Z]*)$/);
     if(!m){ return {nums:[0], suf:0, raw:v}; }
-    out = m[1].split('.').map(function(n){return parseInt(n,10)||0;});
+    var nums = m[1].split('.').map(function(n){ return parseInt(n, 10) || 0; });
     var suf = 0;
     if(m[2]){ suf = m[2].toLowerCase().charCodeAt(0) - 96; }
-    return {nums:out, suf:suf, raw:v};
+    return {nums:nums, suf:suf, raw:v};
   };
-  window.kwCmpVer = function(a,b){
+
+  window.kwCmpVer = function(a, b){
     var pa = kwParseVer(a), pb = kwParseVer(b);
     var len = Math.max(pa.nums.length, pb.nums.length);
-    for(var i=0;i<len;i++){
-      var x = pa.nums[i]||0, y = pb.nums[i]||0;
-      if(x>y) return 1; if(x<y) return -1;
+    for(var i = 0; i < len; i++){
+      var x = pa.nums[i] || 0;
+      var y = pb.nums[i] || 0;
+      if(x > y) return 1;
+      if(x < y) return -1;
     }
-    if(pa.suf>pb.suf) return 1; if(pa.suf<pb.suf) return -1;
+    if(pa.suf > pb.suf) return 1;
+    if(pa.suf < pb.suf) return -1;
     return 0;
   };
+
   window.kwCloseUpdate = function(){
     var ov = document.getElementById('kw-update-ov');
-    if(ov) ov.style.display='none';
+    if(ov) ov.style.display = 'none';
   };
-  function _kwShowOverlay(){ var ov=document.getElementById('kw-update-ov'); if(ov) ov.style.display='flex'; }
-  function _kwSetBody(html){ var b=document.getElementById('kw-up-body'); if(b) b.innerHTML=html; }
-  function _kwSetActions(html){
-    var a=document.getElementById('kw-up-actions');
-    if(a) a.innerHTML = html + '<button onclick="kwCloseUpdate()" style="padding:8px 16px;border-radius:5px;font-size:12px;font-weight:700;border:1px solid #2a3a52;color:#8098b8;background:transparent;cursor:pointer;font-family:inherit;">閉じる</button>';
+
+  function _kwShowOverlay(){
+    var ov = document.getElementById('kw-update-ov');
+    if(ov) ov.style.display = 'flex';
   }
-  function _kwEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
+  function _kwSetBody(html){
+    var b = document.getElementById('kw-up-body');
+    if(b) b.innerHTML = html;
+  }
+
+  function _kwSetActions(html){
+    var a = document.getElementById('kw-up-actions');
+    if(!a) return;
+    a.innerHTML = html + '<button onclick="kwCloseUpdate()" style="padding:8px 16px;border-radius:5px;font-size:12px;font-weight:700;border:1px solid #2a3a52;color:#8098b8;background:transparent;cursor:pointer;font-family:inherit;">閉じる</button>';
+  }
+
+  function _kwEsc(s){
+    return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){
+      return {'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;'}[c];
+    });
+  }
+
+  function _kwErrMsg(error){
+    if(!error) return '不明なエラー';
+    return error.message ? error.message : String(error);
+  }
+
+  function _kwFileNameFromUrl(url){
+    try{
+      var u = new URL(url, location.href);
+      var name = decodeURIComponent((u.pathname.split('/').pop() || '').trim());
+      return name || (window.KW_UPDATE_CONFIG.defaultFileName || 'karate-all-in-one.html');
+    }catch(e){
+      return window.KW_UPDATE_CONFIG.defaultFileName || 'karate-all-in-one.html';
+    }
+  }
+
+  function _kwNormalizeFiles(mf){
+    var files = [];
+    if(Array.isArray(mf.files) && mf.files.length > 0){
+      mf.files.forEach(function(f){
+        if(!f) return;
+        var url = f.url || f.downloadUrl || f.href || '';
+        if(!url) return;
+        files.push({
+          name: f.name || _kwFileNameFromUrl(url),
+          url: url,
+          description: f.description || '',
+          required: f.required !== false
+        });
+      });
+    }
+    if(files.length === 0){
+      var singleUrl = mf.downloadUrl || mf.url || '';
+      if(singleUrl){
+        files.push({
+          name: mf.fileName || window.KW_UPDATE_CONFIG.defaultFileName || _kwFileNameFromUrl(singleUrl),
+          url: singleUrl,
+          description: '空手アプリ本体',
+          required: true
+        });
+      }
+    }
+    return files;
+  }
+
+  function _kwNormalizeManifest(mf){
+    if(!mf || typeof mf !== 'object'){
+      throw new Error('version.json の内容が正しくありません。');
+    }
+    var latest = mf.latestVersion || mf.version || mf.ver || '';
+    if(!latest){
+      throw new Error('version.json に latestVersion がありません。');
+    }
+    var files = _kwNormalizeFiles(mf);
+    if(files.length === 0){
+      throw new Error('version.json に files または downloadUrl がありません。');
+    }
+    return {
+      appName: mf.appName || 'Karate Win PC',
+      latestVersion: latest,
+      releaseDate: mf.releaseDate || '',
+      notes: Array.isArray(mf.notes) ? mf.notes : (mf.notes ? [String(mf.notes)] : []),
+      files: files
+    };
+  }
+
+  function _kwBuildNotesHtml(info){
+    if(!info.notes || info.notes.length === 0) return '';
+    var lines = info.notes.map(function(n){ return '・' + _kwEsc(n); }).join('<br>');
+    return '<div style="margin-top:10px;padding:10px;background:#0d1420;border:1px solid #16233a;border-radius:6px;color:#8ca8c8;font-size:12px;line-height:1.7;">' + lines + '</div>';
+  }
+
+  function _kwBuildFileListHtml(files){
+    if(!files || files.length === 0) return '';
+    var html = '<div style="margin-top:10px;padding:10px;background:#080d16;border:1px solid #16233a;border-radius:6px;color:#8ca8c8;font-size:12px;line-height:1.8;">';
+    html += '<div style="color:#c8d8f0;font-weight:700;margin-bottom:4px;">更新ファイル</div>';
+    files.forEach(function(f){
+      html += '・' + _kwEsc(f.name);
+      if(f.description){ html += ' <span style="color:#5a7898;">' + _kwEsc(f.description) + '</span>'; }
+      html += '<br>';
+    });
+    html += '</div>';
+    return html;
+  }
+
+  async function _kwFetchBlob(url){
+    var res = await fetch(url, {method:'GET', cache:'no-store'});
+    if(!res.ok){ throw new Error('HTTP ' + res.status); }
+    return await res.blob();
+  }
+
+  function _kwDownloadBlobByAnchor(blob, fileName){
+    var objectUrl = URL.createObjectURL(blob);
+    try{
+      var a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = fileName;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }finally{
+      setTimeout(function(){ URL.revokeObjectURL(objectUrl); }, 1000);
+    }
+  }
+
+  window.kwSaveSingleUpdateFile = async function(fileInfo){
+    var fileName = fileInfo.name || window.KW_UPDATE_CONFIG.defaultFileName || 'karate-all-in-one.html';
+    var blob = await _kwFetchBlob(fileInfo.url);
+
+    if('showSaveFilePicker' in window){
+      var handle = await window.showSaveFilePicker({
+        id: window.KW_UPDATE_CONFIG.savePickerId,
+        suggestedName: fileName,
+        types: [{
+          description: '更新ファイル',
+          accept: {
+            'text/html': ['.html', '.htm'],
+            'application/json': ['.json'],
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+            'application/octet-stream': ['.html', '.htm', '.json', '.xlsx', '.csv', '.txt']
+          }
+        }],
+        excludeAcceptAllOption: false
+      });
+      var writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      return true;
+    }
+
+    _kwDownloadBlobByAnchor(blob, fileName);
+    return true;
+  };
+
+  window.kwSaveMultipleUpdateFiles = async function(files){
+    if(!Array.isArray(files) || files.length === 0){
+      throw new Error('保存対象ファイルがありません。');
+    }
+
+    // 複数ファイルの場合は、対応ブラウザではフォルダーを1回だけ選択します。
+    if(files.length > 1 && 'showDirectoryPicker' in window){
+      var dir = await window.showDirectoryPicker({
+        id: window.KW_UPDATE_CONFIG.directoryPickerId,
+        mode: 'readwrite'
+      });
+      var ok = 0;
+      var ng = [];
+      for(var i = 0; i < files.length; i++){
+        var f = files[i];
+        try{
+          var blob = await _kwFetchBlob(f.url);
+          var fh = await dir.getFileHandle(f.name, {create:true});
+          var w = await fh.createWritable();
+          await w.write(blob);
+          await w.close();
+          ok++;
+        }catch(e){
+          ng.push({name:f.name || '不明なファイル', error:_kwErrMsg(e)});
+        }
+      }
+      if(ng.length > 0){
+        var msg = '一部のファイル保存に失敗しました。<br><br>成功: ' + ok + ' 件<br>失敗: ' + ng.length + ' 件<br><br>';
+        ng.forEach(function(x){ msg += '・' + _kwEsc(x.name) + ' : ' + _kwEsc(x.error) + '<br>'; });
+        _kwSetBody(msg);
+        return false;
+      }
+      return true;
+    }
+
+    // 単一ファイル、またはフォルダー選択非対応ブラウザの場合
+    for(var j = 0; j < files.length; j++){
+      await kwSaveSingleUpdateFile(files[j]);
+    }
+    return true;
+  };
+
+  window.kwStartUpdateDownload = async function(){
+    try{
+      var files = window.KW_PENDING_UPDATE_FILES || [];
+      if(!files.length) throw new Error('更新ファイル情報がありません。もう一度「更新確認」を押してください。');
+
+      _kwSetBody('<div style="font-size:14px;color:#c8d8f0;font-weight:700;">保存処理を開始します</div><div style="margin-top:8px;line-height:1.9;">保存先の選択画面が表示された場合は、現在のHTMLファイルと同じフォルダーを選択してください。<br>同じファイル名を選ぶと上書き保存できます。</div>');
+      _kwSetActions('');
+
+      var ok = await kwSaveMultipleUpdateFiles(files);
+      if(ok){
+        _kwSetBody('<div style="font-size:14px;color:#48d878;font-weight:700;">更新ファイルを保存しました</div><div style="margin-top:8px;line-height:1.9;">保存した新しいHTMLファイルを開き直してご利用ください。<br>古いHTMLファイルを上書きした場合は、現在の画面を閉じてから開き直してください。<br><br><span style="color:#5a7898;">※選手データや試合結果はブラウザに保存されているため、同じブラウザで開いた場合は引き継がれます。</span></div>');
+      }
+      _kwSetActions('');
+    }catch(e){
+      if(e && e.name === 'AbortError'){
+        _kwSetBody('保存をキャンセルしました。');
+      }else{
+        _kwSetBody('更新ファイルの保存に失敗しました。<br><span style="color:#5a7898;font-size:12px;">' + _kwEsc(_kwErrMsg(e)) + '</span><br><br>・配信URLが正しいかご確認ください<br>・CORS設定をご確認ください<br>・ネットワーク接続をご確認ください');
+      }
+      _kwSetActions('<button onclick="kwStartUpdateDownload()" style="padding:8px 16px;border-radius:5px;font-size:12px;font-weight:700;border:1px solid #2a7048;color:#48e878;background:#0a2012;cursor:pointer;font-family:inherit;">再実行</button>');
+    }
+  };
 
   window.kwCheckUpdate = function(manual){
     var cfg = window.KW_UPDATE_CONFIG || {};
+
     if(navigator.onLine === false){
       if(manual){
         _kwShowOverlay();
         _kwSetBody('現在オフラインです。<br>ネットワークに接続してから、もう一度「更新確認」を押してください。<br><br><span style="color:#5a7898;">※オフラインでもアプリは通常どおりご利用いただけます。</span>');
-        _kwSetActions('');
+        _kwSetActions('<button onclick="kwCheckUpdate(true)" style="padding:8px 16px;border-radius:5px;font-size:12px;font-weight:700;border:1px solid #2a3a52;color:#8ab8f0;background:transparent;cursor:pointer;font-family:inherit;">再試行</button>');
       }
       return;
     }
-    if(manual){ _kwShowOverlay(); _kwSetBody('最新バージョンを確認しています…'); _kwSetActions(''); }
-    var url = cfg.manifestUrl + (cfg.manifestUrl.indexOf('?')>=0?'&':'?') + '_t=' + Date.now();
-    var ctrl = (typeof AbortController!=='undefined') ? new AbortController() : null;
-    var to = ctrl ? setTimeout(function(){ try{ctrl.abort();}catch(e){}}, 10000) : null;
-    fetch(url, {cache:'no-store', signal: ctrl?ctrl.signal:undefined})
-      .then(function(res){ if(!res.ok) throw new Error('HTTP '+res.status); return res.json(); })
-      .then(function(mf){
-        if(to) clearTimeout(to);
-        var latest = mf.version || mf.latest || '';
-        var cmp = kwCmpVer(latest, window.KW_VER);
-        if(cmp > 0){
-          var badge = document.getElementById('tb-update-badge');
-          if(badge) badge.style.display='inline-block';
-          if(manual){
-            var notes = mf.notes ? '<div style="margin-top:10px;padding:10px 12px;background:#0d1420;border:1px solid #16233a;border-radius:6px;color:#8ca8c8;font-size:12px;line-height:1.7;white-space:pre-wrap;">'+_kwEsc(mf.notes)+'</div>' : '';
-            var dlUrl = mf.downloadUrl || mf.url || '';
-            _kwSetBody(
-              '<div style="font-size:14px;color:#48d878;font-weight:700;">新しいバージョンがあります</div>'+
-              '<div style="margin-top:8px;">現在：<b style="color:#c8d8f0;">v'+_kwEsc(window.KW_VER)+'</b>　→　最新：<b style="color:#48d878;">v'+_kwEsc(latest)+'</b></div>'+notes
-            );
-            var actions = '';
-            if(dlUrl){
-              actions += '<a href="'+_kwEsc(dlUrl)+'" download="karate-all-in-one.html" onclick="kwOnDownloadClick()" style="padding:8px 18px;border-radius:5px;font-size:12px;font-weight:900;border:1px solid #2a7048;color:#48e878;background:#0a2012;cursor:pointer;font-family:inherit;text-decoration:none;">⬇ 最新版をダウンロード</a>';
-            }else{
-              actions += '<span style="align-self:center;color:#c07030;font-size:12px;">配信URL未設定</span>';
-            }
-            _kwSetActions(actions);
-          }
-        }else{
-          var badge2 = document.getElementById('tb-update-badge');
-          if(badge2) badge2.style.display='none';
-          if(manual){
-            _kwSetBody('<div style="font-size:14px;color:#48d878;font-weight:700;">最新バージョンです</div><div style="margin-top:8px;">現在：<b style="color:#c8d8f0;">v'+_kwEsc(window.KW_VER)+'</b>（サーバー最新：v'+_kwEsc(latest||window.KW_VER)+'）</div>');
-            _kwSetActions('');
-          }
-        }
-      })
-      .catch(function(err){
-        if(to) clearTimeout(to);
+
+    if(manual){
+      _kwShowOverlay();
+      _kwSetBody('更新情報を確認しています...');
+      _kwSetActions('');
+    }
+
+    var controller = null;
+    var timeoutId = null;
+    if(window.AbortController){
+      controller = new AbortController();
+      timeoutId = setTimeout(function(){ try{ controller.abort(); }catch(e){} }, 10000);
+    }
+
+    fetch(cfg.manifestUrl, {
+      method: 'GET',
+      cache: 'no-store',
+      signal: controller ? controller.signal : undefined
+    })
+    .then(function(res){
+      if(timeoutId) clearTimeout(timeoutId);
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    })
+    .then(function(raw){
+      var info = _kwNormalizeManifest(raw);
+      var latest = info.latestVersion;
+      var hasUpdate = kwCmpVer(latest, window.KW_VER) > 0;
+      var badge = document.getElementById('tb-update-badge');
+
+      if(hasUpdate){
+        if(badge) badge.style.display = 'inline-block';
+        window.KW_PENDING_UPDATE_FILES = info.files;
+
         if(manual){
-          _kwSetBody('更新情報を取得できませんでした。<br><span style="color:#5a7898;font-size:12px;">'+_kwEsc(err && err.message || err)+'</span><br><br>・ネットワーク接続をご確認ください<br>・配信サーバー（version.json）が公開されているかご確認ください<br><br><span style="color:#5a7898;">※アプリはオフラインでも通常どおり動作します。</span>');
-          _kwSetActions('<button onclick="kwCheckUpdate(true)" style="padding:8px 16px;border-radius:5px;font-size:12px;font-weight:700;border:1px solid #2a3a52;color:#8ab8f0;background:transparent;cursor:pointer;font-family:inherit;">再試行</button>');
+          _kwSetBody(
+            '<div style="font-size:14px;color:#48d878;font-weight:700;">新しいバージョンがあります</div>' +
+            '<div style="margin-top:8px;">現在：<b style="color:#c8d8f0;">v' + _kwEsc(window.KW_VER) + '</b>　→　最新：<b style="color:#48d878;">v' + _kwEsc(latest) + '</b></div>' +
+            (info.releaseDate ? '<div style="margin-top:4px;color:#8ca8c8;">公開日：' + _kwEsc(info.releaseDate) + '</div>' : '') +
+            _kwBuildNotesHtml(info) +
+            _kwBuildFileListHtml(info.files) +
+            '<div style="margin-top:10px;color:#5a7898;font-size:12px;line-height:1.7;">複数ファイルがある場合、対応ブラウザでは保存先フォルダーを1回選択してまとめて保存します。<br>非対応ブラウザではファイルごとに通常ダウンロードします。</div>'
+          );
+          _kwSetActions('<button onclick="kwStartUpdateDownload()" style="padding:8px 18px;border-radius:5px;font-size:12px;font-weight:900;border:1px solid #2a7048;color:#48e878;background:#0a2012;cursor:pointer;font-family:inherit;">⬇ 更新ファイルを保存</button>');
         }
-      });
+      }else{
+        if(badge) badge.style.display = 'none';
+        window.KW_PENDING_UPDATE_FILES = [];
+
+        if(manual){
+          if(kwCmpVer(window.KW_VER, latest) > 0){
+            _kwSetBody('<div style="font-size:14px;color:#ffb84a;font-weight:700;">ローカル版の方が新しい可能性があります</div><div style="margin-top:8px;">現在：<b style="color:#c8d8f0;">v' + _kwEsc(window.KW_VER) + '</b>（サーバー最新：v' + _kwEsc(latest) + '）</div>');
+          }else{
+            _kwSetBody('<div style="font-size:14px;color:#48d878;font-weight:700;">最新バージョンです</div><div style="margin-top:8px;">現在：<b style="color:#c8d8f0;">v' + _kwEsc(window.KW_VER) + '</b>（サーバー最新：v' + _kwEsc(latest || window.KW_VER) + '）</div>');
+          }
+          _kwSetActions('');
+        }
+      }
+    })
+    .catch(function(err){
+      if(timeoutId) clearTimeout(timeoutId);
+      if(manual){
+        _kwSetBody('更新情報を取得できませんでした。<br><span style="color:#5a7898;font-size:12px;">' + _kwEsc(_kwErrMsg(err)) + '</span><br><br>・ネットワーク接続をご確認ください<br>・配信サーバーの version.json が公開されているかご確認ください<br>・CORS設定をご確認ください<br><br><span style="color:#5a7898;">※アプリはオフラインでも通常どおり動作します。</span>');
+        _kwSetActions('<button onclick="kwCheckUpdate(true)" style="padding:8px 16px;border-radius:5px;font-size:12px;font-weight:700;border:1px solid #2a3a52;color:#8ab8f0;background:transparent;cursor:pointer;font-family:inherit;">再試行</button>');
+      }
+    });
   };
-  window.kwOnDownloadClick = function(){
-    _kwSetBody('<div style="font-size:14px;color:#48d878;font-weight:700;">ダウンロードを開始しました</div><div style="margin-top:8px;line-height:1.9;">保存後、<b>現在のファイルを新しいファイルに置き換えて</b>ください。<br>その後、ブラウザで開き直すと最新版が起動します。<br><br><span style="color:#5a7898;">※選手データや試合結果はブラウザに保存されているため、更新後も引き継がれます（同じブラウザで開いた場合）。</span></div>');
-  };
+
+  // 旧コード互換
+  window.checkForAppUpdate = function(){ kwCheckUpdate(true); };
+  window.checkUpdate = window.checkForAppUpdate;
+  window.checkForUpdate = window.checkForAppUpdate;
+
   if(window.KW_UPDATE_CONFIG.autoCheckOnStart){
     setTimeout(function(){ try{ kwCheckUpdate(false); }catch(e){} }, 5000);
   }
