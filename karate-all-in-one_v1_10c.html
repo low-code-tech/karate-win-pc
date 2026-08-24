@@ -2654,7 +2654,7 @@ let _loopId=0; // 並走ループ防止用世代カウンタ
 // 15秒警告ブザー音は残り17秒で鳴らす（15秒より0.8秒早め）。表示・ログは従来どおり残り15秒。
 // 終了ブザー音は残り0.8秒で鳴らす。実際の試合終了処理は従来どおり0秒。
 const KW_BUZZER_15_EARLY_MS = 400;
-const KW_BUZZER_FINISH_EARLY_MS = 400;
+const KW_BUZZER_FINISH_EARLY_MS = 100;
 // ブザー用タイマーID（setTimeoutで絶対時刻管理）
 let _buzTimer00=null, _buzTimer15=null, _buzCheckInterval=null;
 
