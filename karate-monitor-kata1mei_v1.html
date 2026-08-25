@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Karate Win | 観客モニター（形・1名）</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;color:#e8eaf0;
+  font-family:'Helvetica Neue',Arial,'Hiragino Kaku Gothic ProN','Noto Sans JP',sans-serif;user-select:none}
+#root{background:#05080f;width:100vw;height:100vh;display:flex;flex-direction:column}
+/* ── ヘッダー ── */
+#header{flex-shrink:0;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;
+  padding:1vh 2vw;background:#090d14;border-bottom:2px solid #1a3a6a;height:9vh}
+#h-tournament{font-size:2.0vw;font-weight:700;color:#6080b0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#h-cls{font-size:2.6vw;font-weight:900;color:#c8d8f8;letter-spacing:.2vw;white-space:nowrap;text-align:center}
+#h-court{font-size:2.2vw;color:#405070;white-space:nowrap;text-align:right}
+/* ── 2名パネル ── */
+#main{flex:1;display:flex;min-height:0}
+.pnl{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+  padding:3vh 2vw 2vh;position:relative;min-width:0}
+.pnl.blue{background:linear-gradient(160deg,#0a2060,#0d3090)}
+.pnl.red{background:linear-gradient(160deg,#3a0015,#6b0020);align-items:center;justify-content:flex-start}
+.p-name{font-size:9vw}
+
+#main .blue{order:1}#main .red{order:2}
+#main.flip .blue{order:2}#main.flip .red{order:1}
+.p-tag{position:absolute;top:1.6vh;left:1.4vw;font-size:2.2vw;font-weight:900;letter-spacing:.3vw;
+  padding:.4vh 1.2vw;border-radius:.5vw;color:#fff}
+.blue .p-tag{background:rgba(20,60,180,.55);border:2px solid rgba(120,160,255,.6)}
+.red  .p-tag{background:rgba(160,10,40,.55);border:2px solid rgba(255,120,140,.6)}
+.p-bib{position:absolute;top:1.6vh;right:1.6vw;font-size:3.2vw;font-weight:700;color:#fff;opacity:.9;letter-spacing:.2vw}
+.p-furi{margin-top:7vh;font-size:2.6vw;color:#fff;opacity:.85;letter-spacing:.2vw;text-align:center;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:96%}
+.p-name{font-size:7.5vw;font-weight:900;letter-spacing:.2vw;color:#fff;text-align:center;line-height:1.1;
+  max-width:96%;overflow:hidden;text-shadow:0 0 3vw rgba(255,255,255,.35)}
+.p-club{margin-top:1vh;font-size:2.6vw;color:#fff;opacity:.8;text-align:center;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:96%}
+/* ── 形の種類名（スペース常設・折返し対応） ── */
+.kata-box{margin-top:auto;margin-bottom:1.5vh;width:92%;min-height:12vh;
+  background:rgba(10,20,40,.55);border:2px solid rgba(140,170,220,.5);border-radius:1vw;
+  display:flex;align-items:center;justify-content:center;padding:1.2vh 1.5vw;text-align:center}
+.kata-name{font-size:3.4vw;font-weight:900;color:#fff;letter-spacing:.15vw;line-height:1.25;
+  word-break:break-word;overflow-wrap:anywhere}
+.kata-name.empty{opacity:.28;font-size:2.2vw;font-weight:700}
+/* ── Winner ── */
+.winner{display:none;margin-bottom:2vh;font-size:6vw;font-weight:900;letter-spacing:.5vw;color:#ffd700;
+  text-shadow:0 0 2vw rgba(255,215,0,.9),0 0 6vw rgba(255,215,0,.5);
+  animation:wglow 1s ease-in-out infinite alternate}
+.winner.on{display:block}
+@keyframes wglow{from{transform:scale(1)}to{transform:scale(1.06)}}
+/* ── 接続表示・全画面案内 ── */
+#conn-status{position:fixed;bottom:1vh;left:1vw;font-size:1.2vw;color:#e0a020;z-index:50}
+#conn-status.connected{color:#1a5030}
+#fs-hint{position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:100;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:2vh;text-align:center;cursor:pointer}
+#fs-hint.off{display:none}
+#fs-hint-main{font-size:2.6vw;font-weight:700;color:#c8d8f8}
+#fs-hint-sub{font-size:1.5vw;color:#607090;line-height:1.8}
+/* ── オーバーレイ（インターバル・告知） ── */
+.ov{display:none;position:fixed;inset:0;background:rgba(30,35,45,.96);z-index:90;
+  flex-direction:column;align-items:center;justify-content:center;gap:3vh}
+.ov.on{display:flex}
+#m-iv-label{font-size:2.4vw;letter-spacing:.6vw;color:#8090b0;font-weight:700}
+#m-iv-display{font-size:26vw;font-weight:700;line-height:1;color:#e8f0ff;font-variant-numeric:tabular-nums}
+#m-iv-display.warn{color:#ffaa22}
+#m-iv-display.paused{opacity:.45}
+#m-annc-cls{font-size:5vw;font-weight:700;color:#8090b0}
+#m-annc-main{font-size:17vw;font-weight:900;color:#e8f0ff}
+</style>
+</head>
+<body>
+<div id="root">
+  <div id="header">
+    <div id="h-tournament">大会名未設定</div>
+    <div id="h-cls">クラス / 学年</div>
+    <div id="h-court">コート —</div>
+  </div>
+  <div id="main">
+    <div class="pnl red">
+      <div class="p-tag">赤</div><div class="p-bib" id="r-bib">—</div>
+      <div class="p-furi" id="r-furi"></div>
+      <div class="p-name" id="r-name">—</div>
+      <div class="p-club" id="r-club">所属道場</div>
+      <div class="kata-box"><div class="kata-name empty" id="r-kata">形の種類名</div></div>
+      <div class="winner" id="w-r">Winner</div>
+    </div>
+  </div>
+  <div class="ov" id="m-interval-overlay">
+    <div id="m-iv-label">インターバル</div>
+    <div id="m-iv-display">0:00</div>
+  </div>
+  <div class="ov" id="m-annc-overlay">
+    <div id="m-annc-cls"></div>
+    <div id="m-annc-main">決勝</div>
+  </div>
+</div>
+<div id="conn-status">● 操作画面からの接続を待っています…</div>
+<div id="fs-hint">
+  <div style="font-size:5vw">🖥</div>
+  <div id="fs-hint-main">画面をクリックすると全画面になります</div>
+  <div id="fs-hint-sub">形の試合用モニター（1名）です<br>（解除するには ESC キー）</div>
+</div>
+<script>
+const ch=new BroadcastChannel('karate-win-sync');
+const KW_MON_PAGE='kata1';
+const KW_MON_URL={normal:'karate-monitor.html',kata2:'karate-monitor-kata2mei.html',kata1:'karate-monitor-kata1mei.html'};
+const connEl=document.getElementById('conn-status');
+let connected=false;
+function setText(id,t){const el=document.getElementById(id);if(el)el.textContent=t;}
+function setKata(id,name){
+  const el=document.getElementById(id);if(!el)return;
+  if(name){el.textContent=name;el.classList.remove('empty');}
+  else{el.textContent='形の種類名';el.classList.add('empty');}
+}
+// 氏名の自動縮小（文字数ベース）
+function fitName(id,name){
+  const el=document.getElementById(id);if(!el)return;
+  const len=String(name||'').replace(/\s/g,'').length;
+  let fs=9;
+  if(len>10)fs=5.2;else if(len>8)fs=6.2;else if(len>6)fs=7.4;
+  el.style.fontSize=fs+'vw';
+  el.textContent=name||'—';
+}
+ch.onmessage=(e)=>{
+  const st=e.data;
+  if(st.mon_page && st.mon_page!==KW_MON_PAGE && KW_MON_URL[st.mon_page]){location.replace(KW_MON_URL[st.mon_page]);return;}
+  if(!connected){connected=true;connEl.className='connected';connEl.textContent='● 操作画面と接続中';}
+  setText('h-tournament',st.tournament||'大会名未設定');
+  setText('h-cls',st.cls||'クラス / 学年');
+  setText('h-court','コート '+(st.court||'—'));
+  fitName('r-name',st.rn||'—');
+  setText('r-bib',(st.rbib||'').replace(/^No\.\s*/,'')||'—');
+  setText('r-furi',st.rfuri||'');
+  setText('r-club',st.rclub||'所属道場');
+  setKata('r-kata',st.kata_name||'');
+  // 判定勝ち等の勝敗確定 → 勝った側にWinner
+  document.getElementById('w-r').className='winner'+(st.win_side==='red'?' on':'');
+  // インターバル
+  const ivOv=document.getElementById('m-interval-overlay');
+  const ivDisp=document.getElementById('m-iv-display');
+  if(st.interval_active){
+    ivOv.classList.add('on');
+    const ms=st.interval_ms||0,sec=Math.ceil(ms/1000),m=Math.floor(sec/60),s=sec%60;
+    ivDisp.textContent=ms<=0?'0:00':m+':'+(s<10?'0':'')+s;
+    ivDisp.className=st.interval_paused?'paused':(ms<=10000&&ms>0?'warn':'');
+  }else ivOv.classList.remove('on');
+  // 告知
+  const anncOv=document.getElementById('m-annc-overlay');
+  if(st.annc_active){
+    anncOv.classList.add('on');
+    setText('m-annc-cls',st.annc_cls||'');
+    setText('m-annc-main',st.annc_label||'');
+  }else anncOv.classList.remove('on');
+};
+// 全画面
+function enterFS(){
+  const el=document.documentElement;
+  const fn=el.requestFullscreen||el.webkitRequestFullscreen;
+  if(fn)try{fn.call(el);}catch(e){}
+  document.getElementById('fs-hint').classList.add('off');
+}
+document.addEventListener('click',enterFS);
+</script>
+</body>
+</html>
