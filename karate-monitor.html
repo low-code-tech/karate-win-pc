@@ -433,6 +433,9 @@ html,body{
 <script>
 // ══ BroadcastChannel ══
 const ch = new BroadcastChannel('karate-win-sync');
+// ══ 形モード自動切替（統合アプリからのmon_pageに追従） ══
+const KW_MON_PAGE='normal';
+const KW_MON_URL={normal:'karate-monitor.html',kata2:'karate-monitor-kata2mei.html',kata1:'karate-monitor-kata1mei.html'};
 const connEl = document.getElementById('conn-status');
 let connected = false;
 
@@ -452,6 +455,7 @@ ch.onmessage = (e) => {
 
 // ══ 状態反映 ══
 function applyState(st) {
+  if(st.mon_page && st.mon_page!==KW_MON_PAGE && KW_MON_URL[st.mon_page]){ location.replace(KW_MON_URL[st.mon_page]); return; }
   // 左右反転（操作画面の⇄と連動）
   document.getElementById('main').classList.toggle('flip', !!st.flip);
 

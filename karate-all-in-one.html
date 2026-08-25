@@ -1041,7 +1041,7 @@ html,body{
      <div class="logo" onclick="sw('onboarding',null)" style="cursor:pointer" title="はじめに画面へ戻る">
       Karate Win
       <small id="kw-ver">
-       v1.9j
+       v1.12
       </small>
      </div>
      <button class="tb-right-btn" id="btn-flip" onclick="toggleFlip()" title="赤と青の表示位置を左右で入れ替えます（記録される内容は変わりません）">
@@ -1831,7 +1831,7 @@ html,body{
        </option>
        <option value="180">
         3分
-       </option>
+       </option><option value="300">5分</option><option value="600">10分</option>
       </select>
      </div>
      <button class="bload" onclick="doLoad()">
@@ -2153,6 +2153,9 @@ html,body{
            <th style="background:#05080f;color:#3a5070;font-size:9px;letter-spacing:1px;padding:6px 8px;text-align:left;border-bottom:1px solid #1a2840;position:sticky;top:0;">
             コート
            </th>
+           <th style="background:#05080f;color:#3a5070;font-size:9px;letter-spacing:1px;padding:6px 8px;text-align:left;border-bottom:1px solid #1a2840;position:sticky;top:0;">
+            形・組手
+           </th>
           </tr>
          </thead>
          <tbody id="imp-table-body">
@@ -2216,9 +2219,17 @@ html,body{
      <button onclick="sw('import',null)" style="font-size:10px;font-weight:700;color:#2a5080;padding:3px 10px;border:1px solid #1a3060;border-radius:4px;background:transparent;cursor:pointer;font-family:inherit;letter-spacing:0.5px;white-space:nowrap;">
       📥 データ取込
      </button>
+     <button onclick="mlExportRoster()" style="font-size:10px;font-weight:700;color:#2a8050;padding:3px 10px;border:1px solid #1a4030;border-radius:4px;background:transparent;cursor:pointer;font-family:inherit;letter-spacing:0.5px;white-space:nowrap;">📤 名簿出力</button>
     </div>
     <!-- ② コート選択・クラス選択 (1行) -->
     <div style="display:flex;align-items:center;gap:8px;height:36px;flex-shrink:0;margin-bottom:4px;">
+     <label style="font-size:10px;font-weight:700;color:#3a5080;letter-spacing:1px;white-space:nowrap;flex-shrink:0;">
+      大会名
+     </label>
+     <div style="position:relative;flex-shrink:0;">
+      <select id="ml-taikai" onchange="mlOnTaikaiChange()" style="width:200px;background:#05080f;border:1px solid #1a2840;border-radius:4px;color:#c8d8f0;font-size:12px;padding:5px 26px 5px 7px;outline:none;font-family:inherit;-webkit-appearance:none;appearance:none;cursor:pointer;"></select>
+      <span style="pointer-events:none;position:absolute;right:7px;top:50%;transform:translateY(-50%);color:#4a6080;font-size:10px;">▼</span>
+     </div>
      <label style="font-size:10px;font-weight:700;color:#3a5080;letter-spacing:1px;white-space:nowrap;flex-shrink:0;">
       コート
      </label>
@@ -2346,7 +2357,7 @@ html,body{
         </option>
         <option value="180">
          3分
-        </option>
+        </option><option value="300">5分</option><option value="600">10分</option>
        </select>
       </div>
      </div>
@@ -2393,7 +2404,7 @@ html,body{
         </option>
         <option value="180">
          3分
-        </option>
+        </option><option value="300">5分</option><option value="600">10分</option>
        </select>
       </div>
      </div>
@@ -2413,11 +2424,11 @@ html,body{
        </div>
        <input class="si" id="c-bi" max="2000" min="100" oninput="cfg.bi=parseInt(this.value)||400" step="100" type="number" value="400"/>
       </div>
-      <div class="sr2" style="margin-top:10px;gap:8px">
+      <div class="sr2"><div class="lab">15秒ブザー補正</div><div style="display:flex;gap:6px;align-items:center"><select class="si" id="c-b15s" style="width:76px;cursor:pointer;text-align:left"><option value="0">0秒</option><option value="0.1">0.1秒</option><option value="0.2">0.2秒</option><option value="0.3">0.3秒</option><option value="0.4" selected>0.4秒</option><option value="0.5">0.5秒</option><option value="0.6">0.6秒</option><option value="0.7">0.7秒</option><option value="0.8">0.8秒</option><option value="1">1秒</option></select><select class="si" id="c-b15d" style="width:66px;cursor:pointer;text-align:left"><option value="early">早く</option><option value="late">遅く</option></select></div></div><div class="sr2"><div class="lab">終了ブザー補正</div><div style="display:flex;gap:6px;align-items:center"><select class="si" id="c-b00s" style="width:76px;cursor:pointer;text-align:left"><option value="0">0秒</option><option value="0.1">0.1秒</option><option value="0.2">0.2秒</option><option value="0.3">0.3秒</option><option value="0.4" selected>0.4秒</option><option value="0.5">0.5秒</option><option value="0.6">0.6秒</option><option value="0.7">0.7秒</option><option value="0.8">0.8秒</option><option value="1">1秒</option></select><select class="si" id="c-b00d" style="width:66px;cursor:pointer;text-align:left"><option value="early">早く</option><option value="late">遅く</option></select></div></div><div class="sr2" style="margin-top:10px;gap:8px">
        <button onclick="gctx();loadBuz().then(()=&gt;playBuz())" style="flex:1;padding:8px;background:linear-gradient(135deg,#1a2840,#2a4880);border:1px solid #4a80c8;border-radius:5px;color:#8ab8f0;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">
         🔔 15秒ブザー試験
        </button>
-       <button onclick="gctx();loadBuz().then(()=&gt;buz00())" style="flex:1;padding:8px;background:linear-gradient(135deg,#3a0808,#7a1818);border:1px solid #c04040;border-radius:5px;color:#ff8888;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">
+       <button onclick="gctx();loadBuz().then(()=&gt;playFinishBuzzerSound())" style="flex:1;padding:8px;background:linear-gradient(135deg,#3a0808,#7a1818);border:1px solid #c04040;border-radius:5px;color:#ff8888;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">
         🔴 終了ブザー試験
        </button>
       </div>
@@ -2444,6 +2455,11 @@ html,body{
         道場ID
        </div>
        <input class="si" id="c-dojo" style="width:180px;text-align:left" value=""/>
+      </div>
+      <div class="sr2">
+       <div class="lab">
+       </div>
+       <button onclick="kwDojoRegOpen()" style="padding:7px 14px;background:#140f08;border:1px solid #4a3a20;border-radius:6px;color:#e8c060;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">🏯 道場会員登録／招待コード</button>
       </div>
       <div class="sr2">
        <div class="lab">
@@ -2571,7 +2587,7 @@ const T={mid:'---',court:1,cls:'',rn:'',bn:'',
   baseMs:60000,initMs:60000,endTime:0,run:false,status:'Ready',w15:false,_snd15:false,_snd00:false,fin:false,finByWin:false,rem:60000,_extRec:false};
 // scores: y=有効(1pt), w=技有(2pt), i=一本(3pt), p=ペナルティ(表示のみ)
 const SC={r:{y:0,w:0,i:0,p:0,hantei:0},b:{y:0,w:0,i:0,p:0,hantei:0}};
-const cfg={it:60,bc:2,bi:400,op:'JudgePC01',dojo:''};
+const cfg={it:60,bc:2,bi:400,op:'JudgePC01',dojo:'',b15o:400,b00o:400};
 let _ivTimer=null,_ivRemMs=0,_ivPaused=false,_ivPausedAt=0; // インターバルタイマー
 let _anncActive=false,_anncLabel='',_anncCls=''; // 告知オーバーレイ
 const EL=[];let seq=0;
@@ -2586,7 +2602,7 @@ function sc(side,type,d){
     if(confirm('⚠ 前の試合は終了しています。\n'
       +'次の試合であれば、リセットしてから始めてください。\n\n'
       +'［OK］今すぐリセットする（この入力は取り消し）\n'
-      +'［キャンセル］前の試合の記録を修正する（このまま加点）')){
+      +'［キャンセル］何もしない（この入力は取り消し）')){
       rstSc(); rstSentoku();
       Object.assign(T,{baseMs:T.initMs,run:false,status:'Ready',w15:false,_snd15:false,_snd00:false,fin:false,finByWin:false});
       rend(T.baseMs); updB(); updBg();
@@ -2594,6 +2610,8 @@ function sc(side,type,d){
       toast('リセットしました。選手選択またはそのまま ▶開始 してください');
       return;
     }
+    toast('入力を取り消しました（前の試合の記録は変更されません）');
+    return;
   }
   SC[side][type]=Math.max(0,SC[side][type]+d);
   alog('Score',T.rem,side+'_'+type+(d>0?'+':'')+d);
@@ -2648,8 +2666,8 @@ let _loopId=0; // 並走ループ防止用世代カウンタ
 // ブザー前倒し設定
 // 15秒警告ブザー音は残り17秒で鳴らす（15秒より0.8秒早め）。表示・ログは従来どおり残り15秒。
 // 終了ブザー音は残り0.8秒で鳴らす。実際の試合終了処理は従来どおり0秒。
-const KW_BUZZER_15_EARLY_MS = 400;
-const KW_BUZZER_FINISH_EARLY_MS = 400;
+function kwBuz15Ofs(){const v=parseInt(cfg&&cfg.b15o);return isNaN(v)?400:v;}
+function kwBuz00Ofs(){const v=parseInt(cfg&&cfg.b00o);return isNaN(v)?400:v;}
 // ブザー用タイマーID（setTimeoutで絶対時刻管理）
 let _buzTimer00=null, _buzTimer15=null, _buzCheckInterval=null;
 
@@ -2673,8 +2691,8 @@ function _scheduleBuzzers(){
   // 「音の発火だけ」前倒しする。表示・警告色・ログは従来どおり残り15.000秒
   const latMs = Math.round(getAudioLatency()*1000);
   window._latMs = latMs;
-  const warnSoundAtMs = 15000 + KW_BUZZER_15_EARLY_MS;
-  const finishSoundAtMs = KW_BUZZER_FINISH_EARLY_MS;
+  const warnSoundAtMs = 15000 + kwBuz15Ofs();
+  const finishSoundAtMs = kwBuz00Ofs();
 
   if(!T._snd15 && toEnd > warnSoundAtMs + latMs){
     _buzTimer15snd=setTimeout(()=>{
@@ -2712,8 +2730,8 @@ function _scheduleBuzzers(){
     const lm=Math.round(getAudioLatency()*1000);
     if(lm!==window._latMs)window._latMs=lm;
     const rem=getMs();
-    if(!T._snd15&&rem<=15000+KW_BUZZER_15_EARLY_MS+lm&&rem>0){T._snd15=true;playBuz();}
-    if(!T._snd00&&rem<=KW_BUZZER_FINISH_EARLY_MS+lm&&rem>0){T._snd00=true;playFinishBuzzerSound();}
+    if(!T._snd15&&rem<=15000+kwBuz15Ofs()+lm&&rem>0){T._snd15=true;playBuz();}
+    if(!T._snd00&&rem<=kwBuz00Ofs()+lm&&rem>0){T._snd00=true;playFinishBuzzerSound();}
     if(!T.w15&&rem<=15000&&rem>0){T.w15=true;buz15();updF();}
   },250);
 
@@ -2740,10 +2758,10 @@ function loop(id){
   //   開始時点の値で予約したsetTimeoutだけに頼ると遅れて鳴る）
   {const _lm=Math.round(getAudioLatency()*1000);
    if(_lm!==window._latMs)window._latMs=_lm;}
-  if(!T._snd15&&rem<=15000+KW_BUZZER_15_EARLY_MS+(window._latMs||0)&&rem>0&&T.run&&!T.fin){
+  if(!T._snd15&&rem<=15000+kwBuz15Ofs()+(window._latMs||0)&&rem>0&&T.run&&!T.fin){
     T._snd15=true;playBuz();
   }
-  if(!T._snd00&&rem<=KW_BUZZER_FINISH_EARLY_MS+(window._latMs||0)&&rem>0&&T.run&&!T.fin){
+  if(!T._snd00&&rem<=kwBuz00Ofs()+(window._latMs||0)&&rem>0&&T.run&&!T.fin){
     T._snd00=true;playFinishBuzzerSound();
   }
   // 15秒警告：ループ内バックアップ（rem<=15000 を必ずキャッチ／表示・ログ）
@@ -2861,7 +2879,7 @@ function dA(d){
   alog(d>0?'AdjPlus':'AdjMinus',T.baseMs,'補正'+(d>0?'+':'')+d+'ms');
   rend(T.baseMs);updB();updBg();
   if(T.baseMs>=15100){T.w15=false;T._snd15=false;updF();}
-  if(T.baseMs>=KW_BUZZER_FINISH_EARLY_MS+100){T._snd00=false;}
+  if(T.baseMs>=Math.max(0,kwBuz00Ofs())+100){T._snd00=false;}
   if(T.run){_scheduleBuzzers();}
 }
 function doReset(){
@@ -2905,8 +2923,9 @@ function doLoad(){
   const tname2=document.getElementById('i-tn')?document.getElementById('i-tn').value.trim():'';
   const courtNum=(document.getElementById('i-ct').value||'').trim()||'1';
   alog('LoadMatch',initMs,'試合ロード:'+mid+'|'+(rn||'')+'|'+(rclub||'')+'|'+(bn||'')+'|'+(bclub||'')+'|'+(tname2||'')+'|'+(cls||'')+'|'+courtNum+'|'+initMs);
+  if(tname2){try{const _a=kwArchAll();if(!_a[tname2])kwArchSave(tname2,[],{tournament:tname2});}catch(e){}}
   document.getElementById('dn-r').textContent=rn||'赤山 太郎';
-  document.getElementById('dn-b').textContent=bn||'青木 次郎';
+  document.getElementById('dn-b').textContent=bn||(kwIsKataCls(cls)?'—':'青木 次郎');
   document.getElementById('dn-r-bib').textContent=rbib||'—';
   document.getElementById('dn-r-furi').textContent=rfuri||'';
   document.getElementById('dn-b-bib').textContent=bbib||'—';
@@ -3484,6 +3503,7 @@ function saveWinnerDecisionJson(side, type){
   }
 }
 function selectWin(type){
+  if(T.finByWin){toast('⚠ 既に勝敗を確定済みです。修正は「↩ 勝利取消」、次の試合はリセット後に選手を選択してください');return;}
   const labels={normal:'勝ち',decision:'判定勝ち',foul:'勝ち（相手反則）',forfeit:'勝ち（相手棄権）'};
   const side=winSide;
   const name=side==='blue'
@@ -3655,17 +3675,24 @@ const LBCLS={Start:'lb-s',Stop:'lb-x',Resume:'lb-s',Warning15:'lb-w',
   Finish:'lb-e',ForceFinish:'lb-e',Score:'lb-c',
   LoadMatch:'lb-o',Reset:'lb-o',AdjPlus:'lb-o',AdjMinus:'lb-o',
   TestBeep15:'lb-o',TestBeep00:'lb-o'};
+function kwEscHtml(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function kwSaveEL(){try{const keep=EL.length>3000?EL.slice(-3000):EL;localStorage.setItem('kw_el',JSON.stringify({seq:seq,el:keep}));}catch(e){}}
+function kwLogRow(e){const tb=document.getElementById('ltb'),tr=document.createElement('tr');
+  tr.innerHTML=`<td>${e.seq}</td><td>${String(e.at||'').substring(11,23)}</td><td>${kwEscHtml(e.mid)}</td>
+    <td><span class="lb ${LBCLS[e.act]||'lb-o'}">${kwEscHtml(e.act)}</span></td>
+    <td>${e.rem}</td><td>${kwEscHtml(e.detail)}</td>`;
+  tb.insertBefore(tr,tb.firstChild);}
 function alog(act,rem,detail){
   seq++;
   const e={seq,at:nowISO(),mid:T.mid,act,rem:Math.round(rem||0),op:cfg.op,detail:detail||''};
   EL.push(e);
-  const tb=document.getElementById('ltb'),tr=document.createElement('tr');
-  tr.innerHTML=`<td>${e.seq}</td><td>${e.at.substring(11,23)}</td><td>${e.mid}</td>
-    <td><span class="lb ${LBCLS[act]||'lb-o'}">${act}</span></td>
-    <td>${e.rem}</td><td>${e.detail}</td>`;
-  tb.insertBefore(tr,tb.firstChild);
+  kwLogRow(e);
+  kwSaveEL();
 }
-function clrL(){EL.length=0;seq=0;document.getElementById('ltb').innerHTML='';}
+function kwRestoreEL(){try{const p=JSON.parse(localStorage.getItem('kw_el')||'null');if(!p||!Array.isArray(p.el)||!p.el.length)return;
+  p.el.forEach(e=>{EL.push(e);kwLogRow(e);});seq=p.seq||EL.length;
+  }catch(e){}}
+function clrL(){EL.length=0;seq=0;document.getElementById('ltb').innerHTML='';try{localStorage.removeItem('kw_el');}catch(e){}}
 // ══ 行生成共通関数（画面表示・Excel出力で共用） ══
 function buildResultRows(){
   function fmtAt(iso){
@@ -3791,7 +3818,7 @@ function buildResultRows(){
 // ══ Excel出力 ══
 function expL(){
   const rows = buildResultRows();
-  if (!rows.length) { toast('出力するログがありません'); return; }
+  if (!rows.length) { toast('試合結果が0件のため、ヘッダーのみのExcelを出力します'); }
   const header=['年月日','何秒後','青勝ち理由','青先取','青ペナルティ','青技','青得点','青所属','青選手','青勝ち','得点','赤勝ち','赤選手','赤所属','赤得点','赤技','赤ペナルティ','赤先取','赤勝ち理由','大会名','クラス','コート'];
   const ws=XLSX.utils.aoa_to_sheet([header,...rows]);
   ws['!cols']=[20,8,10,6,12,6,8,18,14,8,10,8,14,18,8,6,12,6,10,24,16,6].map(w=>({wch:w}));
@@ -3847,6 +3874,10 @@ function saveCfg(){
   cfg.bi=parseInt(document.getElementById('c-bi').value)||400;
   cfg.op=document.getElementById('c-o').value.trim()||'JudgePC01';
   cfg.dojo=document.getElementById('c-dojo')?.value.trim()||'';
+  {const s15=parseFloat(document.getElementById('c-b15s')?.value||'0.4'),d15=document.getElementById('c-b15d')?.value||'early';
+   cfg.b15o=Math.round(s15*1000)*(d15==='late'?-1:1);
+   const s00=parseFloat(document.getElementById('c-b00s')?.value||'0.4'),d00=document.getElementById('c-b00d')?.value||'early';
+   cfg.b00o=Math.round(s00*1000)*(d00==='late'?-1:1);}
   try{localStorage.setItem('kw3',JSON.stringify(cfg));}catch(e){}
   // 両方の select を同期
   _syncTimeSelects(cfg.it);
@@ -3863,7 +3894,7 @@ function _syncTimeSelects(sec){
   });
 }
 function _secLabel(sec){
-  const map={30:'30秒',60:'1分',90:'1分半',120:'2分',150:'2分半',180:'3分'};
+  const map={30:'30秒',60:'1分',90:'1分半',120:'2分',150:'2分半',180:'3分',300:'5分',600:'10分'};
   return map[sec]||(sec+'秒');
 }
 function loadCfg(){
@@ -3876,6 +3907,10 @@ function loadCfg(){
     document.getElementById('c-bi').value=cfg.bi;
     document.getElementById('c-o').value=cfg.op;
     if(document.getElementById('c-dojo')) document.getElementById('c-dojo').value=cfg.dojo||'';
+    const _sb=(sid,did,v)=>{const s=document.getElementById(sid),d=document.getElementById(did);if(!s||!d)return;
+      const ms=parseInt(v);const a=isNaN(ms)?400:ms;d.value=a<0?'late':'early';
+      const sec=Math.abs(a)/1000;s.value=[...s.options].some(o=>o.value===String(sec))?String(sec):'0.4';};
+    _sb('c-b15s','c-b15d',cfg.b15o);_sb('c-b00s','c-b00d',cfg.b00o);
   }catch(e){}
 }
 
@@ -3894,6 +3929,7 @@ function sw(name,btn){
   if(name==='import'){impOnOpen();}
   if(name==='matchload'){mlOnOpen();}
   if(name==='settings'){_syncTimeSelects(cfg.it);}
+  const _tbc=document.getElementById('tb-court');if(_tbc)_tbc.style.visibility=(name==='matchload')?'hidden':'visible';
   if(name==='result'){renderResultScreen();}
   if(name==='video-setting'){ytRenderSessions();}
   // 閲覧画面：IndexedDBから復元してから自動表示
@@ -3977,14 +4013,15 @@ function impRenderTable(){
   const filtered=_impPlayers.filter(p=>(!cls||p.cls===cls)&&(!court||p.court===court)&&(!q||p.name.toLowerCase().includes(q)||(p.yomi||'').toLowerCase().includes(q)));
   document.getElementById('imp-table-count').textContent=filtered.length;
   document.getElementById('imp-table-body').innerHTML=filtered.length===0
-    ?`<tr><td colspan="6" style="text-align:center;padding:20px;color:#3a5070;">該当なし</td></tr>`
+    ?`<tr><td colspan="7" style="text-align:center;padding:20px;color:#3a5070;">該当なし</td></tr>`
     :filtered.map((p,i)=>`<tr style="border-bottom:1px solid rgba(30,45,69,.4)">
         <td style="padding:6px 8px;color:#3a5070;font-size:10px;">${p.no||i+1}</td>
-        <td style="padding:6px 8px;font-weight:700;color:#6090b0;">${p.bib||'—'}</td>
-        <td style="padding:6px 8px;font-weight:600;">${p.name}</td>
-        <td style="padding:6px 8px;font-size:10px;color:#3a5070;">${p.club||'—'}</td>
+        <td style="padding:6px 8px;font-weight:700;color:#6090b0;">${kwEscHtml(p.bib||'—')}</td>
+        <td style="padding:6px 8px;font-weight:600;">${kwEscHtml(p.name)}</td>
+        <td style="padding:6px 8px;font-size:10px;color:#3a5070;">${kwEscHtml(p.club||'—')}</td>
         <td style="padding:6px 8px;"><span style="background:rgba(74,128,200,.15);color:#4a80c8;font-size:9px;font-weight:700;padding:1px 6px;border-radius:3px;">${p.cls||'—'}</span></td>
-        <td style="padding:6px 8px;"><span style="background:rgba(46,204,113,.1);color:#2ecc71;font-size:9px;font-weight:700;padding:1px 6px;border-radius:3px;">${p.court?'コート '+p.court:'—'}</span></td>
+        <td style="padding:6px 8px;"><span style="background:rgba(46,204,113,.1);color:#2ecc71;font-size:9px;font-weight:700;padding:1px 6px;border-radius:3px;">${p.court?'コート '+kwEscHtml(p.court):'—'}</span></td>
+        <td style="padding:6px 8px;font-size:10px;color:#8090b0;">${kwEscHtml(p.kata||'—')}</td>
       </tr>`).join('');
 }
 function impHandleFile(file){
@@ -4023,6 +4060,7 @@ function impHandleFile(file){
         club:_k(r,['所属','所属道場','道場','club']),
         cls:_k(r,['クラス','クラス・学年','クラス/学年','学年','class']),
         court:_k(r,['コート','コートNo','court']),
+        kata:_k(r,['形・組手','形組手','種目','競技']),
         gender:_k(r,['性別','gender']),
         tournament:_k(r,['大会','大会名','tournament']),
         tournamentId:String(r['大会id']||'').trim(),
@@ -4050,7 +4088,9 @@ function impHandleFile(file){
 function openMonitor(){
   // 同一フォルダの karate-monitor.html を別ウィンドウで開く
   // （BroadcastChannel 'karate-win-sync' で本画面と同期）
-  const url='karate-monitor.html';
+  const _clsM=document.getElementById('tb-cls')?.textContent||'';
+  const _bnM=(document.getElementById('dn-b')?.textContent||'').trim();
+  const url=kwIsKataCls(_clsM)?((!_bnM||_bnM==='—')?'karate-monitor-kata1mei.html':'karate-monitor-kata2mei.html'):'karate-monitor.html';
   // ブラウザのツールバー・アドレスバーなしのポップアップウィンドウで開く
   // 画面サイズいっぱいのウィンドウにする
   const w=screen.availWidth||window.innerWidth;
@@ -4069,16 +4109,16 @@ function openMonitor(){
 function impDownloadTemplate(){
   try{
     // ヘッダー（読込パーサーが認識する列名）
-    const header=['大会','大会場所','開催日時','氏名','よみ','学年','性別','身長','体重','ゼッケン','所属','クラス','コート'];
+    const header=['大会','大会場所','開催日時','氏名','よみ','学年','性別','身長','体重','ゼッケン','所属','クラス','コート','形・組手'];
     // 記入例（削除して実データに置き換えて使用）
     const sample=[
-      ['第12回関西ジュニア空手大会','大阪市中央体育館','2026/09/06 09:00','山田 太郎','やまだ たろう','小学1年','男',121,24,101,'大阪北道場','小学1年男子','A'],
-      ['第12回関西ジュニア空手大会','大阪市中央体育館','2026/09/06 09:00','佐藤 花','さとう はな','小学1年','女',118,22,102,'梅田スポーツ少年団','小学1年女子','B'],
+      ['第12回関西ジュニア空手大会','大阪市中央体育館','2026/09/06 09:00','山田 太郎','やまだ たろう','小学1年','男',121,24,101,'大阪北道場','小学1年男子','A','組手'],
+      ['第12回関西ジュニア空手大会','大阪市中央体育館','2026/09/06 09:00','佐藤 花','さとう はな','小学1年','女',118,22,102,'梅田スポーツ少年団','小学1年女子','B','形'],
     ];
     const aoa=[header,...sample];
     const ws=XLSX.utils.aoa_to_sheet(aoa);
     // 列幅を見やすく設定
-    ws['!cols']=[{wch:24},{wch:18},{wch:18},{wch:14},{wch:16},{wch:8},{wch:6},{wch:6},{wch:6},{wch:8},{wch:20},{wch:14},{wch:6}];
+    ws['!cols']=[{wch:24},{wch:18},{wch:18},{wch:14},{wch:16},{wch:8},{wch:6},{wch:6},{wch:6},{wch:8},{wch:20},{wch:14},{wch:6},{wch:8}];
     const wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,ws,'Sensyu_List');
     XLSX.writeFile(wb,'大会選手登録テンプレート.xlsx');
@@ -4090,13 +4130,15 @@ function impDownloadTemplate(){
 }
 
 function impSaveData(){
-  if(!_impPlayers.length)return;
+  if(!_impPlayers.length){impLog('err','0名のため保存しません（既存の保存済みデータは変更されていません）');return;}
   try{
     localStorage.setItem('karate_players',JSON.stringify(_impPlayers));
     localStorage.setItem('karate_importedAt',_impImportedAt);
     localStorage.setItem('karate_eventInfo',JSON.stringify(_impEventInfo));
     impUpdateSummary();
     impLog('ok',`✅ ${_impPlayers.length}名 保存完了`);
+    {const _tn=String((_impEventInfo.tournament||(_impPlayers[0]&&_impPlayers[0].tournament)||'')).trim();
+     if(_tn)kwArchSave(_tn,_impPlayers,_impEventInfo);}
     if(_impEventInfo.tournament)impLog('ok',`大会: ${_impEventInfo.tournament}`);
   }catch(e){impLog('err','保存失敗: '+e.message);}
 }
@@ -4178,6 +4220,7 @@ function mlUnmarkLastAutoLoser(){
 }
 
 function mlOnOpen(){
+  kwEnsurePractice();mlBuildTaikaiDropdown();
   // 試合時間を cfg.it に同期
   _syncTimeSelects(cfg.it);
   try{const last=parseInt(localStorage.getItem('kw_last_match_num')||'0');_mlMatchCounter=last+1;document.getElementById('ml-match-id').value='M'+String(_mlMatchCounter).padStart(4,'0');}catch(e){}
@@ -4262,13 +4305,13 @@ function mlRenderPlayers(){
     var nameColor=isL?'#5a6274':isR?'#f0b0b8':isB?'#a0c8e8':'#b0c8e0';
 
     var html='';
-    html+='<div style="font-size:15px;font-weight:900;color:'+bibColor+';letter-spacing:2px;line-height:1;border-bottom:1px solid '+bc+';padding-bottom:2px;margin-bottom:1px;flex-shrink:0;">'+(p.bib||'—')+'</div>';
+    html+='<div style="font-size:15px;font-weight:900;color:'+bibColor+';letter-spacing:2px;line-height:1;border-bottom:1px solid '+bc+';padding-bottom:2px;margin-bottom:1px;flex-shrink:0;">'+kwEscHtml(p.bib||'—')+'</div>';
     // 氏名＋よみがなを1行にまとめる（横スペース活用・縦潰れ防止）
     html+='<div style="display:flex;align-items:baseline;gap:6px;overflow:hidden;flex-shrink:0;">'
-        +'<span style="font-size:14px;font-weight:700;color:'+nameColor+';line-height:1.25;white-space:nowrap;flex-shrink:0;'+(isL?'text-decoration:line-through;':'')+'">'+(p.name||'名称不明')+'</span>'
-        +(p.yomi?'<span style="font-size:10px;color:#5a7898;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">'+p.yomi+'</span>':'')
+        +'<span style="font-size:14px;font-weight:700;color:'+nameColor+';line-height:1.25;white-space:nowrap;flex-shrink:0;'+(isL?'text-decoration:line-through;':'')+'">'+kwEscHtml(p.name||'名称不明')+'</span>'
+        +(p.yomi?'<span style="font-size:10px;color:#5a7898;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">'+kwEscHtml(p.yomi)+'</span>':'')
         +'</div>';
-    if(p.club) html+='<div style="font-size:10px;color:#4a6880;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0;">'+p.club+'</div>';
+    if(p.club) html+='<div style="font-size:10px;color:#4a6880;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0;">'+kwEscHtml(p.club)+'</div>';
 
     var rBdr=isR?'#c04060':'#3a1020'; var rClr=isR?'#ff8090':'#b04060'; var rBg=isR?'#2a0d18':'#0e0810';
     var bBdr=isB?'#3060b0':'#102040'; var bClr=isB?'#80c0ff':'#3870b8'; var bBg=isB?'#0a1828':'#070c18';
@@ -4282,9 +4325,90 @@ function mlRenderPlayers(){
     html+='</div>';
     if(isL) html+='<div style="position:absolute;top:7px;right:-25px;transform:rotate(45deg);background:#8a1020;color:#ffd0d0;font-size:10px;font-weight:900;letter-spacing:2px;padding:1px 24px;box-shadow:0 1px 3px rgba(0,0,0,.6);pointer-events:none;">敗退</div>';
 
+    html+='<button onclick="mlEditPlayer('+idx+')" title="この選手の名簿を修正" style="position:absolute;top:3px;right:4px;padding:1px 5px;font-size:10px;background:#0d1424;border:1px solid #24344e;border-radius:3px;color:#5878a0;cursor:pointer;font-family:inherit;z-index:2;">✎</button>';
     d.innerHTML=html;
     list.appendChild(d);
   });
+}
+// ══ 大会アーカイブ（大会名＋選手名簿の保存・切替） ══
+const KW_ARCH_KEY='kw_taikai_arch';
+const KW_PRACTICE='システム練習大会';
+function kwArchAll(){try{return JSON.parse(localStorage.getItem(KW_ARCH_KEY)||'{}');}catch(e){return {};}}
+function kwArchSave(name,players,eventInfo){
+  name=String(name||'').trim(); if(!name)return;
+  const a=kwArchAll();
+  a[name]={players:players||[],eventInfo:eventInfo||{tournament:name},savedAt:Date.now()};
+  try{localStorage.setItem(KW_ARCH_KEY,JSON.stringify(a));}catch(e){}
+}
+function kwEnsurePractice(){
+  const a=kwArchAll(); if(a[KW_PRACTICE])return;
+  const ps=[
+    {id:1,no:1,name:'赤山 太郎',yomi:'あかやま たろう',bib:'P01',club:'練習道場A',cls:'練習 組手',court:'1',gender:'男',tournament:KW_PRACTICE,kata:'組手'},
+    {id:2,no:2,name:'青木 次郎',yomi:'あおき じろう',bib:'P02',club:'練習道場B',cls:'練習 組手',court:'1',gender:'男',tournament:KW_PRACTICE,kata:'組手'},
+    {id:3,no:3,name:'白石 三郎',yomi:'しらいし さぶろう',bib:'P03',club:'練習道場A',cls:'練習 組手',court:'2',gender:'男',tournament:KW_PRACTICE,kata:'組手'},
+    {id:4,no:4,name:'黒田 四郎',yomi:'くろだ しろう',bib:'P04',club:'練習道場B',cls:'練習 組手',court:'2',gender:'男',tournament:KW_PRACTICE,kata:'組手'},
+    {id:5,no:5,name:'形山 一花',yomi:'かたやま いちか',bib:'P05',club:'練習道場A',cls:'練習 形',court:'1',gender:'女',tournament:KW_PRACTICE,kata:'形'},
+    {id:6,no:6,name:'形田 二葉',yomi:'かただ ふたば',bib:'P06',club:'練習道場B',cls:'練習 形',court:'1',gender:'女',tournament:KW_PRACTICE,kata:'形'}];
+  kwArchSave(KW_PRACTICE,ps,{tournament:KW_PRACTICE,place:'練習会場'});
+}
+function kwIsKataCls(cls){return String(cls||'').includes('形');}
+function mlBuildTaikaiDropdown(){
+  kwEnsurePractice();
+  const sel=document.getElementById('ml-taikai'); if(!sel)return;
+  const a=kwArchAll();
+  let cur=''; try{cur=(JSON.parse(localStorage.getItem('karate_eventInfo')||'{}').tournament||'').trim();}catch(e){}
+  const names=Object.keys(a).filter(n=>n!==KW_PRACTICE).sort((x,y)=>((a[y]&&a[y].savedAt)||0)-((a[x]&&a[x].savedAt)||0));
+  const all=[KW_PRACTICE,...names];
+  if(cur&&all.indexOf(cur)<0)all.splice(1,0,cur);
+  sel.innerHTML=all.map(n=>'<option value="'+kwEscHtml(n)+'">'+kwEscHtml(n)+'</option>').join('');
+  if(cur)sel.value=cur;
+}
+function mlOnTaikaiChange(){
+  const sel=document.getElementById('ml-taikai'); if(!sel)return;
+  const name=sel.value; const a=kwArchAll()[name];
+  if(!a){toast('この大会のデータが見つかりません');return;}
+  try{
+    localStorage.setItem('karate_players',JSON.stringify(a.players||[]));
+    localStorage.setItem('karate_eventInfo',JSON.stringify(a.eventInfo||{tournament:name}));
+    localStorage.setItem('karate_importedAt',new Date(a.savedAt||Date.now()).toISOString());
+  }catch(e){}
+  // 大会名をシステム全体へ反映
+  const tbT=document.getElementById('tb-tournament'); if(tbT)tbT.textContent=name;
+  const itn=document.getElementById('i-tn'); if(itn)itn.value=name;
+  _mlRed=null;_mlBlue=null;mlUpdateSlot('red',null);mlUpdateSlot('blue',null);
+  mlOnOpen();
+  toast('大会「'+name+'」に切り替えました（名簿 '+(a.players?a.players.length:0)+'名）');
+}
+function mlEditPlayer(idx){
+  const p=_mlVisible[idx]; if(!p)return;
+  const fields=[['name','選手名'],['yomi','よみがな'],['bib','ゼッケン'],['club','所属']];
+  const upd={};
+  for(const f of fields){
+    const v=prompt('【名簿修正】'+f[1]+'を入力してください（キャンセルで修正を中止）',p[f[0]]||'');
+    if(v===null){toast('修正を中止しました');return;}
+    upd[f[0]]=v.trim();
+  }
+  if(!upd.name){toast('選手名は必須です');return;}
+  Object.assign(p,upd);
+  try{
+    localStorage.setItem('karate_players',JSON.stringify(_mlPlayers));
+    const ev=JSON.parse(localStorage.getItem('karate_eventInfo')||'{}');
+    const tn=(ev.tournament||'').trim();
+    if(tn)kwArchSave(tn,_mlPlayers,ev);
+  }catch(e){}
+  mlRenderPlayers();
+  toast('✎ 選手情報を修正しました: '+upd.name);
+}
+function mlExportRoster(){
+  if(!_mlPlayers.length){toast('名簿が空です（データ取込またはテンプレートで登録してください）');return;}
+  let ev={}; try{ev=JSON.parse(localStorage.getItem('karate_eventInfo')||'{}');}catch(e){}
+  const header=['大会','大会場所','開催日時','氏名','よみ','学年','性別','身長','体重','ゼッケン','所属','クラス','コート','形・組手'];
+  const rows=_mlPlayers.map(p=>[ev.tournament||p.tournament||'',ev.place||'',ev.date||'',p.name||'',p.yomi||'',p.grade||'',p.gender||'','','',p.bib||'',p.club||'',p.cls||'',p.court||'',p.kata||'']);
+  const ws=XLSX.utils.aoa_to_sheet([header,...rows]);
+  ws['!cols']=[24,18,18,14,16,8,6,6,6,8,20,14,6,8].map(w=>({wch:w}));
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Sensyu_List');
+  XLSX.writeFile(wb,(String(ev.tournament||'名簿').trim()||'名簿')+'_名簿.xlsx');
+  toast('📤 名簿を出力しました（Excelで修正後、データ取込で再登録できます）');
 }
 function mlIsSame(a,b){return a.name===b.name&&String(a.bib||'')===String(b.bib||'');}
 function mlShowEmpty(msg){
@@ -4321,12 +4445,15 @@ function mlUpdateSlot(side,p){
 }
 function mlCheckReady(){
   const btn=document.getElementById('ml-btn-launch');
-  const ok=!!(_mlRed&&_mlBlue);
+  const kata=kwIsKataCls(document.getElementById('ml-class')?.value||'');
+  const ok=kata? !!_mlRed : !!(_mlRed&&_mlBlue);
   btn.disabled=!ok;btn.style.opacity=ok?'1':'.25';
+  btn.innerHTML=(kata&&_mlRed&&!_mlBlue)?'▶ タイマー起動（形・1名）':'▶ タイマー起動';
 }
 function mlLaunch(){
-  if(!_mlRed||!_mlBlue)return;
   const cls=document.getElementById('ml-class').value;
+  if(!_mlRed)return;
+  if(!kwIsKataCls(cls)&&!_mlBlue)return;
   const matchId=document.getElementById('ml-match-id').value.trim()||'M0001';
   // コート決定:
   //  ・ドロップダウンで特定コートを選択 → その値（ml-court-num）
@@ -4336,7 +4463,7 @@ function mlLaunch(){
   if(dropCourt){
     court=document.getElementById('ml-court-num').value.trim()||dropCourt;
   }else{
-    court=String(_mlRed.court||_mlBlue.court||'').trim()
+    court=String(_mlRed.court||(_mlBlue&&_mlBlue.court)||'').trim()
         ||document.getElementById('ml-court-num').value.trim()||'1';
   }
   // 選手選択画面の ml-time の値で cfg.it を確定（onchange で既に更新済みだが念のため）
@@ -4349,13 +4476,13 @@ function mlLaunch(){
   _s('i-ct',court);
   _s('i-cl',cls);
   _s('i-r',_mlRed.name||'');
-  _s('i-b',_mlBlue.name||'');
+  _s('i-b',_mlBlue?(_mlBlue.name||''):'');
   _s('i-r-bib',String(_mlRed.bib||''));
-  _s('i-b-bib',String(_mlBlue.bib||''));
+  _s('i-b-bib',_mlBlue?String(_mlBlue.bib||''):'');
   _s('i-r-furi',_mlRed.yomi||'');
-  _s('i-b-furi',_mlBlue.yomi||'');
+  _s('i-b-furi',_mlBlue?(_mlBlue.yomi||''):'');
   _s('i-r-club',_mlRed.club||'');
-  _s('i-b-club',_mlBlue.club||'');
+  _s('i-b-club',_mlBlue?(_mlBlue.club||''):'');
   // ml-time の選択を cfg.it に反映し全セレクトを同期
   _syncTimeSelects(cfg.it);
   const _sit=document.getElementById('i-t');if(_sit)_sit.value=String(cfg.it);
@@ -4460,7 +4587,7 @@ function toast(msg,cls){
     fitPlayerName();
   }
   fit169();
-  window.KW_VER='1.9j';
+  window.KW_VER='1.12';
   try{console.log('[Karate Win] version', KW_VER);}catch(e){}
 
   // ══ オンライン更新チェック機能 ══
@@ -4578,11 +4705,12 @@ function toast(msg,cls){
   window.addEventListener('resize',fit169);
   window.addEventListener('orientationchange',()=>setTimeout(fit169,300));
   if(window.visualViewport) window.visualViewport.addEventListener('resize',fit169);
-  try{localStorage.removeItem('kw3');}catch(e){}
+  /* v1.11: 設定(kw3)は削除しない（保存値を起動時に復元する） */
   loadCfg();
   T.initMs=cfg.it*1000;T.baseMs=T.initMs;_syncTimeSelects(cfg.it);
   ld='';
   rend(T.initMs);updB();updBg();updF();updSc();
+  kwRestoreEL();
   alog('SystemStart',T.baseMs,'システム起動');
   // ══ 外部からの試合データ自動ロード ══
   try{
@@ -4640,9 +4768,16 @@ function toast(msg,cls){
     const winActive=banner&&banner.style.display!=='none';
     const winSideActive=winActive?(banner.classList.contains('blue-win')?'blue':banner.classList.contains('red-win')?'red':null):null;
 
+    const _clsNow=document.getElementById('tb-cls')?.textContent||'';
+    const _bnNow=(document.getElementById('dn-b')?.textContent||'').trim();
+    const _kataNow=kwIsKataCls(_clsNow);
+    const _soloNow=_kataNow&&(!_bnNow||_bnNow==='—');
     _bc.postMessage({
       // 左右反転状態（モニターも連動して反転させる）
       flip: document.getElementById('root169').classList.contains('flip'),
+      // 形モード（モニター画面の自動切替用）
+      mon_page: _kataNow?(_soloNow?'kata1':'kata2'):'normal',
+      kata_mode: _kataNow, kata_solo: _soloNow, kata_name: '',
       // ヘッダー
       tournament: document.getElementById('tb-tournament')?.textContent||'',
       cls: document.getElementById('tb-cls')?.textContent||'',
@@ -5417,6 +5552,23 @@ function vwOpenPlayer(matchIdx, startSec){
   const video = document.getElementById('vw-video');
   if(!video) return;
 
+  // 再生失敗時はIndexedDBからBlobを取り直して復旧（撮影直後・URL失効対策）
+  const _fnameRetry = vwFindLocalFileName(m);
+  video.onerror = async ()=>{
+    video.onerror = null;
+    try{
+      if(_fnameRetry){
+        const rec = await vdbGet(_fnameRetry);
+        if(rec && rec.blob){
+          const u2 = URL.createObjectURL(rec.blob);
+          entry.url = u2; video.src = u2; video.load();
+          video.play().catch(()=>{});
+          return;
+        }
+      }
+    }catch(e){}
+    toast('⚠ 動画を再生できませんでした。「💾 書き出し」で保存してご覧ください');
+  };
   // 同じファイルなら再読込しない
   if(video.src !== entry.url){
     video.src = entry.url;
@@ -5929,6 +6081,10 @@ function camUpdateUI(){
     });
     return _kwSb;
   }
+  // 道場会員登録モジュールから共通クライアントを利用するために公開 (v1.10)
+  window.KW_SB = kwSb;
+  window.KW_SB_URL = KW_SUPABASE_URL;
+  window.KW_SB_KEY = KW_SUPABASE_ANON_KEY;
   // ─────────────────────────────────────────────
   // 動画アップロード用ログイン確認
   // Storage policy が authenticated 前提のため、動画一覧表示および送信前に
@@ -6662,6 +6818,539 @@ function camUpdateUI(){
  window.KW_GET_DOJO_ID=()=>el()?.value||localStorage.getItem(KEY)||window.cfg?.dojo||"";
  window.KW_GET_DOJO_NAME=window.KW_GET_DOJO_ID;
 })();
+
+
+// ══════════════════════════════════════════════════════════════
+//  道場会員登録（v1.10 新設）
+//  フロー: ①アカウント作成/ログイン → ②道場情報入力 →
+//          ③Stripe決済(plan:'dojo' ¥3,000/月) → 復帰後
+//          ④Edge Function register-dojo で dojos行作成 +
+//            user_dojos(admin)紐づけ + 招待コード発行
+//  - 登録された道場は観戦アプリの道場プルダウンに自動反映され、
+//    父兄・選手会員は既存どおり招待コードで参加できる
+//  - 決済復帰は create-checkout の return_url 対応(要EF更新)を利用
+// ══════════════════════════════════════════════════════════════
+(function(){
+  const REG_KEY  = 'kw_dojo_reg';        // 決済リダイレクトを跨ぐ保留状態
+  const DONE_KEY = 'kw_dojo_reg_done';   // 登録完了情報（招待コード再表示用）
+  const PAID_TIERS = ['dojo','admin'];
+  const PREFS = ['北海道','青森県','岩手県','宮城県','秋田県','山形県','福島県','茨城県','栃木県','群馬県','埼玉県','千葉県','東京都','神奈川県','新潟県','富山県','石川県','福井県','山梨県','長野県','岐阜県','静岡県','愛知県','三重県','滋賀県','京都府','大阪府','兵庫県','奈良県','和歌山県','鳥取県','島根県','岡山県','広島県','山口県','徳島県','香川県','愛媛県','高知県','福岡県','佐賀県','長崎県','熊本県','大分県','宮崎県','鹿児島県','沖縄県'];
+
+  let drUser = null;      // Supabase auth user
+  let drProfile = null;   // user_profiles 行
+
+  function drSb(){
+    if(typeof window.KW_SB !== 'function') throw new Error('Supabaseクライアントを初期化できません');
+    return window.KW_SB();
+  }
+  function drEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function drGet(k){ try{ return JSON.parse(localStorage.getItem(k)||'null'); }catch(e){ return null; } }
+  // 登録履歴(配列)。旧形式(単一オブジェクト)は自動で配列に変換
+  function drGetDoneList(){
+    const v = drGet(DONE_KEY);
+    if(!v) return [];
+    if(Array.isArray(v)) return v;
+    return v.invite_code ? [v] : [];
+  }
+  function drPushDone(entry){
+    const list = drGetDoneList();
+    // 同一道場IDは上書き（重複行を作らない）
+    const idx = list.findIndex(function(e){ return e.dojo_id===entry.dojo_id; });
+    if(idx>=0) list[idx]=entry; else list.push(entry);
+    drSet(DONE_KEY, list);
+  }
+  function drSet(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+  function drDel(k){ try{ localStorage.removeItem(k); }catch(e){} }
+
+  // ── オーバーレイ骨格 ──
+  function drEnsureOverlay(){
+    let ov = document.getElementById('kw-dojo-reg-ov');
+    if(ov) return ov;
+    ov = document.createElement('div');
+    ov.id = 'kw-dojo-reg-ov';
+    ov.style.cssText = 'display:none;position:fixed;inset:0;z-index:9200;background:rgba(3,5,10,.85);align-items:flex-start;justify-content:center;overflow:auto;padding:24px 12px;';
+    ov.innerHTML =
+      '<div style="width:min(480px,94vw);background:#0a0e16;border:1px solid #1a2c48;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.6);overflow:hidden;font-family:inherit;margin:auto 0;">' +
+        '<div style="padding:14px 18px;border-bottom:1px solid #14223a;display:flex;align-items:center;gap:10px;">' +
+          '<div style="font-size:20px;">🏯</div>' +
+          '<div style="flex:1;font-size:15px;font-weight:900;color:#e8c060;letter-spacing:1px;">道場会員登録</div>' +
+          '<button id="kw-dr-close" type="button" style="width:32px;height:32px;border:0;background:transparent;color:#9fb8d8;font-size:22px;cursor:pointer;font-family:inherit;">×</button>' +
+        '</div>' +
+        '<div id="kw-dr-stepbar" style="display:flex;gap:4px;padding:10px 18px 0;"></div>' +
+        '<div id="kw-dr-body" style="padding:16px 18px 20px;font-size:13px;line-height:1.8;color:#a8b8cc;min-height:120px;"></div>' +
+      '</div>';
+    document.body.appendChild(ov);
+    document.getElementById('kw-dr-close').onclick = drClose;
+    ov.addEventListener('click', function(e){ if(e.target===ov) drClose(); });
+    return ov;
+  }
+  function drClose(){
+    const ov=document.getElementById('kw-dojo-reg-ov');
+    if(ov) ov.style.display='none';
+  }
+  document.addEventListener('keydown', function(e){
+    if(e.key==='Escape'){
+      const ov=document.getElementById('kw-dojo-reg-ov');
+      if(ov && ov.style.display==='flex') drClose();
+    }
+  });
+
+  function drStepbar(cur){
+    const steps=[['1','アカウント'],['2','道場情報'],['3','決済'],['4','完了']];
+    const el=document.getElementById('kw-dr-stepbar');
+    if(!el) return;
+    el.innerHTML = steps.map(function(s,i){
+      const on = (i+1)<=cur;
+      return '<div style="flex:1;text-align:center;padding:5px 2px;border-radius:6px;font-size:10px;font-weight:700;letter-spacing:1px;'+
+        (on?'background:#241a08;color:#e8c060;border:1px solid #4a3a20;':'background:#0d1220;color:#3a5070;border:1px solid #141e32;')+
+        '">'+s[0]+'. '+s[1]+'</div>';
+    }).join('');
+  }
+  function drBody(html){ const b=document.getElementById('kw-dr-body'); if(b) b.innerHTML=html; }
+  function drMsg(text, kind){
+    const el=document.getElementById('kw-dr-msg');
+    if(!el) return;
+    el.textContent = text||'';
+    el.style.color = kind==='err' ? '#ff9a9a' : kind==='ok' ? '#48e878' : '#8ab0d0';
+  }
+
+  const drInputCss = 'width:100%;height:42px;box-sizing:border-box;border-radius:6px;border:1px solid #31527c;background:#071020;color:#e8f0ff;padding:0 12px;font-size:14px;font-family:inherit;';
+  const drLabelCss = 'display:block;font-size:11px;color:#5a7898;letter-spacing:1px;margin:12px 0 5px;';
+  const drBtnMain  = 'width:100%;height:46px;border-radius:6px;border:1px solid #4a3a20;background:linear-gradient(180deg,#d4a849,#a47820);color:#1a1208;font-weight:900;font-size:14px;cursor:pointer;font-family:inherit;letter-spacing:1px;margin-top:16px;';
+  const drBtnSub   = 'width:100%;height:40px;border-radius:6px;border:1px solid #2a3a52;background:transparent;color:#8098b8;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit;margin-top:8px;';
+
+  // ── プロファイル読み込み（なければfreeで作成） ──
+  async function drLoadProfile(createIfMissing){
+    if(!drUser) return null;
+    const sb=drSb();
+    let {data} = await sb.from('user_profiles').select('id, email, display_name, membership_tier').eq('id', drUser.id).maybeSingle();
+    if(!data && createIfMissing){
+      await sb.from('user_profiles').upsert({
+        id: drUser.id,
+        email: drUser.email,
+        display_name: (drUser.user_metadata && drUser.user_metadata.display_name) || (drUser.email||'').split('@')[0],
+        membership_tier: 'free'
+      });
+      const r2 = await sb.from('user_profiles').select('id, email, display_name, membership_tier').eq('id', drUser.id).maybeSingle();
+      data = r2.data;
+    }
+    drProfile = data || null;
+    return drProfile;
+  }
+
+  // ══ 入口 ══
+  window.kwDojoRegOpen = async function(){
+    const ov = drEnsureOverlay();
+    ov.style.display='flex';
+    // 登録履歴があれば履歴一覧（招待コード再表示+新規登録）
+    if(drGetDoneList().length > 0){
+      drShowHistory();
+      return;
+    }
+    drStepbar(1); drBody('<div style="text-align:center;padding:24px 0;color:#5a7898;">確認中…</div>');
+    try{
+      const sb=drSb();
+      const {data} = await sb.auth.getSession();
+      if(data && data.session){
+        drUser = data.session.user;
+        await drLoadProfile(true);
+        drShowInfoStep();
+      } else {
+        drShowAuthStep('login');
+      }
+    }catch(e){
+      drShowAuthStep('login');
+    }
+  };
+
+  // ══ Step1: アカウント ══
+  function drShowAuthStep(tab){
+    drStepbar(1);
+    drBody(
+      '<div style="display:flex;gap:6px;margin-bottom:14px;">'+
+        '<button id="kw-dr-tab-login" type="button" style="flex:1;height:36px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;'+(tab==='login'?'border:1px solid #4a3a20;background:#241a08;color:#e8c060;':'border:1px solid #1a2840;background:transparent;color:#5a7898;')+'">ログイン</button>'+
+        '<button id="kw-dr-tab-signup" type="button" style="flex:1;height:36px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;'+(tab==='signup'?'border:1px solid #4a3a20;background:#241a08;color:#e8c060;':'border:1px solid #1a2840;background:transparent;color:#5a7898;')+'">新規登録</button>'+
+      '</div>'+
+      (tab==='signup' ?
+        '<label style="'+drLabelCss+'">代表者名（表示名）</label>'+
+        '<input id="kw-dr-name" type="text" autocomplete="name" style="'+drInputCss+'">' : '')+
+      '<label style="'+drLabelCss+'">メールアドレス</label>'+
+      '<input id="kw-dr-email" type="email" autocomplete="username" style="'+drInputCss+'">'+
+      '<label style="'+drLabelCss+'">パスワード'+(tab==='signup'?'（8文字以上）':'')+'</label>'+
+      '<input id="kw-dr-pwd" type="password" autocomplete="'+(tab==='signup'?'new-password':'current-password')+'" style="'+drInputCss+'">'+
+      '<div id="kw-dr-msg" style="margin-top:10px;min-height:20px;font-size:12px;white-space:pre-wrap;"></div>'+
+      '<button id="kw-dr-go" type="button" style="'+drBtnMain+'">'+(tab==='signup'?'アカウント作成して次へ':'ログインして次へ')+'</button>'+
+      '<div style="margin-top:12px;font-size:11px;color:#3a5070;line-height:1.7;">観戦アプリ・カメラアプリと共通のアカウントです。既にお持ちの場合は「ログイン」タブをご利用ください。</div>'
+    );
+    document.getElementById('kw-dr-tab-login').onclick = function(){ drShowAuthStep('login'); };
+    document.getElementById('kw-dr-tab-signup').onclick = function(){ drShowAuthStep('signup'); };
+    document.getElementById('kw-dr-go').onclick = tab==='signup' ? drDoSignup : drDoLogin;
+  }
+
+  async function drDoLogin(){
+    const email=(document.getElementById('kw-dr-email').value||'').trim();
+    const pwd=document.getElementById('kw-dr-pwd').value||'';
+    if(!email||!pwd){ drMsg('メールとパスワードを入力してください','err'); return; }
+    drMsg('ログイン中…');
+    try{
+      const sb=drSb();
+      const {data,error}=await sb.auth.signInWithPassword({email,password:pwd});
+      if(error) throw error;
+      drUser=data.user;
+      await drLoadProfile(true);
+      drShowInfoStep();
+    }catch(e){
+      let m=e && e.message || String(e);
+      if(/Invalid login credentials/i.test(m)) m='メールアドレスかパスワードが違います';
+      else if(/Email not confirmed/i.test(m)) m='メール確認が完了していません。受信メール内のリンクをクリックしてから再度ログインしてください。';
+      drMsg('ログインに失敗しました: '+m,'err');
+    }
+  }
+
+  async function drDoSignup(){
+    const name=(document.getElementById('kw-dr-name').value||'').trim();
+    const email=(document.getElementById('kw-dr-email').value||'').trim();
+    const pwd=document.getElementById('kw-dr-pwd').value||'';
+    if(!name||!email||!pwd){ drMsg('すべての項目を入力してください','err'); return; }
+    if(pwd.length<8){ drMsg('パスワードは8文字以上にしてください','err'); return; }
+    drMsg('登録中…');
+    try{
+      const sb=drSb();
+      const {data,error}=await sb.auth.signUp({email,password:pwd,options:{data:{display_name:name}}});
+      if(error) throw error;
+      if(data.session){
+        drUser=data.user;
+        await drLoadProfile(true);
+        drShowInfoStep();
+      }else{
+        drMsg('✅ 確認メールを送信しました。メール内のリンクを開いた後、「ログイン」タブからログインすると続きに進めます。','ok');
+        setTimeout(function(){
+          drShowAuthStep('login');
+          const em=document.getElementById('kw-dr-email'); if(em) em.value=email;
+          drMsg('メール確認後、上記でログインしてください。');
+        }, 2600);
+      }
+    }catch(e){
+      drMsg('登録に失敗しました: '+(e&&e.message||e),'err');
+    }
+  }
+
+  // ══ Step2: 道場情報 ══
+  function drShowInfoStep(){
+    drStepbar(2);
+    const pending = drGet(REG_KEY) || {};
+    drBody(
+      '<div style="font-size:12px;color:#8ab0d0;margin-bottom:4px;">ログイン中: <b style="color:#c8d8f0;">'+drEsc(drProfile && drProfile.display_name || drUser && drUser.email || '')+'</b></div>'+
+      '<label style="'+drLabelCss+'">道場名（必須）</label>'+
+      '<input id="kw-dr-dojo-name" type="text" maxlength="100" placeholder="例: ○○空手道場" style="'+drInputCss+'" value="'+drEsc(pending.name||'')+'">'+
+      '<label style="'+drLabelCss+'">都道府県（任意）</label>'+
+      '<select id="kw-dr-pref" style="'+drInputCss+'">'+
+        '<option value="">選択してください</option>'+
+        PREFS.map(function(p){ return '<option value="'+p+'"'+(pending.prefecture===p?' selected':'')+'>'+p+'</option>'; }).join('')+
+      '</select>'+
+      '<div id="kw-dr-msg" style="margin-top:10px;min-height:20px;font-size:12px;white-space:pre-wrap;"></div>'+
+      '<button id="kw-dr-go" type="button" style="'+drBtnMain+'">次へ（決済確認）</button>'+
+      '<div style="margin-top:12px;font-size:11px;color:#3a5070;line-height:1.7;">登録した道場は観戦アプリの「所属道場」の選択リストに表示され、発行される招待コードで父兄・選手のみなさんが参加できるようになります。</div>'
+    );
+    document.getElementById('kw-dr-go').onclick = function(){
+      const name=(document.getElementById('kw-dr-dojo-name').value||'').trim();
+      const pref=document.getElementById('kw-dr-pref').value||'';
+      if(!name){ drMsg('道場名を入力してください','err'); return; }
+      drSet(REG_KEY, {name:name, prefecture:pref, ts:Date.now()});
+      drShowPayStep();
+    };
+  }
+
+  // ══ Step3: 決済 ══
+  async function drShowPayStep(){
+    drStepbar(3);
+    drBody('<div style="text-align:center;padding:24px 0;color:#5a7898;">会員状態を確認中…</div>');
+    try{ await drLoadProfile(false); }catch(e){}
+    const tier = drProfile && drProfile.membership_tier;
+    if(PAID_TIERS.indexOf(tier)>=0){
+      // 決済済み → そのまま道場作成へ
+      drFinalize();
+      return;
+    }
+    const reg = drGet(REG_KEY) || {};
+    drBody(
+      '<div style="background:#0a1420;border:1px solid #1a3050;border-radius:8px;padding:14px 16px;margin-bottom:8px;">'+
+        '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">'+
+          '<span style="font-size:14px;font-weight:700;color:#e8c060;">道場会員（サブスクリプション）</span>'+
+          '<span style="font-size:20px;font-weight:900;color:#c8d8f0;">¥3,000<span style="font-size:11px;color:#5a7898;">/月</span></span>'+
+        '</div>'+
+        '<div style="font-size:11px;color:#6a90c0;line-height:1.8;">・道場の登録と招待コードの発行<br>・道場の試合動画の管理（観戦アプリ・カメラアプリ共通アカウント）</div>'+
+      '</div>'+
+      '<div style="font-size:12px;color:#8ab0d0;">登録道場: <b style="color:#c8d8f0;">'+drEsc(reg.name||'')+'</b>'+(reg.prefecture?'（'+drEsc(reg.prefecture)+'）':'')+'</div>'+
+      '<div id="kw-dr-msg" style="margin-top:10px;min-height:20px;font-size:12px;white-space:pre-wrap;"></div>'+
+      '<button id="kw-dr-go" type="button" style="'+drBtnMain+'">💳 Stripeで決済を開始</button>'+
+      '<button id="kw-dr-paid" type="button" style="'+drBtnSub+'">🔄 決済済みの方はこちら（状態を再確認）</button>'+
+      '<div style="margin-top:12px;font-size:11px;color:#3a5070;line-height:1.7;">決済画面（Stripe）に移動します。完了するとこの画面に自動的に戻り、道場の登録と招待コードの発行が行われます。</div>'
+    );
+    document.getElementById('kw-dr-go').onclick = drStartCheckout;
+    document.getElementById('kw-dr-paid').onclick = async function(){
+      drMsg('確認中…');
+      try{
+        await drLoadProfile(false);
+        if(PAID_TIERS.indexOf(drProfile && drProfile.membership_tier)>=0){ drFinalize(); }
+        else drMsg('まだ決済が確認できません。決済完了直後の場合は1〜2分おいて再度お試しください。','err');
+      }catch(e){ drMsg('確認に失敗しました: '+(e&&e.message||e),'err'); }
+    };
+  }
+
+  async function drStartCheckout(){
+    if(!/^https?:/.test(location.protocol)){
+      drMsg('決済はWeb公開版（https）でのみ利用できます。karate-win-pc.vercel.app からアクセスしてください。','err');
+      return;
+    }
+    drMsg('決済画面を準備中…');
+    try{
+      const sb=drSb();
+      const {data} = await sb.auth.getSession();
+      if(!data || !data.session){ drMsg('ログインが必要です','err'); return; }
+      const res = await fetch(window.KW_SB_URL+'/functions/v1/create-checkout', {
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'Authorization':'Bearer '+data.session.access_token,
+          'apikey': window.KW_SB_KEY
+        },
+        body: JSON.stringify({
+          type:'subscription',
+          plan:'dojo',
+          return_url: location.origin + location.pathname
+        })
+      });
+      const result = await res.json();
+      if(!res.ok || !result.url){
+        drMsg('決済の開始に失敗しました: '+(result.error||('エラー('+res.status+')')),'err');
+        return;
+      }
+      location.href = result.url;
+    }catch(e){
+      drMsg('通信エラー: '+(e&&e.message||e),'err');
+    }
+  }
+
+  // ══ Step4: 道場作成＋招待コード発行 ══
+  async function drFinalize(){
+    drStepbar(4);
+    const reg = drGet(REG_KEY);
+    if(!reg || !reg.name){
+      drBody('<div style="color:#ff9a9a;">道場情報が見つかりません。最初からやり直してください。</div>'+
+        '<button id="kw-dr-go" type="button" style="'+drBtnMain+'">最初に戻る</button>');
+      document.getElementById('kw-dr-go').onclick = function(){ window.kwDojoRegOpen(); };
+      return;
+    }
+    drBody('<div style="text-align:center;padding:24px 0;color:#8ab0d0;">道場を登録しています…<br><span style="font-size:11px;color:#3a5070;">(決済直後は反映まで少しかかる場合があります)</span></div>');
+
+    try{
+      const sb=drSb();
+      // 決済Webhookによるtier昇格を最大16秒ポーリング
+      let tier = null;
+      for(let i=0;i<8;i++){
+        await drLoadProfile(true);
+        tier = drProfile && drProfile.membership_tier;
+        if(PAID_TIERS.indexOf(tier)>=0) break;
+        await new Promise(function(r){ setTimeout(r,2000); });
+      }
+      const {data} = await sb.auth.getSession();
+      if(!data || !data.session) throw new Error('ログインセッションが失われました。再度ログインしてください。');
+
+      const res = await fetch(window.KW_SB_URL+'/functions/v1/register-dojo', {
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'Authorization':'Bearer '+data.session.access_token,
+          'apikey': window.KW_SB_KEY
+        },
+        body: JSON.stringify({ name: reg.name, prefecture: reg.prefecture||'' })
+      });
+      const result = await res.json().catch(function(){ return {}; });
+
+      if(!res.ok || !result.success){
+        if(result && result.code==='NAME_TAKEN'){
+          drBody(
+            '<div style="color:#e8c060;line-height:1.9;">同名の道場が既に登録されています。<br><span style="font-size:12px;color:#8ab0d0;">'+drEsc(result.error||'')+'</span></div>'+
+            '<div id="kw-dr-msg" style="margin-top:10px;min-height:20px;font-size:12px;"></div>'+
+            '<button id="kw-dr-go" type="button" style="'+drBtnMain+'">✎ 道場名を変更する</button>'+
+            '<div style="margin-top:12px;font-size:11px;color:#3a5070;line-height:1.7;">※決済は完了しています。道場名の変更または引き継ぎ後に、二重に決済されることはありません。</div>'
+          );
+          document.getElementById('kw-dr-go').onclick = drShowInfoStep;
+          return;
+        }
+        if(result && result.code==='TIER_NOT_READY'){
+          drBody(
+            '<div style="color:#e8c060;line-height:1.9;">決済の反映を待っています。<br><span style="font-size:12px;color:#8ab0d0;">Stripeの決済完了から反映まで1〜2分かかる場合があります。</span></div>'+
+            '<div id="kw-dr-msg" style="margin-top:10px;min-height:20px;font-size:12px;"></div>'+
+            '<button id="kw-dr-go" type="button" style="'+drBtnMain+'">🔄 もう一度確認する</button>'
+          );
+          document.getElementById('kw-dr-go').onclick = drFinalize;
+          return;
+        }
+        throw new Error(result.error || ('エラー('+res.status+')'));
+      }
+
+      const done = {
+        dojo_id: result.dojo_id,
+        dojo_name: result.dojo_name,
+        invite_code: result.invite_code,
+        registered_at: Date.now()
+      };
+      drPushDone(done);
+      drDel(REG_KEY);
+      if(result.already_registered){ drMsg('この道場は登録済みのため、既存の道場情報と招待コードを表示しています', 'ok'); }
+
+      // 設定画面の道場IDへ自動反映
+      try{
+        localStorage.setItem('kw_dojo_id', String(result.dojo_id||''));
+        const el=document.getElementById('c-dojo');
+        if(el){ el.value=String(result.dojo_id||''); }
+        if(window.cfg) window.cfg.dojo = String(result.dojo_id||'');
+      }catch(e){}
+
+      drShowDone(done);
+      if(result.invite_code_error){
+        drMsg('注意: '+result.invite_code_error, 'err');
+      }
+    }catch(e){
+      drBody(
+        '<div style="color:#ff9a9a;line-height:1.9;">道場の登録に失敗しました。<br><span style="font-size:12px;">'+drEsc(e&&e.message||e)+'</span></div>'+
+        '<button id="kw-dr-go" type="button" style="'+drBtnMain+'">🔄 もう一度試す</button>'+
+        '<div style="margin-top:12px;font-size:11px;color:#3a5070;line-height:1.7;">※決済は完了している場合があります。二重に決済されることはありません（再試行は道場の作成のみを行います）。</div>'
+      );
+      document.getElementById('kw-dr-go').onclick = drFinalize;
+    }
+  }
+
+  // ══ 完了画面（登録直後） ══
+  function drShowDone(done){
+    drStepbar(4);
+    drBody(
+      '<div style="text-align:center;margin-bottom:6px;font-size:14px;color:#48e878;font-weight:700;">✅ 道場の登録が完了しました</div>'+
+      drDojoCard(done)+
+      '<div id="kw-dr-msg" style="margin-top:10px;min-height:20px;font-size:12px;white-space:pre-wrap;"></div>'+
+      '<div style="margin-top:8px;font-size:11px;color:#3a5070;line-height:1.8;">父兄・選手のみなさんは、観戦アプリの会員登録（または「道場に参加」）で <b style="color:#8ab0d0;">'+drEsc(done.dojo_name||'')+'</b> を選び、上の招待コードを入力すると参加できます。</div>'+
+      '<button id="kw-dr-new" type="button" style="'+drBtnMain+'">＋ 続けて別の道場を登録する</button>'+
+      '<button id="kw-dr-ok" type="button" style="'+drBtnSub+'">閉じる</button>'
+    );
+    drBindDojoCardActions([done]);
+    document.getElementById('kw-dr-ok').onclick=drClose;
+    document.getElementById('kw-dr-new').onclick=drStartNewRegistration;
+  }
+
+  // ══ 履歴一覧（2回目以降に開いたとき） ══
+  function drShowHistory(){
+    drStepbar(4);
+    const list = drGetDoneList().slice().reverse();   // 新しい順
+    const curId = (function(){ try{ return localStorage.getItem('kw_dojo_id')||''; }catch(e){ return ''; } })();
+    drBody(
+      '<div style="font-size:13px;font-weight:700;color:#c8d8f0;margin-bottom:8px;">登録済みの道場（'+list.length+'件）</div>'+
+      list.map(function(d){ return drDojoCard(d, curId); }).join('')+
+      '<div id="kw-dr-msg" style="margin-top:8px;min-height:20px;font-size:12px;white-space:pre-wrap;"></div>'+
+      '<button id="kw-dr-new" type="button" style="'+drBtnMain+'">＋ 新しい道場を登録する</button>'+
+      '<button id="kw-dr-ok" type="button" style="'+drBtnSub+'">閉じる</button>'
+    );
+    drBindDojoCardActions(list);
+    document.getElementById('kw-dr-ok').onclick=drClose;
+    document.getElementById('kw-dr-new').onclick=drStartNewRegistration;
+  }
+
+  // ── 道場カード1件分のHTML ──
+  function drDojoCard(done, curId){
+    const isCur = curId && String(done.dojo_id)===String(curId);
+    return (
+      '<div style="background:#0a1420;border:1px solid #1a3050;border-radius:8px;padding:12px 14px;margin-bottom:8px;">'+
+        '<div style="display:flex;align-items:center;gap:8px;">'+
+          '<div style="flex:1;font-size:15px;font-weight:900;color:#c8d8f0;">'+drEsc(done.dojo_name||'')+'</div>'+
+          (isCur?'<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:#0a2012;color:#48e878;border:1px solid #2a7048;">設定中</span>':'')+
+        '</div>'+
+        '<div style="display:flex;align-items:center;gap:10px;margin-top:6px;flex-wrap:wrap;">'+
+          '<div style="font-size:24px;font-weight:900;color:#e8c060;letter-spacing:5px;font-variant-numeric:tabular-nums;">'+drEsc(done.invite_code||'—')+'</div>'+
+          '<button type="button" class="kw-dr-copy" data-code="'+drEsc(done.invite_code||'')+'" style="padding:6px 11px;border-radius:6px;border:1px solid #2a3a52;background:#0d1220;color:#8ab0d0;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">📋 コピー</button>'+
+          (isCur?'':'<button type="button" class="kw-dr-use" data-id="'+drEsc(done.dojo_id||'')+'" style="padding:6px 11px;border-radius:6px;border:1px solid #2a3a52;background:#0d1220;color:#8ab0d0;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">⚙ 設定に使う</button>')+
+        '</div>'+
+        '<div style="font-size:10px;color:#3a5070;margin-top:6px;word-break:break-all;">道場ID: '+drEsc(done.dojo_id||'')+'</div>'+
+      '</div>'
+    );
+  }
+
+  // ── カード内ボタンのイベント（コピー・設定に使う） ──
+  function drBindDojoCardActions(list){
+    document.querySelectorAll('#kw-dr-body .kw-dr-copy').forEach(function(btn){
+      btn.onclick=function(){
+        try{
+          navigator.clipboard.writeText(String(btn.dataset.code||''));
+          drMsg('招待コード '+btn.dataset.code+' をコピーしました','ok');
+        }catch(e){ drMsg('コピーできませんでした。長押し等で選択してコピーしてください。','err'); }
+      };
+    });
+    document.querySelectorAll('#kw-dr-body .kw-dr-use').forEach(function(btn){
+      btn.onclick=function(){
+        const id=String(btn.dataset.id||'');
+        try{
+          localStorage.setItem('kw_dojo_id', id);
+          const el=document.getElementById('c-dojo'); if(el) el.value=id;
+          if(window.cfg) window.cfg.dojo=id;
+        }catch(e){}
+        drShowHistory();
+        setTimeout(function(){ drMsg('設定画面の道場IDを切り替えました','ok'); },50);
+      };
+    });
+  }
+
+  // ── 新しい道場の登録を開始（履歴・完了画面から） ──
+  async function drStartNewRegistration(){
+    drDel(REG_KEY);
+    drStepbar(1); drBody('<div style="text-align:center;padding:24px 0;color:#5a7898;">確認中…</div>');
+    try{
+      const sb=drSb();
+      const {data}=await sb.auth.getSession();
+      if(data && data.session){ drUser=data.session.user; await drLoadProfile(true); drShowInfoStep(); }
+      else drShowAuthStep('login');
+    }catch(e){ drShowAuthStep('login'); }
+  }
+
+  // ══ 決済リダイレクトからの復帰処理 ══
+  function drHandleReturn(){
+    let params;
+    try{ params=new URLSearchParams(location.search); }catch(e){ return; }
+    const co=params.get('checkout');
+    if(!co) return;
+    const reg=drGet(REG_KEY);
+    if(!reg || !reg.name) return;   // 道場登録フロー由来でなければ何もしない
+
+    // URLからcheckoutパラメータを除去（リロード時の再実行防止）
+    try{
+      params.delete('checkout'); params.delete('session_id');
+      const q=params.toString();
+      history.replaceState(null,'',location.pathname+(q?'?'+q:''));
+    }catch(e){}
+
+    const ov=drEnsureOverlay();
+    ov.style.display='flex';
+    if(co==='success'){
+      drFinalize();
+    }else{
+      // canceled: 決済ステップに戻す
+      (async function(){
+        try{
+          const sb=drSb();
+          const {data}=await sb.auth.getSession();
+          if(data && data.session){ drUser=data.session.user; await drLoadProfile(true); }
+        }catch(e){}
+        drShowPayStep();
+        setTimeout(function(){ drMsg('決済がキャンセルされました。再開する場合は決済ボタンを押してください。','err'); },50);
+      })();
+    }
+  }
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(drHandleReturn, 300); });
+  }else{
+    setTimeout(drHandleReturn, 300);
+  }
+})();
+
 </script>
    <!-- ════ カメラ設定モーダル ════ -->
    <div id="cam-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:800;align-items:flex-start;justify-content:center;padding-top:40px;backdrop-filter:blur(4px);overflow-y:auto;">
