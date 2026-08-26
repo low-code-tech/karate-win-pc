@@ -1041,7 +1041,7 @@ html,body{
      <div class="logo" onclick="sw('onboarding',null)" style="cursor:pointer" title="はじめに画面へ戻る">
       Karate Win
       <small id="kw-ver">
-       v1.12a
+       v1.12b
       </small>
      </div>
      <button class="tb-right-btn" id="btn-flip" onclick="toggleFlip()" title="赤と青の表示位置を左右で入れ替えます（記録される内容は変わりません）">
@@ -1095,7 +1095,7 @@ html,body{
      <div id="tb-cls">
       クラス / 学年
      </div>
-     <div id="tb-court">
+     <div id="tb-court" style="display:none">
       コート —
      </div>
     </div>
@@ -1275,10 +1275,6 @@ html,body{
         <button onclick="vwPickFolder()"
           style="background:#0a1428;border:1px solid #2ecc71;border-radius:5px;color:#2ecc71;padding:5px 10px;font-size:11px;font-weight:700;">
           📁 動画追加
-        </button>
-        <button onclick="sw('video-setting',null)"
-          style="background:#0a1428;border:1px solid #9b59b6;border-radius:5px;color:#9b59b6;padding:5px 10px;font-size:11px;">
-          YouTube設定
         </button>
       </div>
     </div>
@@ -2887,10 +2883,14 @@ function doReset(){
   _cancelBuzzers();
   const resetMs=cfg.it*1000;
   T.initMs=resetMs;
-  Object.assign(T,{baseMs:resetMs,run:false,status:'Ready',w15:false,_snd15:false,_snd00:false,fin:false,_extRec:false});
+  Object.assign(T,{baseMs:resetMs,run:false,status:'Ready',w15:false,_snd15:false,_snd00:false,fin:false,finByWin:false,_extRec:false});
   rstSc();
   rstSentoku();
   alog('Reset',resetMs,'リセット');rend(resetMs);updB();updBg();updF();
+  // 勝利帯・勝利取消ボタンを閉じる（記録済みの試合結果と敗退マークは維持）
+  {const _wb=document.getElementById('win-banner');if(_wb){_wb.style.display='none';_wb.className='';}
+   const _wc=document.getElementById('win-cancel-btn');if(_wc)_wc.style.display='none';
+   const _ab=document.getElementById('actbar');if(_ab)_ab.classList.remove('has-cancel');}
   // リセット確認ダイアログでiOSの音声エンジンが中断されるため、ここで復帰させる
   try{const c=gctx(); if(c.state!=='running')c.resume(); warmupAudio();}catch(e){}
 }
@@ -4606,7 +4606,7 @@ function toast(msg,cls){
     fitPlayerName();
   }
   fit169();
-  window.KW_VER='1.12a';
+  window.KW_VER='1.12b';
   try{console.log('[Karate Win] version', KW_VER);}catch(e){}
 
   // ══ オンライン更新チェック機能 ══

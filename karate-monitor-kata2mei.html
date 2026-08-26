@@ -11,14 +11,14 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;color:#e8eaf0;
 #root{background:#05080f;width:100vw;height:100vh;display:flex;flex-direction:column}
 /* ── ヘッダー ── */
 #header{flex-shrink:0;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;
-  padding:1vh 2vw;background:#090d14;border-bottom:2px solid #1a3a6a;height:9vh}
+  padding:1vh 2vw;background:#090d14;border-bottom:2px solid #1a3a6a;height:13vh}
 #h-tournament{font-size:2.0vw;font-weight:700;color:#6080b0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#h-cls{font-size:2.6vw;font-weight:900;color:#c8d8f8;letter-spacing:.2vw;white-space:nowrap;text-align:center}
+#h-cls{font-size:3.2vw;line-height:1.2;font-weight:900;color:#c8d8f8;letter-spacing:.2vw;white-space:nowrap;text-align:center}
 #h-court{font-size:2.2vw;color:#405070;white-space:nowrap;text-align:right}
 /* ── 2名パネル ── */
 #main{flex:1;display:flex;min-height:0}
 .pnl{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
-  padding:3vh 2vw 2vh;position:relative;min-width:0}
+  padding:2vh 2vw;position:relative;min-width:0;justify-content:center}
 .pnl.blue{background:linear-gradient(160deg,#0a2060,#0d3090)}
 .pnl.red{background:linear-gradient(160deg,#3a0015,#6b0020);}
 #main .blue{order:1}#main .red{order:2}
@@ -28,21 +28,14 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;color:#e8eaf0;
 .blue .p-tag{background:rgba(20,60,180,.55);border:2px solid rgba(120,160,255,.6)}
 .red  .p-tag{background:rgba(160,10,40,.55);border:2px solid rgba(255,120,140,.6)}
 .p-bib{position:absolute;top:1.6vh;right:1.6vw;font-size:3.2vw;font-weight:700;color:#fff;opacity:.9;letter-spacing:.2vw}
-.p-furi{margin-top:7vh;font-size:2.6vw;color:#fff;opacity:.85;letter-spacing:.2vw;text-align:center;
+.p-furi{margin-top:0;font-size:2.6vw;color:#fff;opacity:.85;letter-spacing:.2vw;text-align:center;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:96%}
-.p-name{font-size:7.5vw;font-weight:900;letter-spacing:.2vw;color:#fff;text-align:center;line-height:1.1;
+.p-name{font-size:9vw;font-weight:900;letter-spacing:.2vw;color:#fff;text-align:center;line-height:1.1;
   max-width:96%;overflow:hidden;text-shadow:0 0 3vw rgba(255,255,255,.35)}
 .p-club{margin-top:1vh;font-size:2.6vw;color:#fff;opacity:.8;text-align:center;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:96%}
-/* ── 形の種類名（スペース常設・折返し対応） ── */
-.kata-box{margin-top:auto;margin-bottom:1.5vh;width:92%;min-height:12vh;
-  background:rgba(10,20,40,.55);border:2px solid rgba(140,170,220,.5);border-radius:1vw;
-  display:flex;align-items:center;justify-content:center;padding:1.2vh 1.5vw;text-align:center}
-.kata-name{font-size:3.4vw;font-weight:900;color:#fff;letter-spacing:.15vw;line-height:1.25;
-  word-break:break-word;overflow-wrap:anywhere}
-.kata-name.empty{opacity:.28;font-size:2.2vw;font-weight:700}
 /* ── Winner ── */
-.winner{display:none;margin-bottom:2vh;font-size:6vw;font-weight:900;letter-spacing:.5vw;color:#ffd700;
+.winner{display:none;margin-top:3vh;font-size:6vw;font-weight:900;letter-spacing:.5vw;color:#ffd700;
   text-shadow:0 0 2vw rgba(255,215,0,.9),0 0 6vw rgba(255,215,0,.5);
   animation:wglow 1s ease-in-out infinite alternate}
 .winner.on{display:block}
@@ -80,7 +73,6 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;color:#e8eaf0;
       <div class="p-furi" id="b-furi"></div>
       <div class="p-name" id="b-name">—</div>
       <div class="p-club" id="b-club">所属道場</div>
-      <div class="kata-box"><div class="kata-name empty" id="b-kata">形の種類名</div></div>
       <div class="winner" id="w-b">Winner</div>
     </div>
     <div class="pnl red">
@@ -88,7 +80,6 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;color:#e8eaf0;
       <div class="p-furi" id="r-furi"></div>
       <div class="p-name" id="r-name">—</div>
       <div class="p-club" id="r-club">所属道場</div>
-      <div class="kata-box"><div class="kata-name empty" id="r-kata">形の種類名</div></div>
       <div class="winner" id="w-r">Winner</div>
     </div>
   </div>
@@ -114,17 +105,12 @@ const KW_MON_URL={normal:'karate-monitor.html',kata2:'karate-monitor-kata2mei.ht
 const connEl=document.getElementById('conn-status');
 let connected=false;
 function setText(id,t){const el=document.getElementById(id);if(el)el.textContent=t;}
-function setKata(id,name){
-  const el=document.getElementById(id);if(!el)return;
-  if(name){el.textContent=name;el.classList.remove('empty');}
-  else{el.textContent='形の種類名';el.classList.add('empty');}
-}
 // 氏名の自動縮小（文字数ベース）
 function fitName(id,name){
   const el=document.getElementById(id);if(!el)return;
   const len=String(name||'').replace(/\s/g,'').length;
-  let fs=7.5;
-  if(len>10)fs=4.4;else if(len>8)fs=5.2;else if(len>6)fs=6.2;
+  let fs=9;
+  if(len>10)fs=5.2;else if(len>8)fs=6.4;else if(len>6)fs=7.6;
   el.style.fontSize=fs+'vw';
   el.textContent=name||'—';
 }
@@ -144,8 +130,6 @@ ch.onmessage=(e)=>{
   setText('b-bib',(st.bbib||'').replace(/^No\.\s*/,'')||'—');
   setText('b-furi',st.bfuri||'');
   setText('b-club',st.bclub||'所属道場');
-  setKata('r-kata',st.kata_name||'');
-  setKata('b-kata',st.kata_name||'');
   // 判定勝ち等の勝敗確定 → 勝った側にWinner
   document.getElementById('w-r').className='winner'+(st.win_side==='red'?' on':'');
   document.getElementById('w-b').className='winner'+(st.win_side==='blue'?' on':'');
