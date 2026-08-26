@@ -65,7 +65,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;color:#e8eaf0;
   <div id="header">
     <div id="h-tournament">大会名未設定</div>
     <div id="h-cls">クラス / 学年</div>
-    <div id="h-court">コート —</div>
+    <div id="h-court"></div>
   </div>
   <div id="main">
     <div class="pnl blue">
@@ -121,7 +121,6 @@ ch.onmessage=(e)=>{
   document.getElementById('main').classList.toggle('flip',!!st.flip);
   setText('h-tournament',st.tournament||'大会名未設定');
   setText('h-cls',st.cls||'クラス / 学年');
-  setText('h-court','コート '+(st.court||'—'));
   fitName('r-name',st.rn||'—');
   setText('r-bib',(st.rbib||'').replace(/^No\.\s*/,'')||'—');
   setText('r-furi',st.rfuri||'');
