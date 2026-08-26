@@ -1041,7 +1041,7 @@ html,body{
      <div class="logo" onclick="sw('onboarding',null)" style="cursor:pointer" title="はじめに画面へ戻る">
       Karate Win
       <small id="kw-ver">
-       v1.12
+       v1.12a
       </small>
      </div>
      <button class="tb-right-btn" id="btn-flip" onclick="toggleFlip()" title="赤と青の表示位置を左右で入れ替えます（記録される内容は変わりません）">
@@ -4230,7 +4230,17 @@ function mlOnOpen(){
   if(!raw){dot.style.background='#e74c3c';msg.innerHTML='選手データなし';mlShowEmpty('データ取込からExcelを読み込んでください。');return;}
   try{
     _mlPlayers=JSON.parse(raw);
-    if(!_mlPlayers.length){dot.style.background='#f39c12';msg.innerHTML='選手データが空です';return;}
+    if(!_mlPlayers.length){
+      dot.style.background='#f39c12';
+      try{_mlEventInfo=JSON.parse(localStorage.getItem('karate_eventInfo')||'{}');}catch(e){_mlEventInfo={};}
+      mlRenderEventInfo();
+      msg.innerHTML='選手データが空です'+((_mlEventInfo.tournament)?'（'+kwEscHtml(_mlEventInfo.tournament)+'）':'');
+      _mlVisible=[];_mlRed=null;_mlBlue=null;mlUpdateSlot('red',null);mlUpdateSlot('blue',null);
+      mlBuildCourtDropdown();  /* 空名簿→コートは全コートのみ・クラスは「—クラスを選択—」のみに再構築 */
+      document.getElementById('ml-filter-status').style.display='none';
+      mlShowEmpty('この大会の名簿は空です。「📤 名簿出力」で作ったExcelに選手を追記して「データ取込」で登録するか、「✎ 手入力」で試合をロードしてください。');
+      return;
+    }
     try{_mlEventInfo=JSON.parse(localStorage.getItem('karate_eventInfo')||'{}');}catch(e){_mlEventInfo={};}
     mlRenderEventInfo();
     dot.style.background='#2ecc71';dot.style.boxShadow='0 0 6px #2ecc71';
@@ -4267,7 +4277,12 @@ function mlOnCourtChange(){
   if(court)document.getElementById('ml-court-num').value=court;
   mlBuildClassDropdown(court);mlApplyFilter();
 }
-function mlOnClassChange(){mlApplyFilter();}
+function mlOnClassChange(){
+  const _c=document.getElementById('ml-class').value;
+  const _tbc=document.getElementById('tb-cls');
+  if(_tbc)_tbc.textContent=_c||'クラス / 学年';
+  mlApplyFilter();
+}
 function mlApplyFilter(){
   const court=document.getElementById('ml-court').value;
   const cls=document.getElementById('ml-class').value;
@@ -4376,6 +4391,10 @@ function mlOnTaikaiChange(){
   const tbT=document.getElementById('tb-tournament'); if(tbT)tbT.textContent=name;
   const itn=document.getElementById('i-tn'); if(itn)itn.value=name;
   _mlRed=null;_mlBlue=null;mlUpdateSlot('red',null);mlUpdateSlot('blue',null);
+  const _mc=document.getElementById('ml-class');if(_mc)_mc.value='';
+  const _tbc2=document.getElementById('tb-cls');if(_tbc2)_tbc2.textContent='クラス / 学年';
+  document.getElementById('ml-filter-status').style.display='none';
+  mlShowEmpty('クラスを選択すると選手一覧が表示されます');
   mlOnOpen();
   toast('大会「'+name+'」に切り替えました（名簿 '+(a.players?a.players.length:0)+'名）');
 }
@@ -4587,7 +4606,7 @@ function toast(msg,cls){
     fitPlayerName();
   }
   fit169();
-  window.KW_VER='1.12';
+  window.KW_VER='1.12a';
   try{console.log('[Karate Win] version', KW_VER);}catch(e){}
 
   // ══ オンライン更新チェック機能 ══
