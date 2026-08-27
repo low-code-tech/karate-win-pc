@@ -107,12 +107,14 @@ let connected=false;
 function setText(id,t){const el=document.getElementById(id);if(el)el.textContent=t;}
 // 氏名の自動縮小（文字数ベース）
 function fitName(id,name){
-  const el=document.getElementById(id);if(!el)return;
-  const len=String(name||'').replace(/\s/g,'').length;
-  let fs=9;
-  if(len>10)fs=5.2;else if(len>8)fs=6.4;else if(len>6)fs=7.6;
-  el.style.fontSize=fs+'vw';
-  el.textContent=name||'—';
+  const el=document.getElementById(id);const nm=name||'—';
+  if(el.dataset.fitKey===nm)return;
+  el.dataset.fitKey=nm;
+  el.textContent=nm;
+  el.style.whiteSpace='nowrap';
+  let fs=9;el.style.fontSize=fs+'vw';
+  while(fs>4.5 && el.scrollWidth>el.clientWidth){fs-=0.25;el.style.fontSize=fs+'vw';}
+  if(el.scrollWidth>el.clientWidth){el.style.whiteSpace='normal';}
 }
 ch.onmessage=(e)=>{
   const st=e.data;
