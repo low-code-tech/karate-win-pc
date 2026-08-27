@@ -1041,7 +1041,7 @@ html,body{
      <div class="logo" onclick="sw('onboarding',null)" style="cursor:pointer" title="はじめに画面へ戻る">
       Karate Win
       <small id="kw-ver">
-       v1.12b
+       v1.12c
       </small>
      </div>
      <button class="tb-right-btn" id="btn-flip" onclick="toggleFlip()" title="赤と青の表示位置を左右で入れ替えます（記録される内容は変わりません）">
@@ -3530,7 +3530,9 @@ function selectWin(type){
   // 判定勝ちなら判定ポップアップを閉じる
   if(type==='decision') closeHantei();
   closeWinPop();
-  saveWinnerDecisionJson(side, type);
+  // v1.12c: 勝敗ごとのJSON自動ダウンロードは廃止（毎試合の保存確認が煩わしいため）。
+  // 記録はブラウザ内に自動保存され、試合結果のExcel出力・サーバーアップロードで取り出せます。
+  // saveWinnerDecisionJson(side, type);
 }
 
 // ══ 直接勝利確定（ポップアップなし・メイン画面ボタンから） ══
@@ -4088,9 +4090,8 @@ function impHandleFile(file){
 function openMonitor(){
   // 同一フォルダの karate-monitor.html を別ウィンドウで開く
   // （BroadcastChannel 'karate-win-sync' で本画面と同期）
-  const _clsM=document.getElementById('tb-cls')?.textContent||'';
-  const _bnM=(document.getElementById('dn-b')?.textContent||'').trim();
-  const url=kwIsKataCls(_clsM)?((!_bnM||_bnM==='—')?'karate-monitor-kata1mei.html':'karate-monitor-kata2mei.html'):'karate-monitor.html';
+  // v1.12c: 形/組手の切替はモニター内部で行う（ページ遷移で全画面が解除されるため）
+  const url='karate-monitor.html';
   // ブラウザのツールバー・アドレスバーなしのポップアップウィンドウで開く
   // 画面サイズいっぱいのウィンドウにする
   const w=screen.availWidth||window.innerWidth;
@@ -4281,6 +4282,7 @@ function mlOnClassChange(){
   const _c=document.getElementById('ml-class').value;
   const _tbc=document.getElementById('tb-cls');
   if(_tbc)_tbc.textContent=_c||'クラス / 学年';
+  if(kwIsKataCls(_c))toast('形クラス: 選手が1人の場合は「赤」にのみ割り当ててください');
   mlApplyFilter();
 }
 function mlApplyFilter(){
@@ -4467,7 +4469,7 @@ function mlCheckReady(){
   const kata=kwIsKataCls(document.getElementById('ml-class')?.value||'');
   const ok=kata? !!_mlRed : !!(_mlRed&&_mlBlue);
   btn.disabled=!ok;btn.style.opacity=ok?'1':'.25';
-  btn.innerHTML=(kata&&_mlRed&&!_mlBlue)?'▶ タイマー起動（形・1名）':'▶ タイマー起動';
+  btn.innerHTML=(kata&&_mlBlue&&!_mlRed)?'形は「赤」に割り当ててください':(kata&&_mlRed&&!_mlBlue)?'▶ タイマー起動（形・1名）':'▶ タイマー起動';
 }
 function mlLaunch(){
   const cls=document.getElementById('ml-class').value;
@@ -4606,7 +4608,7 @@ function toast(msg,cls){
     fitPlayerName();
   }
   fit169();
-  window.KW_VER='1.12b';
+  window.KW_VER='1.12c';
   try{console.log('[Karate Win] version', KW_VER);}catch(e){}
 
   // ══ オンライン更新チェック機能 ══
