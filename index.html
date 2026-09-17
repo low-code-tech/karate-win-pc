@@ -314,19 +314,19 @@ html,body{
 #root169.flip #bot-red{grid-column:1;grid-row:1;border-left:none;border-right:1px solid #d0a0b0}
 #root169.flip .sbtrow{direction:rtl}
 #root169.flip .sbtrow>*{direction:ltr}
-/* actbar: 中央(＋1秒/開始/停止/再開/－1秒)は固定、左右の勝利・先取群のみ入替え */
+/* actbar: 中央(録画開始/開始/停止/再開/録画停止)は固定、左右の勝利・先取群のみ入替え */
 #root169.flip #actbar>button:nth-of-type(1){order:17}  /* 青 勝ち(相手棄権) → 右端 */
 #root169.flip #actbar>button:nth-of-type(2){order:16}  /* 青 勝ち(相手反則) */
 #root169.flip #actbar>button:nth-of-type(3){order:15}  /* 青 判定勝ち */
 #root169.flip #actbar>button:nth-of-type(4){order:14}  /* 青 通常勝ち */
 #root169.flip #actbar>button:nth-of-type(5){order:13}  /* 青先取 → 中央右隣 */
-#root169.flip #actbar>button:nth-of-type(6){order:6}   /* ＋1秒(固定) */
+#root169.flip #actbar>button:nth-of-type(6){order:6}   /* 録画開始(固定) */
 #root169.flip #actbar>div:nth-of-type(1){order:7}      /* 区切り線 */
 #root169.flip #actbar>button:nth-of-type(7){order:8}   /* 開始(固定) */
 #root169.flip #actbar>button:nth-of-type(8){order:9}   /* 停止(固定) */
 #root169.flip #actbar>button:nth-of-type(9){order:10}  /* 再開(固定) */
 #root169.flip #actbar>div:nth-of-type(2){order:11}     /* 区切り線 */
-#root169.flip #actbar>button:nth-of-type(10){order:12} /* －1秒(固定) */
+#root169.flip #actbar>button:nth-of-type(10){order:12} /* 録画停止(固定) */
 #root169.flip #actbar>button:nth-of-type(11){order:5}  /* 赤先取 → 中央左隣 */
 #root169.flip #actbar>button:nth-of-type(12){order:4}  /* 赤 通常勝ち */
 #root169.flip #actbar>button:nth-of-type(13){order:3}  /* 赤 判定勝ち */
@@ -355,7 +355,45 @@ html,body{
 .abtn.adj-plus:hover{filter:brightness(1.25)}
 .abtn-sep{width:1px;height:44px;background:#2a3a58;margin:0 2px;flex-shrink:0}
 /* 勝利取消ボタン表示中は＋1秒/－1秒を隠して幅を確保（確定後は時間補正不可のため） */
-#actbar.has-cancel .adj-plus,#actbar.has-cancel .adj{display:none}
+#bot-row.has-cancel .tadj{display:none}
+/* 勝利取消ボタン表示中は actbar を詰めて幅を確保（録画停止ボタンは残す） */
+#actbar.has-cancel{gap:4px;padding:0 6px}
+#actbar.has-cancel .abtn{padding-left:13px;padding-right:13px}
+#actbar.has-cancel .abtn-sep{display:none}
+/* v1.17: 録画開始／録画停止ボタン（開始の左・再開の右） */
+.abtn.rec-start,.abtn.rec-stop{padding:8px 14px;font-size:17px;line-height:1.25;font-weight:900;color:#fff;
+  background:linear-gradient(135deg,#3a1458,#7a30b8);border:2px solid #b070f0}
+.abtn.rec-start:hover,.abtn.rec-stop:hover{filter:brightness(1.25)}
+.abtn.rec-stop.rec-on{background:linear-gradient(135deg,#5a0c0c,#d02828);border-color:#ff7070}
+.abtn.rec-stop.rec-remind{animation:recremind .7s infinite alternate}
+@keyframes recremind{from{box-shadow:0 0 0 0 rgba(255,80,80,0)}to{box-shadow:0 0 18px 6px rgba(255,80,80,.95);filter:brightness(1.35)}}
+/* v1.17: ±1秒ボタン（タイマー左下／右下） */
+#tdis{position:relative}
+.tadj{position:absolute;bottom:2px;z-index:6;padding:7px 24px;border-radius:8px;cursor:pointer;
+  font-size:20px;font-weight:900;letter-spacing:0;font-family:inherit;line-height:1;text-shadow:none;
+  transition:transform .1s,filter .1s}
+.tadj:active{transform:scale(.9)}
+.tadj:hover{filter:brightness(1.3)}
+.tadj-plus{left:2px;background:linear-gradient(135deg,#1a3a00,#50a000);color:#e0ff80;border:2px solid #70cc00}
+.tadj-minus{right:2px;background:#16203a;color:#c0d0ea;border:2px solid #4a6090}
+/* v1.17: カメラ ミニモニター */
+#cam-mini{position:absolute;top:8px;left:8px;z-index:120;width:236px;height:133px;
+  background:#000;border:3px solid #2ecc71;border-radius:8px;overflow:hidden;cursor:pointer;
+  box-shadow:0 2px 10px rgba(0,0,0,.45)}
+#cam-mini video{width:100%;height:100%;object-fit:cover;display:block;background:#000}
+#cam-mini-label{position:absolute;left:0;right:0;bottom:0;padding:3px 6px;
+  font-size:14px;font-weight:900;letter-spacing:1px;text-align:center;
+  color:#2ecc71;background:rgba(0,0,0,.62);white-space:nowrap}
+#cam-mini.rec{border-color:#e74c3c;animation:camminirec 1s infinite alternate}
+#cam-mini.rec #cam-mini-label{color:#fff;background:rgba(200,20,20,.85)}
+@keyframes camminirec{from{box-shadow:0 0 0 0 rgba(231,76,60,0)}to{box-shadow:0 0 14px 3px rgba(231,76,60,.9)}}
+#cam-mini.nocam{width:auto;height:auto;border:1px solid #9aa6bc;background:rgba(240,243,250,.92);box-shadow:none}
+#cam-mini.nocam video{display:none}
+#cam-mini.nocam #cam-mini-label{position:static;background:transparent;color:#5a6880;font-size:13px;padding:5px 10px}
+/* 設定画面のボタン */
+.kw-set-btn{padding:11px 16px;background:#0d1626;border:1px solid #2a4468;border-radius:7px;color:#a9c8f0;
+  font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center}
+.kw-set-btn:hover{border-color:#4a80c8;color:#d0e4ff}
 #root169.flip #actbar>#win-cancel-btn{order:18}  /* 反転時も取消は右端 */
 .abtn-group{display:flex;align-items:center;gap:6px}
 .dim-grp{opacity:.4}
@@ -1042,14 +1080,13 @@ html,body{
      <div class="logo" onclick="sw('onboarding',null)" style="cursor:pointer" title="はじめに画面へ戻る">
       Karate Win
       <small id="kw-ver">
-       v1.16b
+       v1.17a
       </small>
      </div>
-     <button class="tb-right-btn" id="btn-flip" onclick="toggleFlip()" title="赤と青の表示位置を左右で入れ替えます（記録される内容は変わりません）">
-      ⇄ 左右反転
-     </button>
      <button class="tb-right-btn" onclick="sw('settings',this)">
       設定
+      <span class="kw-update-badge" style="display:none;margin-left:5px;width:8px;height:8px;border-radius:50%;background:#ff5030;box-shadow:0 0 6px #ff5030;" title="新しいバージョンがあります（設定 → 更新確認）">
+      </span>
      </button>
      <button class="tb-right-btn" id="tb-cam-btn" onclick="camSetup()">
       カメラ
@@ -1067,14 +1104,6 @@ html,body{
      </button>
      <button class="tb-right-btn" onclick="anncToggle(event)">
       決勝・準決勝
-     </button>
-     <button class="tb-right-btn" onclick="openMonitor()" title="観客用モニター画面を別ウィンドウで開きます（karate-monitor.html）">
-      モニター起動
-     </button>
-     <button class="tb-right-btn" id="tb-update-btn" onclick="kwCheckUpdate(true)" title="ネットワークに接続して最新バージョンの有無を確認します（オフライン時は通常どおり利用できます）">
-      更新確認
-      <span id="tb-update-badge" style="display:none;margin-left:5px;width:8px;height:8px;border-radius:50%;background:#ff5030;box-shadow:0 0 6px #ff5030;">
-      </span>
      </button>
      <div class="tb-spacer">
      </div>
@@ -1446,6 +1475,11 @@ html,body{
      <div id="bot-row">
       <!-- TOP 9: 3-column arena -->
       <div id="bot-arena">
+       <!-- v1.17: カメラのミニモニター（録画状態の常時確認用）。タップでカメラ設定 -->
+       <div id="cam-mini" class="nocam" onclick="camSetup()" title="カメラ映像（タップでカメラ設定を開く）">
+        <video id="cam-mini-video" muted="" playsinline="" autoplay=""></video>
+        <div id="cam-mini-label">📷 カメラ未接続</div>
+       </div>
        <!-- 勝利バナー（横幅いっぱい・試合ロードまで表示） -->
        <div id="win-banner" style="display:none">
         <span id="win-banner-icon">
@@ -1486,6 +1520,8 @@ html,body{
        <div id="bot-center">
         <!-- Timer -->
         <div id="tdis">
+         <button class="tadj tadj-plus" onclick="dA(1000)" title="＋1秒（←キー）">＋1秒</button>
+         <button class="tadj tadj-minus" onclick="dA(-1000)" title="－1秒（→キー）">－1秒</button>
          <span id="tm">
           1:00
          </span>
@@ -1646,8 +1682,10 @@ html,body{
        <button class="abtn sentoku-blue" onclick="setSentoku('blue')">
         青先取
        </button>
-       <button class="abtn adj-plus" onclick="dA(1000)">
-        ＋1秒
+       <button class="abtn rec-start" id="btn-rec-start" onclick="recManualStart()" title="録画を開始します（試合前から録画できます）">
+        ● 録画
+        <br/>
+        開始
        </button>
        <div class="abtn-sep">
        </div>
@@ -1662,8 +1700,10 @@ html,body{
        </button>
        <div class="abtn-sep">
        </div>
-       <button class="abtn adj" onclick="dA(-1000)">
-        －1秒
+       <button class="abtn rec-stop" disabled="" id="btn-rec-stop" onclick="recManualStop()" title="録画を停止して保存します（試合後、礼などが終わってから押してください）">
+        ■ 録画
+        <br/>
+        停止
        </button>
        <button class="abtn sentoku-red" onclick="setSentoku('red')">
         赤先取
@@ -2363,6 +2403,16 @@ html,body{
      </div>
     </div>
     <div class="sg">
+     <!-- v1.17: 左右反転／モニター起動／更新確認 を試合画面トップバーから移設 -->
+     <div class="card">
+      <h3>🖥 表示・モニター・更新</h3>
+      <div style="font-size:11px;color:#5a7090;line-height:1.7;margin-bottom:10px;">「左右反転」は赤と青の表示位置を入れ替えます（記録される内容は変わりません。モニターも連動します）。「モニター起動」は観客用モニター画面を別ウィンドウで開きます。</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+       <button class="kw-set-btn" id="btn-flip" onclick="toggleFlip()" title="赤と青の表示位置を左右で入れ替えます（記録される内容は変わりません）">⇄ 左右反転：<span id="btn-flip-state">OFF</span></button>
+       <button class="kw-set-btn" onclick="openMonitor()" title="観客用モニター画面を別ウィンドウで開きます（karate-monitor.html）">モニター起動</button>
+       <button class="kw-set-btn" id="tb-update-btn" onclick="kwCheckUpdate(true)" title="ネットワークに接続して最新バージョンの有無を確認します（オフライン時は通常どおり利用できます）">更新確認<span class="kw-update-badge" id="tb-update-badge" style="display:none;margin-left:6px;width:8px;height:8px;border-radius:50%;background:#ff5030;box-shadow:0 0 6px #ff5030;"></span></button>
+      </div>
+     </div>
      <div class="card">
       <h3>🔄 試合リセット</h3>
       <div style="font-size:11px;color:#5a7090;line-height:1.7;margin-bottom:10px;">得点・旗・タイマーを初期状態に戻します（記録済みの試合結果は消えません）。リセットはこの画面からのみ実行できます。</div>
@@ -2570,8 +2620,9 @@ function buz00(){
   // 終了ブザー音を5秒前に前倒し済みの場合は、0秒時点で二重に鳴らさない。
   if(!T._snd00){T._snd00=true;playFinishBuzzerSound();}
   alog('Finish',0,'終了ブザー×'+cfg.bc);toast('🔴 試合終了！','f');
-  // カメラ録画を自動停止・保存（少し遅らせてブザー音を拾う）
-  setTimeout(()=>camStopRec(), 800);
+  // v1.17: 録画は自動停止しない（試合後の礼まで残すため「録画停止」ボタンで手動停止）。
+  //        得点だけ録画メタに確定し、停止ボタンを点滅させて押し忘れを防ぐ。
+  kwRecSnapScore(); kwRecRemind();
 }
 
 // ══ STATE ══
@@ -2877,7 +2928,7 @@ function doReset(){
   // 勝利帯・勝利取消ボタンを閉じる（記録済みの試合結果と敗退マークは維持）
   {const _wb=document.getElementById('win-banner');if(_wb){_wb.style.display='none';_wb.className='';}
    const _wc=document.getElementById('win-cancel-btn');if(_wc)_wc.style.display='none';
-   const _ab=document.getElementById('actbar');if(_ab)_ab.classList.remove('has-cancel');}
+   kwHasCancel(false);}
   // リセット確認ダイアログでiOSの音声エンジンが中断されるため、ここで復帰させる
   try{const c=gctx(); if(c.state!=='running')c.resume(); warmupAudio();}catch(e){}
 }
@@ -2941,7 +2992,7 @@ function doLoad(){
   // 勝利バナーを消去
   const banner=document.getElementById('win-banner');
   banner.style.display='none';
-  const cancelBtn=document.getElementById('win-cancel-btn');if(cancelBtn)cancelBtn.style.display='none';document.getElementById('actbar').classList.remove('has-cancel');banner.className='';
+  const cancelBtn=document.getElementById('win-cancel-btn');if(cancelBtn)cancelBtn.style.display='none';kwHasCancel(false);banner.className='';
   toast('試合ロード完了: '+mid);sw('match',null);
 }
 function tB15(){alog('TestBeep15',T.rem,'15秒試験');playBuz();toast('🔔 15秒ブザー試験');}
@@ -3019,7 +3070,7 @@ function cancelWin(){
   document.getElementById('win-banner').style.display='none';
   document.getElementById('win-banner').className='';
   document.getElementById('win-cancel-btn').style.display='none';
-  document.getElementById('actbar').classList.remove('has-cancel');
+  kwHasCancel(false);
   // タイマーを停止状態（再開可能）に戻す
   T.fin=false; T.finByWin=false; T.run=false; T.status='Stopped';
   rend(T.baseMs); updB(); updBg();
@@ -3510,8 +3561,8 @@ function selectWin(type){
   if(raf){cancelAnimationFrame(raf);raf=null;}
   T.baseMs=getMs();T.run=false;T.status='Finished';T.fin=true;T.finByWin=true;
   rend(T.baseMs);updB();updBg();
-  // カメラ録画を自動停止・保存
-  camStopRec();
+  // v1.17: 録画は自動停止しない（「録画停止」ボタンで手動停止）。得点を録画メタに確定し、押し忘れを促す。
+  kwRecSnapScore(); kwRecRemind();
   // バナー表示
   const banner=document.getElementById('win-banner');
   banner.className=''; // クラスリセット
@@ -3520,7 +3571,7 @@ function selectWin(type){
   document.getElementById('win-banner-type').textContent=labels[type];
   banner.style.display='flex';
   document.getElementById('win-cancel-btn').style.display='block';
-  document.getElementById('actbar').classList.add('has-cancel');
+  kwHasCancel(true);
   // 判定勝ちなら判定ポップアップを閉じる
   if(type==='decision') closeHantei();
   closeWinPop();
@@ -3649,6 +3700,10 @@ function commitHantei(){
 }
 
 // ══ UI ══
+// v1.17: 勝利確定中フラグ（actbar＝取消ボタン表示 / bot-row＝±1秒を隠す）
+function kwHasCancel(on){
+  ['actbar','bot-row'].forEach(id=>{const e=document.getElementById(id);if(e)e.classList.toggle('has-cancel',!!on);});
+}
 function updB(){
   const s=T.status;
   document.getElementById('bs').disabled=s!=='Ready';
@@ -3658,6 +3713,7 @@ function updB(){
   document.getElementById('bf').disabled=s==='Finished';
   const cb=document.getElementById('win-cancel-btn');
   if(cb) cb.style.display=T.finByWin?'inline-block':'none';
+  try{ if(typeof camUpdateUI==='function') camUpdateUI(); }catch(e){}
 }
 function updBg(){
   // sbg要素は削除済みのためno-op
@@ -4699,7 +4755,7 @@ function toast(msg,cls){
     fitPlayerName();
   }
   fit169();
-  window.KW_VER='1.16b';
+  window.KW_VER='1.17a';
   try{console.log('[Karate Win] version', KW_VER);}catch(e){}
 
   // ══ オンライン更新チェック機能 ══
@@ -4760,8 +4816,7 @@ function toast(msg,cls){
         var latest = mf.version || mf.latest || '';
         var cmp = kwCmpVer(latest, window.KW_VER);
         if(cmp > 0){
-          var badge = document.getElementById('tb-update-badge');
-          if(badge) badge.style.display='inline-block';
+          document.querySelectorAll('.kw-update-badge').forEach(function(b){ b.style.display='inline-block'; });
           if(manual){
             var notes = mf.notes ? '<div style="margin-top:10px;padding:10px 12px;background:#0d1420;border:1px solid #16233a;border-radius:6px;color:#8ca8c8;font-size:12px;line-height:1.7;white-space:pre-wrap;">'+_kwEsc(mf.notes)+'</div>' : '';
             var dlUrl = mf.downloadUrl || mf.url || '';
@@ -4778,8 +4833,7 @@ function toast(msg,cls){
             _kwSetActions(actions);
           }
         }else{
-          var badge2 = document.getElementById('tb-update-badge');
-          if(badge2) badge2.style.display='none';
+          document.querySelectorAll('.kw-update-badge').forEach(function(b){ b.style.display='none'; });
           if(manual){
             _kwSetBody('<div style="font-size:14px;color:#48d878;font-weight:700;">最新バージョンです</div><div style="margin-top:8px;">現在：<b style="color:#c8d8f0;">v'+_kwEsc(window.KW_VER)+'</b>（サーバー最新：v'+_kwEsc(latest||window.KW_VER)+'）</div>');
             _kwSetActions('');
@@ -4805,6 +4859,7 @@ function toast(msg,cls){
     document.getElementById('root169').classList.toggle('flip',!!on);
     const b=document.getElementById('btn-flip');
     if(b){b.style.color=on?'#ffb84a':'';b.style.borderColor=on?'#c8963a':'';}
+    const bs_=document.getElementById('btn-flip-state'); if(bs_) bs_.textContent=on?'ON':'OFF';
   };
   window.toggleFlip=function(){
     const on=!document.getElementById('root169').classList.contains('flip');
@@ -5420,8 +5475,16 @@ vdbRestore();
 function buildMatchList(){
   const matches = [];
   let cur = null;
+  let _pendRec = null;   // v1.17a: ▶開始より前に押された「録画開始」の実時刻
   EL.forEach(e => {
+    if(e.act === 'RecStart'){
+      // 試合中（開始済み・未終了）の録画再開は基準を変えない。それ以外は次の「▶開始」の試合に紐づける
+      if(!(cur && cur.recStartIso && !cur._done)) _pendRec = e.at;
+      return;
+    }
+    if(e.act === 'RecStop'){ _pendRec = null; return; }
     if(e.act === 'LoadMatch'){
+      _pendRec = null;
       const parts = e.detail.split('|');
       cur = {
         startAt: e.at, startIso: e.at, endAt: null,
@@ -5454,14 +5517,15 @@ function buildMatchList(){
           redName:cur.redName, redClub:cur.redClub,
           blueName:cur.blueName, blueClub:cur.blueClub,
           initMs:cur.initMs, highlights:[], rPen:0, bPen:0,
-          recStartIso:e.at
+          recStartIso:(_pendRec||e.at)
         };
+        _pendRec=null;
         matches.push(cur);
       } else if(cur._done){
         cur._done=false; cur.endAt=null;   // 同一試合の継続
       } else if(!cur.recStartIso){
         // 最初の「▶開始」=録画開始の実時刻。ハイライトの動画内位置の基準にする
-        cur.recStartIso = e.at;
+        cur.recStartIso = _pendRec||e.at; _pendRec=null;
       }
     } else if(e.act==='Score' && cur){
       const m=e.detail.match(/^([rb])_([ywip])([+-]\d+)/);
@@ -5869,7 +5933,10 @@ function kwMonSyncStop(){
   if(_kwMonIv){clearInterval(_kwMonIv);_kwMonIv=null;}
   if(v)v.muted=_kwMonPrevMuted;
 }
-function kwBcTx(){if(!window._kwBcTx){try{window._kwBcTx=new BroadcastChannel('karate-win-sync');}catch(e){}}return window._kwBcTx;}
+function kwBcTx(){if(!window._kwBcTx){try{window._kwBcTx=new BroadcastChannel('karate-win-sync');
+  // v1.17a: モニター(v8以降)からの受信応答を受け取る
+  window._kwBcTx.onmessage=function(e){const d=e.data||{};if(d.mon_ack==='video_play'){window._kwMonAckAt=Date.now();}};
+  }catch(e){}}return window._kwBcTx;}
 function vwMonBtnSync(){const b=document.getElementById('vw-mon-btn');if(b)b.textContent=_vwMonPlaying?'⏹ モニター停止':'🖥 モニター再生';}
 async function vwToggleMonitorPlay(){
   if(_vwMonPlaying){ try{kwBcTx().postMessage({video_stop:true});}catch(e){} kwMonSyncStop(); _vwMonPlaying=false; vwMonBtnSync(); toast('モニター再生を停止しました'); return; }
@@ -5882,6 +5949,11 @@ async function vwToggleMonitorPlay(){
   try{kwBcTx().postMessage({video_play:{fname:fname, title:title, blob:blob}});}
   catch(e){toast('モニターへ送信できませんでした');return;}
   _vwMonPlaying=true; vwMonBtnSync(); kwMonSyncStart();
+  // v1.17a: モニターに届いたか確認（応答はモニター v8 以降が返す）
+  { const _t0=Date.now();
+    setTimeout(()=>{ if(_vwMonPlaying && !((window._kwMonAckAt||0)>=_t0)){
+      toast('⚠ モニターから応答がありません。①「設定→モニター起動」でモニターを開いているか ②karate-monitor.html が最新版(v8)か ③操作画面と同じフォルダ（同じサイト）の karate-monitor.html か を確認してください','w');
+    } },2500); }
   toast('🖥 モニターで再生中: この画面の再生・一時停止・コマ送り・スロー・反転がモニターに反映されます');
 }
 function vwClosePlayer(){
@@ -6021,6 +6093,7 @@ function camSetup(){
   const pv = document.getElementById('cam-preview-video');
   if(pv && _rs && _rs.active){
     pv.srcObject = _rs;
+    setTimeout(kwCamBlackCheck, 1200);
   }
 }
 
@@ -6166,11 +6239,45 @@ async function camConnect(){
 
 // ══════════════════════════════════════════════════════════════
 //  Webカメラ録画 - シンプル設計
-//  ・▶開始で録画スタート
+//  ・「録画開始」ボタンで録画スタート（押し忘れ時は▶開始で自動スタート）
+//  ・v1.17: 勝敗確定／時間切れでは停止しない →「録画停止」ボタンで停止＆保存
 //  ・■停止/▶▶再開では録画を継続（pauseしない）
 //  ・試合終了（勝利/時間切れ）で録画停止＆保存
 // ══════════════════════════════════════════════════════════════
 
+// ══ カメラ黒画面検知（v1.16c: 映像が真っ黒のまま録画される事故の警告） ══
+async function kwCamBlackCheck(){
+  try{
+    const _st=(window._kwTestStream||_rs);   // テスト用フック（通常はカメラストリーム）
+    if(!_st || !_st.active) return;
+    const track=_st.getVideoTracks()[0];
+    if(!track || track.readyState!=='live') { kwCamBlackWarn('カメラ映像が取得できていません'); return; }
+    let v=document.getElementById('cam-preview-video');
+    let tmp=null;
+    if(!v || !v.srcObject || v.videoWidth===0){
+      tmp=document.createElement('video');
+      tmp.muted=true; tmp.playsInline=true; tmp.srcObject=_st;
+      await tmp.play().catch(()=>{});
+      for(let i=0;i<20 && !tmp.videoWidth;i++){ await new Promise(r=>setTimeout(r,100)); }
+      await new Promise(r=>setTimeout(r,200));
+      v=tmp;
+    }
+    if(!v.videoWidth){ if(tmp){tmp.srcObject=null;} return; }
+    const c=document.createElement('canvas'); c.width=32; c.height=18;
+    const g=c.getContext('2d',{willReadFrequently:true});
+    g.drawImage(v,0,0,32,18);
+    const d=g.getImageData(0,0,32,18).data;
+    let sum=0; for(let i=0;i<d.length;i+=4){ sum+=(d[i]+d[i+1]+d[i+2]); }
+    const avg=sum/(d.length/4)/3;   // 0〜255
+    if(tmp){ tmp.pause(); tmp.srcObject=null; }
+    if(avg<6){ kwCamBlackWarn('カメラ映像が真っ黒です'); }
+  }catch(e){ /* 検知失敗時は何もしない */ }
+}
+function kwCamBlackWarn(reason){
+  toast('⚠⚠ '+reason+'！ このまま録画すると音声だけの動画になります。カメラのシャッター／レンズカバー／カメラ選択を確認してください','w');
+  setTimeout(()=>toast('⚠ カメラ設定画面のプレビューで映像が映っているか必ず確認してください','w'),2600);
+  try{ if(typeof alog==='function') alog('CamBlack',0,reason); }catch(e){}
+}
 async function camStartRec(){
   // すでに録画中なら何もしない
   if(_mr && _mr.state === 'recording') return;
@@ -6275,16 +6382,55 @@ async function camStartRec(){
   // 500msごとにデータを確実に取得
   window._mrStartMeta = kwBuildRecordingMeta();  // 録画開始時点の選手・大会で確定
   _mr.start(500);
+  _recStartAt = Date.now();
+  try{ alog('RecStart',T.baseMs,'録画開始'); }catch(e){}   // v1.17a: ハイライト位置の基準（録画の実開始時刻）
+  setTimeout(kwCamBlackCheck, 5000);   // 黒画面のまま録画開始していないか確認
   camUpdateUI();
   toast('📹 録画開始');
 }
 
-// 録画停止（試合終了時のみ呼ぶ）
+// ── v1.17: 手動の録画開始／録画停止（actbar のボタン） ──
+//   ・試合前に「録画開始」→ ▶開始 → 勝敗確定 → 礼の後に「録画停止」で、試合の前後まで1本に収める
+//   ・録画開始を押し忘れても ▶開始 で自動開始（保険）。停止を押し忘れても次の選手選択時に自動で停止・保存
+async function recManualStart(){
+  if(_mr && _mr.state==='recording'){ toast('すでに録画中です'); return; }
+  if(!_rs || !_rs.active){
+    toast('⚠ カメラが未接続です。カメラを接続してから「録画開始」を押してください','w');
+    camSetup(); return;
+  }
+  await camStartRec();
+}
+function recManualStop(){
+  if(!_mr || _mr.state==='inactive'){ toast('録画していません'); return; }
+  kwRecSnapScore();
+  camStopRec();
+}
+// 勝敗確定／時間切れ時点の得点を録画メタに反映（停止がリセット後になっても得点が残る）
+function kwRecSnapScore(){
+  try{
+    if(window._mrStartMeta && _mr && _mr.state!=='inactive' && (tot('r')||tot('b'))){
+      window._mrStartMeta.r_score=String(tot('r')||0);
+      window._mrStartMeta.b_score=String(tot('b')||0);
+    }
+  }catch(e){}
+}
+function kwRecRemind(){
+  if(_mr && _mr.state==='recording'){ toast('📹 録画は継続中です。礼が終わったら「録画停止」を押してください','w'); }
+  camUpdateUI();
+}
+let _recStartAt = 0, _recTick = null;
+function kwRecElapsed(){
+  const s=Math.max(0,Math.floor((Date.now()-_recStartAt)/1000));
+  return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+}
+
+// 録画停止
 let _camStopping = false;
 function camStopRec(){
   if(!_mr || _mr.state === 'inactive') return;
   if(_camStopping) return;
   _camStopping = true;
+  try{ alog('RecStop',T.baseMs,'録画停止'); }catch(e){}
   // pauseされていたらresumeしてからstop
   if(_mr.state === 'paused') _mr.resume();
   setTimeout(() => {
@@ -6308,7 +6454,7 @@ function camUpdateUI(){
   const btnEl    = document.getElementById('cam-rec-btn');
   if(statusEl) statusEl.textContent = hasCam ? '接続済' : '未接続';
   if(recEl){
-    recEl.textContent = isRec ? '● REC 録画中' : (hasCam ? '待機中（▶開始で自動録画）' : '—');
+    recEl.textContent = isRec ? '● REC 録画中' : (hasCam ? '待機中（「録画開始」または ▶開始 で録画）' : '—');
     recEl.style.color = isRec ? '#e74c3c' : (hasCam ? '#2ecc71' : '#3a5070');
   }
   if(btnEl){
@@ -6325,6 +6471,31 @@ function camUpdateUI(){
       ind.style.animation  = 'recblink 1s infinite';
     }
   });
+  // v1.17: 録画開始／停止ボタン
+  const bRecS=document.getElementById('btn-rec-start'), bRecX=document.getElementById('btn-rec-stop');
+  if(bRecS) bRecS.disabled = !!isRec;
+  if(bRecX){
+    bRecX.disabled = !isRec;
+    bRecX.classList.toggle('rec-on', !!isRec);
+    bRecX.classList.toggle('rec-remind', !!isRec && (typeof T!=='undefined') && !!T.fin);
+  }
+  // v1.17: ミニモニター
+  const mini=document.getElementById('cam-mini'), mv=document.getElementById('cam-mini-video'), ml=document.getElementById('cam-mini-label');
+  if(mini && mv && ml){
+    mini.classList.toggle('nocam', !hasCam);
+    mini.classList.toggle('rec', !!isRec);
+    if(hasCam){ if(mv.srcObject!==_rs){ mv.srcObject=_rs; const p=mv.play(); if(p&&p.catch)p.catch(()=>{}); } }
+    else if(mv.srcObject){ mv.srcObject=null; }
+    ml.textContent = !hasCam ? '📷 カメラ未接続' : (isRec ? '● REC '+kwRecElapsed() : '待機中');
+  }
+  if(isRec && !_recTick){
+    _recTick=setInterval(()=>{
+      const on=_mr && _mr.state==='recording';
+      if(!on){ clearInterval(_recTick); _recTick=null; return; }
+      const l=document.getElementById('cam-mini-label'); if(l) l.textContent='● REC '+kwRecElapsed();
+      const t=document.getElementById('rec-status-text'); if(t) t.textContent='● REC 録画中 '+kwRecElapsed();
+    },1000);
+  }
   // カメラボタンの色
   const tbCam = document.getElementById('tb-cam-btn');
   if(tbCam){
@@ -7826,7 +7997,7 @@ function camUpdateUI(){
   <div id="modal-local-videos" style="display:none;position:fixed;inset:0;z-index:8500;background:rgba(3,8,18,.86);align-items:center;justify-content:center;padding:0;box-sizing:border-box;font-family:inherit;">
    <div style="width:min(720px,96vw);height:min(720px,94vh);background:#0d1b33;border:1px solid #31527c;box-shadow:0 22px 70px rgba(0,0,0,.65);display:flex;flex-direction:column;color:#d8e6ff;">
     <div style="height:44px;display:flex;align-items:center;gap:10px;padding:0 12px;border-bottom:1px solid #31527c;background:#111f38;box-sizing:border-box;">
-     <div style="font-size:15px;font-weight:900;letter-spacing:.5px;flex:1;">⬆ サーバーアップロード <span style="font-size:11px;color:#5a7aa0;font-weight:400;">(v1.16b)</span><br/><span id="lv-login-label" style="font-size:11px;font-weight:400;color:#8ab0d0;"></span></div>
+     <div style="font-size:15px;font-weight:900;letter-spacing:.5px;flex:1;">⬆ サーバーアップロード <span style="font-size:11px;color:#5a7aa0;font-weight:400;">(v1.17a)</span><br/><span id="lv-login-label" style="font-size:11px;font-weight:400;color:#8ab0d0;"></span></div>
      <button onclick="lvCloseLocalVideos()" style="background:transparent;border:none;color:#aab8d0;font-size:22px;line-height:1;cursor:pointer;padding:4px 6px;font-family:inherit;">×</button>
     </div>
     <div style="flex:1;overflow:auto;padding:14px 12px 10px;box-sizing:border-box;">
