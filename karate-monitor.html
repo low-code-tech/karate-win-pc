@@ -320,6 +320,16 @@ html,body{
   animation:kwglow 1s ease-in-out infinite alternate}
 .kwinner.on{display:block}
 @keyframes kwglow{from{transform:scale(1)}to{transform:scale(1.06)}}
+
+/* ══ 動画再生ビュー（操作画面の「🖥 モニター再生」から起動） ══ */
+#mv-root{display:none;position:fixed;inset:0;background:#000;z-index:300;flex-direction:column}
+#mv-root.on{display:flex}
+#mv-head{flex-shrink:0;display:flex;align-items:center;gap:1rem;padding:1rem 1.5rem;background:#090d14;border-bottom:1px solid #1a2840}
+#mv-title{flex:1;font-size:1.6rem;color:#8ab0d0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#mv-video{flex:1;min-height:0;width:100%;background:#000;object-fit:contain}
+#mv-ctrl{flex-shrink:0;display:flex;gap:.8rem;align-items:center;justify-content:center;flex-wrap:wrap;padding:1rem;background:#070b12;border-top:1px solid #16233a}
+.mv-btn{background:#0d1626;border:1px solid #2a4468;border-radius:.6rem;color:#a9c8f0;padding:.9rem 1.6rem;font-size:1.5rem;font-weight:700;cursor:pointer;font-family:inherit}
+#mv-speed{background:#0d1626;border:1px solid #2a4468;border-radius:.6rem;color:#a9c8f0;padding:.9rem 1rem;font-size:1.5rem;font-weight:700;font-family:inherit;cursor:pointer}
 </style>
 </head>
 <body>
@@ -473,6 +483,12 @@ html,body{
   </div>
 
   <!-- ════ 告知オーバーレイ ════ -->
+  <div id="mv-root">
+    <div id="mv-head">
+      <div id="mv-title">試合動画</div>
+    </div>
+    <video id="mv-video" playsinline></video>
+  </div>
   <div id="m-annc-overlay">
     <div id="m-annc-cls"></div>
     <div id="m-annc-main">決勝</div>
@@ -501,7 +517,50 @@ let connected = false;
 // 変化時のみ scrollWidth を用いた自動縮小を実行する。resizeRoot() 側で無効化して再計算。
 let _fitRN=null, _fitBN=null, _fitTn=null, _fitWB=null;
 
+// ══ 動画再生制御（video_play/video_stop はモニター状態を変更しない） ══
+let _mvUrl=null;
+function mvPlay(payload){
+  const root=document.getElementById('mv-root');
+  const v=document.getElementById('mv-video');
+  if(!root||!v||!payload)return;
+  try{if(_mvUrl)URL.revokeObjectURL(_mvUrl);}catch(e){}
+  _mvUrl=URL.createObjectURL(payload.blob);
+  document.getElementById('mv-title').textContent=payload.title||payload.fname||'試合動画';
+  v.src=_mvUrl;v.playbackRate=1;v.style.transform='';
+  const sp=document.getElementById('mv-speed');if(sp)sp.value='1';
+  root.classList.add('on');
+  v.play().catch(()=>{});
+}
+function mvStop(){
+  const root=document.getElementById('mv-root');
+  const v=document.getElementById('mv-video');
+  if(v){try{v.pause();}catch(e){} v.removeAttribute('src');v.load();}
+  if(root)root.classList.remove('on');
+  try{if(_mvUrl)URL.revokeObjectURL(_mvUrl);}catch(e){} _mvUrl=null;
+}
 ch.onmessage = (e) => {
+  const _st=e.data||{};
+  if(_st.mon_ack) return;   // v8: 他のモニターからの応答は無視
+  if(_st.video_play){
+    mvPlay(_st.video_play);
+    // v8: 操作画面へ受信応答を返す（操作画面側で「モニターに届いたか」を確認できるようにする）
+    try{ ch.postMessage({mon_ack:'video_play', mon_ver:'v8', fname:_st.video_play.fname||''}); }catch(e){}
+    return;
+  }
+  if(_st.video_stop){ mvStop(); return; }
+  if(_st.video_ctl){
+    const v=document.getElementById('mv-video');
+    const root=document.getElementById('mv-root');
+    if(v&&root&&root.classList.contains('on')){
+      const c=_st.video_ctl;
+      if(typeof c.rate==='number'&&v.playbackRate!==c.rate)v.playbackRate=c.rate;
+      v.style.transform=c.mirror?'scaleX(-1)':'';
+      if(typeof c.t==='number'&&Math.abs(v.currentTime-c.t)>0.35)v.currentTime=c.t;
+      if(c.paused&&!v.paused)v.pause();
+      if(!c.paused&&v.paused)v.play().catch(()=>{});
+    }
+    return;
+  }
   if (!connected) {
     connected = true;
     connEl.className = 'connected';
