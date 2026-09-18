@@ -377,12 +377,12 @@ html,body{
 .tadj-plus{left:2px;background:linear-gradient(135deg,#1a3a00,#50a000);color:#e0ff80;border:2px solid #70cc00}
 .tadj-minus{right:2px;background:#16203a;color:#c0d0ea;border:2px solid #4a6090}
 /* v1.17: カメラ ミニモニター */
-#cam-mini{position:absolute;top:8px;left:8px;z-index:120;width:236px;height:133px;
+#cam-mini{position:absolute;top:8px;left:8px;z-index:120;width:200px;height:113px;   /* v1.17d: 先取バッジと重ならない幅 */
   background:#000;border:3px solid #2ecc71;border-radius:8px;overflow:hidden;cursor:pointer;
   box-shadow:0 2px 10px rgba(0,0,0,.45)}
 #cam-mini video{width:100%;height:100%;object-fit:cover;display:block;background:#000}
-#cam-mini-label{position:absolute;left:0;right:0;bottom:0;padding:3px 6px;
-  font-size:14px;font-weight:900;letter-spacing:1px;text-align:center;
+#cam-mini-label{position:absolute;left:0;right:0;bottom:0;padding:2px 6px;
+  font-size:13px;font-weight:900;letter-spacing:1px;text-align:center;
   color:#2ecc71;background:rgba(0,0,0,.62);white-space:nowrap}
 #cam-mini.rec{border-color:#e74c3c;animation:camminirec 1s infinite alternate}
 #cam-mini.rec #cam-mini-label{color:#fff;background:rgba(200,20,20,.85)}
@@ -390,15 +390,18 @@ html,body{
 #cam-mini.nocam{width:auto;height:auto;border:1px solid #9aa6bc;background:rgba(240,243,250,.92);box-shadow:none}
 #cam-mini.nocam video{display:none}
 #cam-mini.nocam #cam-mini-label{position:static;background:transparent;color:#5a6880;font-size:13px;padding:5px 10px}
+/* v1.17d: 左上(カメラ)・右上(モニター)の小画面と重ならないよう、「先取」バッジを画面中央寄りへずらす（左右反転時も同様） */
+#root169:not(.flip) #bot-blue .sentoku-badge,#root169.flip #bot-red .sentoku-badge{left:61%}
+#root169:not(.flip) #bot-red .sentoku-badge,#root169.flip #bot-blue .sentoku-badge{left:39%}
 /* v1.17b: 観客モニター プレビュー（右上） */
-#mon-mini{position:absolute;top:8px;right:8px;z-index:120;width:236px;height:155px;
+#mon-mini{position:absolute;top:8px;right:8px;z-index:120;width:200px;height:133px;   /* v1.17d: 先取バッジと重ならない幅 */
   background:#000;border:3px solid #8a94a8;border-radius:8px;overflow:hidden;cursor:pointer;
   box-shadow:0 2px 10px rgba(0,0,0,.45)}
 #mon-mini.hide{display:none}
-#mon-mini-frame{position:absolute;top:0;left:0;right:0;height:130px;overflow:hidden;pointer-events:none}
-#mon-mini-frame iframe{width:1280px;height:720px;border:0;transform-origin:0 0;transform:scale(.1797);pointer-events:none;background:#000}
+#mon-mini-frame{position:absolute;top:0;left:0;right:0;height:110px;overflow:hidden;pointer-events:none}
+#mon-mini-frame iframe{width:1280px;height:720px;border:0;transform-origin:0 0;transform:scale(.1516);pointer-events:none;background:#000}
 #mon-mini-label{position:absolute;left:0;right:0;bottom:0;padding:2px 6px;
-  font-size:12px;font-weight:900;letter-spacing:.5px;text-align:center;white-space:nowrap;
+  font-size:11px;font-weight:900;letter-spacing:0;text-align:center;white-space:nowrap;
   color:#c8d0e0;background:rgba(0,0,0,.72)}
 #mon-mini.ok,#mon-mini.warn{cursor:default}
 #mon-mini.ok{border-color:#2ecc71}
@@ -1096,7 +1099,7 @@ html,body{
      <div class="logo" onclick="sw('onboarding',null)" style="cursor:pointer" title="はじめに画面へ戻る">
       Karate Win
       <small id="kw-ver">
-       v1.17c
+       v1.17d
       </small>
      </div>
      <button class="tb-right-btn" onclick="sw('settings',this)">
@@ -4075,6 +4078,8 @@ window.KW_GET_DOJO_ID=()=>cfg?.dojo||'';
 window.KW_GET_DOJO_NAME=window.KW_GET_DOJO_ID;
 // ══ SCREEN ══
 function sw(name,btn){
+  // v1.17d: 動画閲覧以外の画面へ移るときは、モニター再生を必ず止めて得点板表示へ戻す（試合中にモニターが動画のままになるのを防ぐ）
+  try{ if(name!=='viewer' && typeof _vwMonPlaying!=='undefined' && _vwMonPlaying){ vwClosePlayer(); vwMonBtnSync(); } }catch(e){}
   document.querySelectorAll('.sc').forEach(s=>{s.classList.remove('on');s.style.display='none';});
   document.querySelectorAll('.nt').forEach(t=>t.classList.remove('on'));
   const el=document.getElementById('screen-'+name);
@@ -4836,7 +4841,7 @@ function toast(msg,cls){
     fitPlayerName();
   }
   fit169();
-  window.KW_VER='1.17c';
+  window.KW_VER='1.17d';
   try{console.log('[Karate Win] version', KW_VER);}catch(e){}
 
   // ══ オンライン更新チェック機能 ══
@@ -8071,7 +8076,7 @@ function camUpdateUI(){
   <div id="modal-local-videos" style="display:none;position:fixed;inset:0;z-index:8500;background:rgba(3,8,18,.86);align-items:center;justify-content:center;padding:0;box-sizing:border-box;font-family:inherit;">
    <div style="width:min(720px,96vw);height:min(720px,94vh);background:#0d1b33;border:1px solid #31527c;box-shadow:0 22px 70px rgba(0,0,0,.65);display:flex;flex-direction:column;color:#d8e6ff;">
     <div style="height:44px;display:flex;align-items:center;gap:10px;padding:0 12px;border-bottom:1px solid #31527c;background:#111f38;box-sizing:border-box;">
-     <div style="font-size:15px;font-weight:900;letter-spacing:.5px;flex:1;">⬆ サーバーアップロード <span style="font-size:11px;color:#5a7aa0;font-weight:400;">(v1.17c)</span><br/><span id="lv-login-label" style="font-size:11px;font-weight:400;color:#8ab0d0;"></span></div>
+     <div style="font-size:15px;font-weight:900;letter-spacing:.5px;flex:1;">⬆ サーバーアップロード <span style="font-size:11px;color:#5a7aa0;font-weight:400;">(v1.17d)</span><br/><span id="lv-login-label" style="font-size:11px;font-weight:400;color:#8ab0d0;"></span></div>
      <button onclick="lvCloseLocalVideos()" style="background:transparent;border:none;color:#aab8d0;font-size:22px;line-height:1;cursor:pointer;padding:4px 6px;font-family:inherit;">×</button>
     </div>
     <div style="flex:1;overflow:auto;padding:14px 12px 10px;box-sizing:border-box;">
