@@ -223,9 +223,11 @@ html,body{
   text-shadow:0 0 40px rgba(255,255,255,.15);
   transition:color .3s}
 
-#tdis.warning{color:#ff8c00;animation:wpls .5s infinite alternate}
-#tdis.finished{color:#e03030}
-@keyframes wpls{from{text-shadow:0 0 20px rgba(255,140,0,.3)}to{text-shadow:0 0 50px rgba(255,140,0,1)}}
+/* v1.18: タイマー文字色 = 止まっているとき白 / 動いているとき黄 / 残り15秒を切ったら赤（止まっていても赤） */
+#tdis.running{color:#ffd400;text-shadow:0 0 40px rgba(255,212,0,.25)}
+#tdis.warning,#tdis.running.warning{color:#ff2a3c;animation:wpls .5s infinite alternate}
+#tdis.finished,#tdis.running.finished{color:#ff2a3c;animation:none}
+@keyframes wpls{from{text-shadow:0 0 20px rgba(255,42,60,.3)}to{text-shadow:0 0 50px rgba(255,42,60,1)}}
 #tth{font-size:.5em;vertical-align:.1em;opacity:.8}
 
 /* score buttons */
@@ -1099,7 +1101,7 @@ html,body{
      <div class="logo" onclick="sw('onboarding',null)" style="cursor:pointer" title="はじめに画面へ戻る">
       Karate Win
       <small id="kw-ver">
-       v1.17d
+       v1.18
       </small>
      </div>
      <button class="tb-right-btn" onclick="sw('settings',this)">
@@ -2855,6 +2857,7 @@ function rend(ms){
   el.classList.remove('warning','finished');
   if(ms<=0)el.classList.add('finished');
   else if(ms<15100&&T.w15)el.classList.add('warning');
+  el.classList.toggle('running', T.status==='Running');   // v1.18: 動いているとき黄色
 }
 
 // ══ ACTIONS ══
@@ -3735,6 +3738,7 @@ function kwHasCancel(on){
 }
 function updB(){
   const s=T.status;
+  { const _td=document.getElementById('tdis'); if(_td) _td.classList.toggle('running', s==='Running'); }   // v1.18
   document.getElementById('bs').disabled=s!=='Ready';
   document.getElementById('bx').disabled=s!=='Running';
   document.getElementById('br').disabled=s!=='Stopped';
@@ -4841,7 +4845,7 @@ function toast(msg,cls){
     fitPlayerName();
   }
   fit169();
-  window.KW_VER='1.17d';
+  window.KW_VER='1.18';
   try{console.log('[Karate Win] version', KW_VER);}catch(e){}
 
   // ══ オンライン更新チェック機能 ══
@@ -8076,7 +8080,7 @@ function camUpdateUI(){
   <div id="modal-local-videos" style="display:none;position:fixed;inset:0;z-index:8500;background:rgba(3,8,18,.86);align-items:center;justify-content:center;padding:0;box-sizing:border-box;font-family:inherit;">
    <div style="width:min(720px,96vw);height:min(720px,94vh);background:#0d1b33;border:1px solid #31527c;box-shadow:0 22px 70px rgba(0,0,0,.65);display:flex;flex-direction:column;color:#d8e6ff;">
     <div style="height:44px;display:flex;align-items:center;gap:10px;padding:0 12px;border-bottom:1px solid #31527c;background:#111f38;box-sizing:border-box;">
-     <div style="font-size:15px;font-weight:900;letter-spacing:.5px;flex:1;">⬆ サーバーアップロード <span style="font-size:11px;color:#5a7aa0;font-weight:400;">(v1.17d)</span><br/><span id="lv-login-label" style="font-size:11px;font-weight:400;color:#8ab0d0;"></span></div>
+     <div style="font-size:15px;font-weight:900;letter-spacing:.5px;flex:1;">⬆ サーバーアップロード <span style="font-size:11px;color:#5a7aa0;font-weight:400;">(v1.18)</span><br/><span id="lv-login-label" style="font-size:11px;font-weight:400;color:#8ab0d0;"></span></div>
      <button onclick="lvCloseLocalVideos()" style="background:transparent;border:none;color:#aab8d0;font-size:22px;line-height:1;cursor:pointer;padding:4px 6px;font-family:inherit;">×</button>
     </div>
     <div style="flex:1;overflow:auto;padding:14px 12px 10px;box-sizing:border-box;">
