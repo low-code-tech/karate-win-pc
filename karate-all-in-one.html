@@ -223,9 +223,11 @@ html,body{
   text-shadow:0 0 40px rgba(255,255,255,.15);
   transition:color .3s}
 
-#tdis.warning{color:#ff8c00;animation:wpls .5s infinite alternate}
-#tdis.finished{color:#e03030}
-@keyframes wpls{from{text-shadow:0 0 20px rgba(255,140,0,.3)}to{text-shadow:0 0 50px rgba(255,140,0,1)}}
+/* v1.18: タイマー文字色 = 止まっているとき白 / 動いているとき黄 / 残り15秒を切ったら赤（止まっていても赤） */
+#tdis.running{color:#ffd400;text-shadow:0 0 40px rgba(255,212,0,.25)}
+#tdis.warning,#tdis.running.warning{color:#ff2a3c;animation:wpls .5s infinite alternate}
+#tdis.finished,#tdis.running.finished{color:#ff2a3c;animation:none}
+@keyframes wpls{from{text-shadow:0 0 20px rgba(255,42,60,.3)}to{text-shadow:0 0 50px rgba(255,42,60,1)}}
 #tth{font-size:.5em;vertical-align:.1em;opacity:.8}
 
 /* score buttons */
@@ -1099,7 +1101,7 @@ html,body{
      <div class="logo" onclick="sw('onboarding',null)" style="cursor:pointer" title="はじめに画面へ戻る">
       Karate Win
       <small id="kw-ver">
-       v1.17d
+       v1.18
       </small>
      </div>
      <button class="tb-right-btn" onclick="sw('settings',this)">
@@ -2224,6 +2226,9 @@ html,body{
        <button onclick="impLoadExisting()" style="background:transparent;border:1px solid #1a2840;color:#3a5070;padding:8px 16px;border-radius:4px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">
         🔄 保存済みを読込
        </button>
+       <button id="imp-btn-entries" onclick="kwEntriesSendNow()" style="background:transparent;border:1px solid #c99a2e;color:#e8c060;padding:8px 16px;border-radius:4px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;" title="出場選手（大会・所属道場・選手名）をサーバーへ送ります。観戦アプリの選手会員の申込みで、所属道場と選手名の確認に使います。">
+        ☁ 出場選手をサーバーへ送信<span id="imp-entries-pending"></span>
+       </button>
        <button onclick="impClearData()" style="background:transparent;border:1px solid #e74c3c;color:#e74c3c;padding:8px 16px;border-radius:4px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">
         🗑 削除
        </button>
@@ -2855,6 +2860,7 @@ function rend(ms){
   el.classList.remove('warning','finished');
   if(ms<=0)el.classList.add('finished');
   else if(ms<15100&&T.w15)el.classList.add('warning');
+  el.classList.toggle('running', T.status==='Running');   // v1.18: 動いているとき黄色
 }
 
 // ══ ACTIONS ══
@@ -3735,6 +3741,7 @@ function kwHasCancel(on){
 }
 function updB(){
   const s=T.status;
+  { const _td=document.getElementById('tdis'); if(_td) _td.classList.toggle('running', s==='Running'); }   // v1.18
   document.getElementById('bs').disabled=s!=='Ready';
   document.getElementById('bx').disabled=s!=='Running';
   document.getElementById('br').disabled=s!=='Stopped';
@@ -4345,6 +4352,83 @@ function impDownloadTemplate(){
   }
 }
 
+// ══ v1.19 出場選手のサーバー送信（kw_register_entries） ══
+//  取り込んだ選手（大会・所属道場・選手名・よみ）をサーバーに送り、道場・大会参加道場・
+//  出場選手を自動登録する。観戦アプリの選手会員の申込みで「所属道場＋選手名」の照合に使う。
+//  会場ではオフラインのことが多いため、端末に「送信待ち」として保存し、次のどれかで送る:
+//   ① 取り込み保存時にログイン済み・オンラインなら即時 ② 試合結果の送信時 ③ 「☁ 出場選手をサーバーへ送信」ボタン
+//  送信は運営アカウント（管理者）のみ受け付けられる。
+const KW_ENTRIES_KEY='kw_entries_pending';
+function kwEntriesPending(){ try{ return JSON.parse(localStorage.getItem(KW_ENTRIES_KEY)||'{}')||{}; }catch(e){ return {}; } }
+function kwEntriesSavePending(o){ try{ localStorage.setItem(KW_ENTRIES_KEY, JSON.stringify(o)); }catch(e){} kwEntriesBadge(); }
+function kwEntriesBadge(){
+  const el=document.getElementById('imp-entries-pending'); if(!el) return;
+  const n=Object.keys(kwEntriesPending()).length;
+  el.textContent = n ? '（送信待ち '+n+'大会）' : '';
+}
+function kwEntriesQueue(tournament, players, info){
+  const tn=String(tournament||'').trim(); if(!tn) return;
+  const entries=(players||[]).filter(p=>p && p.name && p.club).map(p=>({
+    name:String(p.name).trim(), yomi:String(p.yomi||'').trim(), club:String(p.club).trim(),
+    cls:String(p.cls||'').trim(), bib:String(p.bib||'').trim()
+  }));
+  if(!entries.length){ try{impLog('warn','所属（道場名）の入った選手がいないため、出場選手はサーバーに送りません');}catch(e){} return; }
+  const o=kwEntriesPending();
+  o[tn]={ tournament:tn, date:String((info&&info.date)||'').trim(), place:String((info&&info.place)||'').trim(), entries, queuedAt:new Date().toISOString() };
+  kwEntriesSavePending(o);
+}
+// 送信待ちをすべて送る。opts.silent: ログインを求めず、未ログイン・オフラインなら黙って待つ
+async function kwEntriesFlush(opts){
+  opts=opts||{};
+  const o=kwEntriesPending(); const names=Object.keys(o);
+  if(!names.length) return { sent:0, failed:0 };
+  if(!navigator.onLine){ if(!opts.silent) kwNotify('オフラインのため出場選手を送れません（ネット接続時に送信されます）','ng'); else { try{impLog('warn','出場選手はオフラインのため送信待ちです（試合結果の送信時などにまとめて送ります）');}catch(e){} } return { sent:0, failed:names.length }; }
+  let sb=null;
+  try{
+    const f=window.kwSbClient||window.KW_SB; if(typeof f!=='function') throw new Error('サーバー接続が初期化されていません');
+    sb=f();
+    const s=(await sb.auth.getSession()).data.session;
+    if(!s){
+      if(opts.silent){ try{impLog('warn','出場選手は未ログインのため送信待ちです（「☁ 出場選手をサーバーへ送信」または試合結果の送信時に送ります）');}catch(e){} return { sent:0, failed:names.length }; }
+      const ok=await window.kwEnsureVideoUploadLogin(); if(!ok) return { sent:0, failed:names.length };
+    }
+  }catch(e){ if(!opts.silent) kwNotify('出場選手の送信準備に失敗: '+String(e&&e.message||e).slice(0,60),'ng'); return { sent:0, failed:names.length }; }
+  let sent=0, failed=0;
+  for(const tn of names){
+    const it=o[tn];
+    try{
+      const { data, error } = await sb.rpc('kw_register_entries', { p_tournament:it.tournament, p_date:it.date||null, p_place:it.place||null, p_entries:it.entries });
+      if(error) throw error;
+      if(!data || !data.success){
+        const msg=(data&&data.error)||'登録できませんでした';
+        if(data && data.code==='NOT_ADMIN'){ failed++; try{impLog('err','出場選手の送信: '+msg);}catch(e){} if(!opts.silent) kwNotify(msg,'ng'); continue; }
+        throw new Error(msg);
+      }
+      sent++;
+      delete o[tn]; kwEntriesSavePending(o);
+      const m=`☁ 出場選手を送信しました: ${tn}（${data.entries}名・新しい道場 ${data.dojos_created}件・大会参加道場 ${data.tournament_dojos_added}件追加・動画 ${data.videos_linked}本を大会に紐づけ${data.skipped?('・所属なし '+data.skipped+'名は対象外'):''}）`;
+      try{impLog('ok',m);}catch(e){} console.log('[entries]', tn, data);
+    }catch(e){
+      failed++;
+      const m='出場選手の送信に失敗（'+tn+'）: '+String(e&&e.message||e).slice(0,80);
+      try{impLog('err',m);}catch(_){} console.warn('[entries]', m);
+    }
+  }
+  if(!opts.silent){
+    if(sent && !failed) kwNotify('☁ 出場選手を送信しました（'+sent+'大会）','ok');
+    else if(failed) kwNotify('出場選手の送信に失敗した大会があります（'+failed+'件・送信待ちに残しています）','ng');
+  }
+  return { sent, failed };
+}
+// 「☁ 出場選手をサーバーへ送信」ボタン: 送信待ちが無ければ、今の選手データを待ちに入れてから送る
+async function kwEntriesSendNow(){
+  if(!Object.keys(kwEntriesPending()).length){
+    const tn=String((_impEventInfo.tournament||(_impPlayers[0]&&_impPlayers[0].tournament)||'')).trim();
+    if(!tn || !_impPlayers.length){ impLog('warn','送信する選手データがありません（Excelを読み込んで保存してください）'); return; }
+    kwEntriesQueue(tn,_impPlayers,_impEventInfo);
+  }
+  await kwEntriesFlush({silent:false});
+}
 function impSaveData(){
   if(!_impPlayers.length){impLog('err','0名のため保存しません（既存の保存済みデータは変更されていません）');return;}
   try{
@@ -4354,7 +4438,9 @@ function impSaveData(){
     impUpdateSummary();
     impLog('ok',`✅ ${_impPlayers.length}名 保存完了`);
     {const _tn=String((_impEventInfo.tournament||(_impPlayers[0]&&_impPlayers[0].tournament)||'')).trim();
-     if(_tn)kwArchSave(_tn,_impPlayers,_impEventInfo);}
+     if(_tn)kwArchSave(_tn,_impPlayers,_impEventInfo);
+     // v1.19 出場選手をサーバー送信の待ちに入れ、ログイン済みならその場で送る
+     if(_tn){ kwEntriesQueue(_tn,_impPlayers,_impEventInfo); kwEntriesFlush({silent:true}); }}
     if(_impEventInfo.tournament)impLog('ok',`大会: ${_impEventInfo.tournament}`);
   }catch(e){impLog('err','保存失敗: '+e.message);}
 }
@@ -4381,6 +4467,7 @@ function impClearData(){
 }
 function impOnOpen(){
   impUpdateStatus();
+  kwEntriesBadge();
   const raw=localStorage.getItem('karate_players');
   if(raw&&!_impPlayers.length){
     _impPlayers=JSON.parse(raw);
@@ -4841,7 +4928,7 @@ function toast(msg,cls){
     fitPlayerName();
   }
   fit169();
-  window.KW_VER='1.17d';
+  window.KW_VER='1.19';   // v1.19 (2026-10-14): 選手データ取り込み時に出場選手をサーバーへ送信（道場・大会参加の自動登録）
   try{console.log('[Karate Win] version', KW_VER);}catch(e){}
 
   // ══ オンライン更新チェック機能 ══
@@ -5907,6 +5994,8 @@ async function kwSendAllMatchResults(){
   try{
     const loginOk = await window.kwEnsureVideoUploadLogin();
     if(!loginOk){ kwNotify('試合結果の送信にはログインが必要です','ng'); return; }
+    // v1.19 送信待ちの出場選手があれば先に送る（失敗しても試合結果の送信は続ける）
+    try{ await kwEntriesFlush({silent:true}); }catch(e){ console.warn('[entries] flush failed', e); }
     // 動画のある試合のみ送信（動画の無い試合結果は父兄用アプリ等で参照されないため送らない）
     const list=buildMatchList().filter(m=>(m.redWin||m.blueWin||m.score) && vwMatchHasVideo(m));
     if(!list.length){ kwNotify('送信できる試合結果がありません（動画があり勝敗を確定した試合が対象です）','ng'); return; }
@@ -8076,7 +8165,7 @@ function camUpdateUI(){
   <div id="modal-local-videos" style="display:none;position:fixed;inset:0;z-index:8500;background:rgba(3,8,18,.86);align-items:center;justify-content:center;padding:0;box-sizing:border-box;font-family:inherit;">
    <div style="width:min(720px,96vw);height:min(720px,94vh);background:#0d1b33;border:1px solid #31527c;box-shadow:0 22px 70px rgba(0,0,0,.65);display:flex;flex-direction:column;color:#d8e6ff;">
     <div style="height:44px;display:flex;align-items:center;gap:10px;padding:0 12px;border-bottom:1px solid #31527c;background:#111f38;box-sizing:border-box;">
-     <div style="font-size:15px;font-weight:900;letter-spacing:.5px;flex:1;">⬆ サーバーアップロード <span style="font-size:11px;color:#5a7aa0;font-weight:400;">(v1.17d)</span><br/><span id="lv-login-label" style="font-size:11px;font-weight:400;color:#8ab0d0;"></span></div>
+     <div style="font-size:15px;font-weight:900;letter-spacing:.5px;flex:1;">⬆ サーバーアップロード <span style="font-size:11px;color:#5a7aa0;font-weight:400;">(v1.18)</span><br/><span id="lv-login-label" style="font-size:11px;font-weight:400;color:#8ab0d0;"></span></div>
      <button onclick="lvCloseLocalVideos()" style="background:transparent;border:none;color:#aab8d0;font-size:22px;line-height:1;cursor:pointer;padding:4px 6px;font-family:inherit;">×</button>
     </div>
     <div style="flex:1;overflow:auto;padding:14px 12px 10px;box-sizing:border-box;">
