@@ -33,7 +33,7 @@
 
   <div class="hero">
     <h1>🏯 道場会員プラン</h1>
-    <div class="price"><b>¥3,000</b> /月（Stripeによる月額自動更新）</div>
+    <div class="price"><b>¥3,300</b> /月（税込・Stripeによる月額自動更新）</div>
     <ul>
       <li>道場の登録と、父兄・選手向け招待コードの発行</li>
       <li>大会運営アプリ「Karate Win」での試合運営・動画記録</li>
@@ -61,7 +61,10 @@
 <script>
 'use strict';
 // ══════════════════════════════════════════════════════════════
-//  道場会員登録ウィザード（独立ページ版 v1.0）
+//  道場会員登録ウィザード（独立ページ版 v3）
+//  v3: 登録済みメールで新規登録した場合の誤案内を修正（Supabaseは登録済みでも
+//      成功を装いメールを送らない→identitiesが空で判定）、確認メール再送、
+//      パスワード再設定リンク、¥3,300（税込）、スマホ完了時の案内を追加
 //  Karate Win v1.10b のモジュールを単独ページ用に調整:
 //   - Supabaseクライアントをページ内で直接初期化（KW_SB非依存）
 //   - オーバーレイではなくページ内カード(#dr-root)に描画
@@ -79,6 +82,10 @@
 
   const DR_SUPABASE_URL = 'https://ocxyycuasswuztjkbwuf.supabase.co';
   const DR_SUPABASE_KEY = 'sb_publishable_fmCxA2UUUZtWdxwBhvhS5w_Z29KVTNp';
+  // パスワード再設定メールのリンク先（観戦アプリv43以降で新パスワード入力画面を実装済み）
+  const DR_RESET_REDIRECT = 'https://karate-spectator.vercel.app/';
+  // スマホ判定（完了画面の案内の出し分け用）
+  function drIsMobile(){ try{ return window.matchMedia('(max-width: 700px)').matches || window.matchMedia('(pointer: coarse)').matches; }catch(e){ return false; } }
   let _drSb = null;
   function drSb(){
     if(_drSb) return _drSb;
@@ -200,8 +207,10 @@
       '<input id="kw-dr-pwd" type="password" autocomplete="'+(tab==='signup'?'new-password':'current-password')+'" style="'+drInputCss+'">'+
       '<div id="kw-dr-msg" style="margin-top:10px;min-height:20px;font-size:12px;white-space:pre-wrap;"></div>'+
       '<button id="kw-dr-go" type="button" style="'+drBtnMain+'">'+(tab==='signup'?'アカウント作成して次へ':'ログインして次へ')+'</button>'+
+      (tab==='login' ? '<button id="kw-dr-forgot" type="button" style="'+drBtnSub+'">パスワードを忘れた方</button>' : '')+
       '<div style="margin-top:12px;font-size:11px;color:#3a5070;line-height:1.7;">観戦アプリ・カメラアプリと共通のアカウントです。既にお持ちの場合は「ログイン」タブをご利用ください。</div>'
     );
+    const fg=document.getElementById('kw-dr-forgot'); if(fg) fg.onclick=drDoForgot;
     document.getElementById('kw-dr-tab-login').onclick = function(){ drShowAuthStep('login'); };
     document.getElementById('kw-dr-tab-signup').onclick = function(){ drShowAuthStep('signup'); };
     document.getElementById('kw-dr-go').onclick = tab==='signup' ? drDoSignup : drDoLogin;
@@ -237,21 +246,81 @@
     try{
       const sb=drSb();
       const {data,error}=await sb.auth.signUp({email,password:pwd,options:{data:{display_name:name}}});
-      if(error) throw error;
+      if(error){
+        if(/already registered|already exists/i.test(error.message||'')){ drShowAlreadyRegistered(email); return; }
+        throw error;
+      }
+      // 登録済みメールの場合、Supabaseはエラーを返さず「成功」を装う（メールは送られない）。
+      // このとき user.identities が空配列になるので、それで判定する。
+      const ids = data && data.user && data.user.identities;
+      if(!data.session && Array.isArray(ids) && ids.length===0){
+        drShowAlreadyRegistered(email);
+        return;
+      }
       if(data.session){
         drUser=data.user;
         await drLoadProfile(true);
         drShowInfoStep();
       }else{
-        drMsg('✅ 確認メールを送信しました。メール内のリンクを開いた後、「ログイン」タブからログインすると続きに進めます。','ok');
-        setTimeout(function(){
-          drShowAuthStep('login');
-          const em=document.getElementById('kw-dr-email'); if(em) em.value=email;
-          drMsg('メール確認後、上記でログインしてください。');
-        }, 2600);
+        drShowConfirmSent(email);
       }
     }catch(e){
       drMsg('登録に失敗しました: '+(e&&e.message||e),'err');
+    }
+  }
+
+  // 登録済みメール → ログインへ案内（メールを入れた状態で）
+  function drShowAlreadyRegistered(email){
+    drShowAuthStep('login');
+    const em=document.getElementById('kw-dr-email'); if(em) em.value=email;
+    const pw=document.getElementById('kw-dr-pwd'); if(pw) pw.focus();
+    drMsg('このメールアドレスは登録済みです（観戦アプリ・カメラアプリと共通のアカウント）。\nそのアカウントのパスワードでログインしてください。確認メールは送られません。','err');
+  }
+
+  // 確認メール送信済み画面（自動で切り替えず、ここに留まる）
+  function drShowConfirmSent(email){
+    drStepbar(1);
+    drBody(
+      '<div style="text-align:center;font-size:30px;margin:4px 0;">📧</div>'+
+      '<div style="text-align:center;font-size:14px;font-weight:700;color:#48e878;">確認メールを送信しました</div>'+
+      '<div style="margin-top:10px;font-size:12px;color:#8ab0d0;line-height:1.9;">送信先: <b style="color:#c8d8f0;word-break:break-all;">'+drEsc(email)+'</b><br>'+
+      'メール内のリンクを開いてから、下の「ログインへ進む」で同じメールとパスワードを入力してください。<br>'+
+      '<span style="color:#5a7898;">届かないときは、迷惑メールフォルダも確認してください。</span></div>'+
+      '<div id="kw-dr-msg" style="margin-top:10px;min-height:20px;font-size:12px;white-space:pre-wrap;"></div>'+
+      '<button id="kw-dr-go" type="button" style="'+drBtnMain+'">ログインへ進む</button>'+
+      '<button id="kw-dr-resend" type="button" style="'+drBtnSub+'">確認メールを再送する</button>'
+    );
+    document.getElementById('kw-dr-go').onclick=function(){
+      drShowAuthStep('login');
+      const em=document.getElementById('kw-dr-email'); if(em) em.value=email;
+    };
+    document.getElementById('kw-dr-resend').onclick=async function(){
+      drMsg('再送中…');
+      try{
+        const {error}=await drSb().auth.resend({type:'signup', email:email});
+        if(error) throw error;
+        drMsg('確認メールを再送しました。','ok');
+      }catch(e){
+        let m=e&&e.message||String(e);
+        if(/rate limit|seconds/i.test(m)) m='短時間に何度も送信できません。少し時間をおいてお試しください。';
+        drMsg('再送できませんでした: '+m,'err');
+      }
+    };
+  }
+
+  // パスワード再設定メール
+  async function drDoForgot(){
+    const email=(document.getElementById('kw-dr-email').value||'').trim();
+    if(!email){ drMsg('上の欄にメールアドレスを入力してから押してください','err'); return; }
+    drMsg('送信中…');
+    try{
+      const {error}=await drSb().auth.resetPasswordForEmail(email,{redirectTo:DR_RESET_REDIRECT});
+      if(error) throw error;
+      drMsg('パスワード再設定のメールを送りました（登録済みのメールアドレスの場合）。\nメールのリンクから新しいパスワードを設定したあと、このページに戻ってログインしてください。','ok');
+    }catch(e){
+      let m=e&&e.message||String(e);
+      if(/rate limit|seconds/i.test(m)) m='短時間に何度も送信できません。少し時間をおいてお試しください。';
+      drMsg('送信できませんでした: '+m,'err');
     }
   }
 
@@ -297,7 +366,7 @@
       '<div style="background:#0a1420;border:1px solid #1a3050;border-radius:8px;padding:14px 16px;margin-bottom:8px;">'+
         '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">'+
           '<span style="font-size:14px;font-weight:700;color:#e8c060;">道場会員（サブスクリプション）</span>'+
-          '<span style="font-size:20px;font-weight:900;color:#c8d8f0;">¥3,000<span style="font-size:11px;color:#5a7898;">/月</span></span>'+
+          '<span style="font-size:20px;font-weight:900;color:#c8d8f0;">¥3,300<span style="font-size:11px;color:#5a7898;">/月（税込）</span></span>'+
         '</div>'+
         '<div style="font-size:11px;color:#6a90c0;line-height:1.8;">・道場の登録と招待コードの発行<br>・道場の試合動画の管理（観戦アプリ・カメラアプリ共通アカウント）</div>'+
       '</div>'+
@@ -447,12 +516,17 @@
     drStepbar(4);
     drBody(
       '<div style="text-align:center;margin-bottom:6px;font-size:14px;color:#48e878;font-weight:700;">✅ 道場の登録が完了しました</div>'+
+      (drIsMobile()
+        ? '<div style="text-align:center;margin-bottom:8px;font-size:11px;color:#8ab0d0;">大会運営アプリ「Karate Win」は会場のパソコンで使います。下の「次のステップ」をご覧ください。</div>'
+        : '<div style="text-align:center;margin-bottom:8px;font-size:11px;color:#8ab0d0;">このパソコンの Karate Win には、この道場が自動で設定されます。<a href="karate-all-in-one.html" style="color:#48e878;font-weight:700;">▶ Karate Win を開く</a></div>')+
       drDojoCard(done)+
       '<div id="kw-dr-msg" style="margin-top:10px;min-height:20px;font-size:12px;white-space:pre-wrap;"></div>'+
       '<div style="margin-top:8px;font-size:11px;color:#3a5070;line-height:1.8;">父兄・選手のみなさんは、観戦アプリの会員登録（または「道場に参加」）で <b style="color:#8ab0d0;">'+drEsc(done.dojo_name||'')+'</b> を選び、上の招待コードを入力すると参加できます。</div>'+
       '<div style="margin-top:10px;background:#0d1220;border:1px solid #1a2840;border-radius:8px;padding:12px 14px;font-size:12px;color:#8ab0d0;line-height:1.9;">'+
         '<b style="color:#c8d8f0;">次のステップ</b><br>'+
-        '① 大会運営アプリ「Karate Win」を開き、設定画面の「道場ID」に上記の道場IDを入力してください（同じブラウザなら自動設定されます）<br>'+
+        (drIsMobile()
+          ? '① 大会で使うパソコンで Karate Win を開き、設定画面の「🔄 道場一覧を更新」（ログインが必要）を押してから、「道場」の一覧で <b style="color:#c8d8f0;">'+drEsc(done.dojo_name||'')+'</b> を選んでください<br>'
+          : '① Karate Win の設定画面の「道場」で <b style="color:#c8d8f0;">'+drEsc(done.dojo_name||'')+'</b> が選ばれていることを確認してください（このパソコンでは自動。別のパソコンでは「🔄 道場一覧を更新」のあと一覧から選びます）<br>')+
         '② 招待コードを父兄・選手のみなさんに配布してください（身元を確認のうえお渡しください）</div>'+
       '<button id="kw-dr-new" type="button" style="'+drBtnMain+'">＋ 続けて別の道場を登録する</button>'+
       '<button id="kw-dr-ok" type="button" style="'+drBtnSub+'">閉じる</button>'
@@ -491,7 +565,7 @@
         '<div style="display:flex;align-items:center;gap:10px;margin-top:6px;flex-wrap:wrap;">'+
           '<div style="font-size:24px;font-weight:900;color:#e8c060;letter-spacing:5px;font-variant-numeric:tabular-nums;">'+drEsc(done.invite_code||'—')+'</div>'+
           '<button type="button" class="kw-dr-copy" data-code="'+drEsc(done.invite_code||'')+'" style="padding:6px 11px;border-radius:6px;border:1px solid #2a3a52;background:#0d1220;color:#8ab0d0;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">📋 コピー</button>'+
-          (isCur?'':'<button type="button" class="kw-dr-use" data-id="'+drEsc(done.dojo_id||'')+'" style="padding:6px 11px;border-radius:6px;border:1px solid #2a3a52;background:#0d1220;color:#8ab0d0;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">⚙ 設定に使う</button>')+
+          ((isCur||drIsMobile())?'':'<button type="button" class="kw-dr-use" data-id="'+drEsc(done.dojo_id||'')+'" style="padding:6px 11px;border-radius:6px;border:1px solid #2a3a52;background:#0d1220;color:#8ab0d0;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">⚙ 設定に使う</button>')+
         '</div>'+
         '<div style="font-size:10px;color:#3a5070;margin-top:6px;word-break:break-all;">道場ID: '+drEsc(done.dojo_id||'')+'</div>'+
       '</div>'
