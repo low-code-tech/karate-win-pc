@@ -81,6 +81,24 @@
   .code{font-size:32px;font-weight:800;color:var(--text);letter-spacing:6px;font-variant-numeric:tabular-nums;line-height:1.3;}
   .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
   .mini{padding:8px 14px;border-radius:8px;border:2px solid var(--line2);background:#fff;color:var(--navy2);font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;}
+  .sugg{margin-top:6px;}
+  .sugg-h{font-size:14px;font-weight:800;color:var(--sub);margin:6px 0 4px;}
+  .sugg-none{font-size:14px;color:var(--sub);margin-top:4px;}
+  .sugg-item{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;text-align:left;padding:10px 12px;margin-top:6px;border:2px solid var(--line2);border-radius:8px;background:#fff;color:var(--text);font-size:16px;font-weight:700;font-family:inherit;cursor:pointer;}
+  .sugg-item.off{border-style:dashed;color:var(--muted);cursor:default;}
+  .sugg-item .tag{font-size:13px;font-weight:800;padding:2px 8px;border-radius:10px;background:#f1f3f6;color:var(--muted);white-space:nowrap;}
+  .sugg-item .tag.go{background:var(--navy);color:#fff;}
+  .picked{margin-top:8px;padding:10px 12px;border-radius:8px;background:var(--ok-bg);border:1px solid var(--ok-line);color:var(--ok);font-size:15px;font-weight:700;line-height:1.6;}
+  .members{margin-top:12px;border-top:1px solid var(--line);padding-top:10px;}
+  .mem-h{font-size:15px;font-weight:800;color:var(--text);margin-bottom:6px;}
+  .mem{padding:10px 0;border-bottom:1px solid var(--line);}
+  .mem:last-child{border-bottom:none;}
+  .mem-main{font-size:16px;color:var(--text);display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .mem-main .tier{font-size:13px;font-weight:800;padding:1px 8px;border-radius:10px;background:var(--navy-soft);color:var(--navy2);}
+  .mem-sub{font-size:14px;color:var(--sub);word-break:break-all;}
+  .mini.danger{margin-top:6px;border-color:var(--err-line);color:var(--err);background:var(--err-bg);}
+  .mine-h{font-size:16px;font-weight:800;color:var(--text);margin-top:16px;}
+  .mine-sep{margin-top:18px;padding-top:14px;border-top:2px solid var(--line);font-size:15px;font-weight:800;color:var(--navy2);}
   .dojo .id{font-size:14px;color:var(--sub);margin-top:6px;word-break:break-all;}
   .steps-box{margin-top:14px;background:var(--info-bg);border:1px solid var(--info-line);border-radius:10px;padding:14px 16px;font-size:15px;color:var(--text);line-height:1.75;}
   .steps-box .h{font-weight:800;color:var(--info);margin-bottom:4px;}
@@ -133,7 +151,18 @@
 <script>
 'use strict';
 // ══════════════════════════════════════════════════════════════
-//  道場会員登録ウィザード（独立ページ版 v6）
+//  道場会員登録ウィザード（独立ページ版 v9）
+//  v9: 招待コードを廃止。道場は Karate Win の選手データ取り込みで自動登録されるため、
+//      道場名を入れると登録済みの道場を候補に出し、選ぶとその道場の道場主になる（引き受け）。
+//      一覧にない道場だけ新しく作る。道場主には自分の道場の選手会員一覧（表示名・メール・
+//      選手名・申込日）を出し、「この道場から外す」ができる（RPC kw_dojo_members / kw_remove_dojo_member）。
+//      register-dojo v2・kw_entries_v1.sql と対応。
+//  v8: 1契約1道場。管理する道場があるアカウント（運営 admin を除く）は新しい道場を登録できない。
+//      契約が切れている道場主には「契約を再開する」を出す（同じ道場で決済し直す）。
+//      ※確実な制限はサーバー側 register-dojo でも行う。
+//  v7: 「この端末で登録した道場」の履歴一覧を廃止（ページを開くと常に手続きから始まる）。
+//      かわりにログイン後、そのアカウントが管理する道場と招待コードをサーバーから取得して表示。
+//      ※履歴の保存（kw_dojo_reg_done）は Karate Win の道場プルダウンが読むため残す。
 //  v6: 登録手続きを上に移動し、プラン説明を短くして下に配置
 //  v5: 道場会員プランの説明文を差し替え（機材・オフライン動作・動画視聴とDL枠）
 //  v4: 白地・濃い文字のデザインに全面変更（スタイルをクラス化）
@@ -145,7 +174,7 @@
 // ══════════════════════════════════════════════════════════════
 (function(){
   const REG_KEY  = 'kw_dojo_reg';        // 決済リダイレクトを跨ぐ保留状態
-  const DONE_KEY = 'kw_dojo_reg_done';   // 登録完了情報（招待コード再表示用）
+  const DONE_KEY = 'kw_dojo_reg_done';   // 登録完了情報（Karate Win の道場プルダウンが読む。画面には出さない）
   const PAID_TIERS = ['dojo','admin'];
   const PREFS = ['北海道','青森県','岩手県','宮城県','秋田県','山形県','福島県','茨城県','栃木県','群馬県','埼玉県','千葉県','東京都','神奈川県','新潟県','富山県','石川県','福井県','山梨県','長野県','岐阜県','静岡県','愛知県','三重県','滋賀県','京都府','大阪府','兵庫県','奈良県','和歌山県','鳥取県','島根県','岡山県','広島県','山口県','徳島県','香川県','愛媛県','高知県','福岡県','佐賀県','長崎県','熊本県','大分県','宮崎県','鹿児島県','沖縄県'];
 
@@ -205,11 +234,6 @@
   function drDel(k){ try{ localStorage.removeItem(k); }catch(e){} }
   function drTop(){ try{ document.querySelector('.panel-head').scrollIntoView({behavior:'smooth',block:'start'}); }catch(e){} }
 
-  function drClose(){
-    if(drGetDoneList().length>0){ drShowHistory(); }
-    else { window.kwDojoRegOpen(); }
-    try{ window.scrollTo({top:0, behavior:'smooth'}); }catch(e){ window.scrollTo(0,0); }
-  }
   function drStepbar(cur){
     const steps=['アカウント','道場情報','決済','完了'];
     const el=document.getElementById('kw-dr-stepbar');
@@ -249,11 +273,6 @@
 
   // ══ 入口 ══
   window.kwDojoRegOpen = async function(){
-    // 確認メールから戻ったときは履歴より手続きを優先
-    if(drGetDoneList().length > 0 && !DR_ARRIVAL){
-      drShowHistory();
-      return;
-    }
     drStepbar(1); drBody('<div class="loading">確認中…</div>');
     try{
       const sb=drSb();
@@ -438,14 +457,34 @@
   }
   function drBindWho(){ const b=document.getElementById('kw-dr-switch'); if(b) b.onclick=drSwitchAccount; }
 
-  // ══ Step2: 道場情報 ══
+  // ══ Step2: 道場情報（★v9 登録済みの道場から選ぶ／新しく作る） ══
+  let drChoices=null;   // kw_dojo_choices の結果（id, name, prefecture, has_owner）
+  // DB の kw_norm_name と同じ考え方で名前をそろえる（空白・全角半角・大文字小文字・よくある異体字）
+  const DR_VAR_SRC='髙﨑德邊邉齋齊斉濵冨嶋澤櫻廣藪龍瀨眞', DR_VAR_DST='高崎徳辺辺斎斎斎浜富島沢桜広薮竜瀬真';
+  function drNorm(t){
+    let x=String(t||'').normalize('NFKC').replace(/[\s・]+/g,'').toLowerCase();
+    let o=''; for(const ch of x){ const k=DR_VAR_SRC.indexOf(ch); o+= k>=0 ? DR_VAR_DST[k] : ch; } return o;
+  }
+  async function drLoadChoices(){
+    if(drChoices) return drChoices;
+    try{
+      const {data, error} = await drSb().rpc('kw_dojo_choices');
+      if(error) throw error;
+      drChoices=(data||[]).map(function(d){ return {id:String(d.id), name:d.name||'', prefecture:d.prefecture||'', has_owner:!!d.has_owner, n:drNorm(d.name)}; });
+    }catch(e){ console.warn('[dojo-register] choices failed:', e); drChoices=[]; }
+    return drChoices;
+  }
   function drShowInfoStep(){
     drStepbar(2);
     const pending = drGet(REG_KEY) || {};
     drBody(
       drWhoHtml()+
+      '<div id="kw-dr-mine"></div>'+
+      '<div id="kw-dr-newform">'+
       '<label class="f" for="kw-dr-dojo-name">道場名 <span class="opt">（必須）</span></label>'+
-      '<input id="kw-dr-dojo-name" class="i" type="text" maxlength="100" placeholder="例：○○空手道場" value="'+drEsc(pending.name||'')+'">'+
+      '<input id="kw-dr-dojo-name" class="i" type="text" maxlength="100" autocomplete="off" placeholder="例：○○空手道場" value="'+drEsc(pending.name||'')+'">'+
+      '<div id="kw-dr-sugg" class="sugg"></div>'+
+      '<div id="kw-dr-picked"></div>'+
       '<label class="f" for="kw-dr-pref">都道府県 <span class="opt">（任意）</span></label>'+
       '<select id="kw-dr-pref" class="i">'+
         '<option value="">選択してください</option>'+
@@ -453,14 +492,46 @@
       '</select>'+
       MSG+
       '<button id="kw-dr-go" type="button" class="btn main">次へ（お支払いの確認）</button>'+
-      '<div class="note">登録した道場は、観戦アプリの「所属道場」の一覧に表示されます。発行される招待コードで、父兄・選手のみなさんが参加できます。</div>'
+      '<div class="note">大会に出場したことのある道場は、すでに一覧に入っています。道場名を入れると候補が出るので、あなたの道場を選んでください。一覧にない場合は、そのまま新しく登録できます。<br>父兄・選手のみなさんは、観戦アプリで所属道場と選手（お子さん）の名前を入れて選手会員に申し込めます。</div>'+
+      '</div>'
     );
     drBindWho();
+    drRenderMine();
+    let picked = pending.dojo_id ? {id:pending.dojo_id, name:pending.name} : null;
+    const inp=document.getElementById('kw-dr-dojo-name');
+    function renderPicked(){
+      const el=document.getElementById('kw-dr-picked'); if(!el) return;
+      el.innerHTML = picked
+        ? '<div class="picked">✓ 登録済みの道場「<b>'+drEsc(picked.name)+'</b>」を選択中（大会の出場記録から登録された道場の道場主になります）'+
+          '<button type="button" class="mini" id="kw-dr-unpick" style="margin-left:8px;">選び直す</button></div>'
+        : '';
+      const u=document.getElementById('kw-dr-unpick'); if(u) u.onclick=function(){ picked=null; renderPicked(); renderSugg(); inp.focus(); };
+    }
+    async function renderSugg(){
+      const box=document.getElementById('kw-dr-sugg'); if(!box) return;
+      const q=drNorm(inp.value);
+      if(picked || q.length<1){ box.innerHTML=''; return; }
+      const list=(await drLoadChoices()).filter(function(d){ return d.n && (d.n.indexOf(q)>=0 || q.indexOf(d.n)>=0); }).slice(0,8);
+      if(drNorm(inp.value)!==q) return;   // 入力が進んだら古い結果は出さない
+      if(!list.length){ box.innerHTML='<div class="sugg-none">一致する登録済みの道場はありません。このまま新しく登録できます。</div>'; return; }
+      box.innerHTML='<div class="sugg-h">登録済みの道場（あなたの道場なら選んでください）</div>'+list.map(function(d){
+        return d.has_owner
+          ? '<div class="sugg-item off">'+drEsc(d.name)+(d.prefecture?'（'+drEsc(d.prefecture)+'）':'')+'<span class="tag">道場主登録済み</span></div>'
+          : '<button type="button" class="sugg-item" data-id="'+drEsc(d.id)+'" data-name="'+drEsc(d.name)+'">'+drEsc(d.name)+(d.prefecture?'（'+drEsc(d.prefecture)+'）':'')+'<span class="tag go">この道場を選ぶ</span></button>';
+      }).join('');
+      box.querySelectorAll('button.sugg-item').forEach(function(b){
+        b.onclick=function(){ picked={id:b.dataset.id, name:b.dataset.name}; inp.value=b.dataset.name; renderPicked(); renderSugg(); };
+      });
+    }
+    inp.addEventListener('input', function(){ if(picked && inp.value!==picked.name){ picked=null; renderPicked(); } renderSugg(); });
+    renderPicked(); renderSugg();
     document.getElementById('kw-dr-go').onclick = function(){
-      const name=(document.getElementById('kw-dr-dojo-name').value||'').trim();
+      const name=(inp.value||'').trim();
       const pref=document.getElementById('kw-dr-pref').value||'';
       if(!name){ drMsg('道場名を入力してください','err'); return; }
-      drSet(REG_KEY, {name:name, prefecture:pref, ts:Date.now()});
+      const reg={name:name, prefecture:pref, ts:Date.now()};
+      if(picked) reg.dojo_id=picked.id;
+      drSet(REG_KEY, reg);
       drShowPayStep();
     };
   }
@@ -471,19 +542,31 @@
     drBody('<div class="loading">会員の状態を確認中…</div>');
     try{ await drLoadProfile(false); }catch(e){}
     const tier = drProfile && drProfile.membership_tier;
-    if(PAID_TIERS.indexOf(tier)>=0){ drFinalize(); return; }
+    if(PAID_TIERS.indexOf(tier)>=0){
+      // ★v8 契約済みで別の道場を持っている場合は新しい道場を作らない
+      if(tier!=='admin'){
+        let mine=[]; try{ mine=await drFetchMyDojos(); }catch(e){}
+        const reg0 = drGet(REG_KEY) || {};
+        if(mine.length && !mine.some(function(d){ return (reg0.dojo_id && d.dojo_id===String(reg0.dojo_id)) || drNorm(d.dojo_name)===drNorm(reg0.name); })){
+          drDel(REG_KEY);
+          drShowInfoStep();
+          return;
+        }
+      }
+      drFinalize(); return;
+    }
     const reg = drGet(REG_KEY) || {};
     drBody(
       '<div class="box">'+
         '<div class="plan-row"><span class="plan-name">道場会員（毎月自動更新）</span>'+
         '<span class="plan-price">¥3,300<small>/月（税込）</small></span></div>'+
-        '<div style="font-size:15px;color:var(--sub);margin-top:6px;">登録する道場：<b style="color:var(--text);">'+drEsc(reg.name||'')+'</b>'+(reg.prefecture?'（'+drEsc(reg.prefecture)+'）':'')+'</div>'+
+        '<div style="font-size:15px;color:var(--sub);margin-top:6px;">登録する道場：<b style="color:var(--text);">'+drEsc(reg.name||'')+'</b>'+(reg.prefecture?'（'+drEsc(reg.prefecture)+'）':'')+(reg.dojo_id?'<br><span style="font-size:14px;">（登録済みの道場の道場主になります）</span>':'')+'</div>'+
       '</div>'+
       MSG+
       '<button id="kw-dr-go" type="button" class="btn main">お支払いへ進む（Stripe）</button>'+
       '<button id="kw-dr-back" type="button" class="btn sub">道場の情報を直す</button>'+
       '<button id="kw-dr-paid" type="button" class="btn link">お支払い済みの方はこちら（状態を再確認）</button>'+
-      '<div class="note">カード決済の画面（Stripe）に移ります。お支払いが終わると、このページに自動で戻り、道場の登録と招待コードの発行を行います。</div>'
+      '<div class="note">カード決済の画面（Stripe）に移ります。お支払いが終わると、このページに自動で戻り、道場の登録を行います。</div>'
     );
     document.getElementById('kw-dr-go').onclick = drStartCheckout;
     document.getElementById('kw-dr-back').onclick = drShowInfoStep;
@@ -523,7 +606,7 @@
     }
   }
 
-  // ══ Step4: 道場作成＋招待コード発行 ══
+  // ══ Step4: 道場の登録（★v9 引き受け or 新規作成） ══
   async function drFinalize(){
     drStepbar(4);
     const reg = drGet(REG_KEY);
@@ -536,6 +619,12 @@
     drBody('<div class="loading">道場を登録しています…<br><span style="font-size:14px;font-weight:500;">（お支払い直後は少し時間がかかることがあります）</span></div>');
     try{
       const sb=drSb();
+      // ★v9 決済から戻った直後はログイン中のユーザーが未設定のため、先に取得する
+      //   （未設定のままだと会員状態を読めず、反映待ちの確認を最後（約16秒）まで続けていた）
+      if(!drUser){
+        const {data:s0} = await sb.auth.getSession();
+        if(s0 && s0.session) drUser = s0.session.user;
+      }
       let tier = null;
       for(let i=0;i<8;i++){
         await drLoadProfile(true);
@@ -549,11 +638,32 @@
       const res = await fetch(DR_SUPABASE_URL+'/functions/v1/register-dojo', {
         method:'POST',
         headers:{'Content-Type':'application/json','Authorization':'Bearer '+data.session.access_token,'apikey': DR_SUPABASE_KEY},
-        body: JSON.stringify({ name: reg.name, prefecture: reg.prefecture||'' })
+        body: JSON.stringify(reg.dojo_id ? { dojo_id: reg.dojo_id, name: reg.name, prefecture: reg.prefecture||'' } : { name: reg.name, prefecture: reg.prefecture||'' })
       });
       const result = await res.json().catch(function(){ return {}; });
 
       if(!res.ok || !result.success){
+        if(result && result.code==='NAME_EXISTS' && result.dojo_id){
+          // ★v9 自動登録済みの同じ名前の道場がある → 引き受けるか確認
+          drBody(
+            '<div class="msg info">'+drEsc(result.error||'同じ名前の道場がすでに登録されています。')+'</div>'+
+            '<button id="kw-dr-claim" type="button" class="btn main">「'+drEsc(result.dojo_name||reg.name)+'」の道場主になる</button>'+
+            '<button id="kw-dr-go" type="button" class="btn sub">別の道場なので名前を変える</button>'+
+            '<div class="note">お支払いは完了しています。どちらを選んでも、二重に請求されることはありません。</div>'
+          );
+          document.getElementById('kw-dr-claim').onclick=function(){ const r2=Object.assign({}, reg, {dojo_id: result.dojo_id, name: result.dojo_name||reg.name}); drSet(REG_KEY, r2); drFinalize(); };
+          document.getElementById('kw-dr-go').onclick = drShowInfoStep;
+          return;
+        }
+        if(result && (result.code==='OWNED' || result.code==='ONE_DOJO_LIMIT')){
+          drDel(REG_KEY);
+          drBody(
+            '<div class="msg err">'+drEsc(result.error||'この道場は登録できません。')+'</div>'+
+            '<button id="kw-dr-go" type="button" class="btn main">道場の情報に戻る</button>'
+          );
+          document.getElementById('kw-dr-go').onclick = drShowInfoStep;
+          return;
+        }
         if(result && result.code==='NAME_TAKEN'){
           drBody(
             '<div class="msg err">同じ名前の道場がすでに登録されています。'+(result.error?'\n'+drEsc(result.error):'')+'</div>'+
@@ -574,7 +684,7 @@
         throw new Error(result.error || ('エラー('+res.status+')'));
       }
 
-      const done = { dojo_id: result.dojo_id, dojo_name: result.dojo_name, invite_code: result.invite_code, registered_at: Date.now() };
+      const done = { dojo_id: result.dojo_id, dojo_name: result.dojo_name, registered_at: Date.now() };
       drPushDone(done);
       drDel(REG_KEY);
       try{
@@ -583,7 +693,6 @@
         if(window.cfg) window.cfg.dojo = String(result.dojo_id||'');
       }catch(e){}
       drShowDone(done);
-      if(result.invite_code_error){ drMsg('注意: '+result.invite_code_error, 'err'); }
     }catch(e){
       drBody(
         '<div class="msg err">道場を登録できませんでした。\n'+drEsc(e&&e.message||e)+'</div>'+
@@ -600,65 +709,122 @@
     const mob = drIsMobile();
     drBody(
       '<div class="done-title">✓ 道場の登録が完了しました</div>'+
-      drDojoCard(done)+
+      drDojoCard(done, '', false)+
       MSG+
       '<div class="steps-box"><div class="h">次にやること</div><ol>'+
         (mob
           ? '<li>大会で使うパソコンで Karate Win を開き、設定画面の「🔄 道場一覧を更新」（ログインが必要）を押してから、「道場」の一覧で <b>'+drEsc(done.dojo_name||'')+'</b> を選んでください。</li>'
           : '<li>Karate Win の設定画面の「道場」で <b>'+drEsc(done.dojo_name||'')+'</b> が選ばれていることを確認してください。このパソコンでは自動で選ばれます。別のパソコンでは「🔄 道場一覧を更新」を押してから選んでください。</li>')+
-        '<li>招待コードを父兄・選手のみなさんに配ってください（身元を確認してから渡してください）。</li>'+
-        '<li>父兄・選手のみなさんは、観戦アプリの会員登録（または「道場に参加」）で <b>'+drEsc(done.dojo_name||'')+'</b> を選び、招待コードを入力します。</li>'+
+        '<li>父兄・選手のみなさんには、観戦アプリで所属道場に <b>'+drEsc(done.dojo_name||'')+'</b> を選び、選手（お子さん）の名前を入れて選手会員に申し込むよう案内してください。大会に出場した記録と照合して確認します。</li>'+
+        '<li>このページにログインすると、あなたの道場の選手会員の一覧（名前・メール・選手名）を確認できます。心当たりのない人は「この道場から外す」で外せます。</li>'+
       '</ol></div>'+
       (mob ? '' : '<a class="btn main" href="karate-all-in-one.html" style="display:flex;align-items:center;justify-content:center;text-decoration:none;color:#fff;">Karate Win を開く</a>')+
-      '<button id="kw-dr-new" type="button" class="btn sub">続けて別の道場を登録する</button>'+
-      '<button id="kw-dr-ok" type="button" class="btn link">閉じる</button>'
+      (drTier()==='admin' ? '<button id="kw-dr-new" type="button" class="btn sub">続けて別の道場を登録する</button>' : '')
     );
     drTop();
     drBindDojoCardActions();
-    document.getElementById('kw-dr-ok').onclick=drClose;
-    document.getElementById('kw-dr-new').onclick=drStartNewRegistration;
+    const nb=document.getElementById('kw-dr-new'); if(nb) nb.onclick=drStartNewRegistration;
   }
 
-  // ══ 履歴一覧（2回目以降に開いたとき） ══
-  function drShowHistory(){
-    drStepbar(4);
-    const list = drGetDoneList().slice().reverse();
+  // ══ このアカウントが管理する道場（サーバーから取得） ══
+  //   user_dojos の role=admin（道場登録・引き受け時に register-dojo が紐づける）
+  async function drFetchMyDojos(){
+    const sb=drSb();
+    const {data:rows, error} = await sb.from('user_dojos')
+      .select('dojo_id, role, dojo:dojo_id (id, name)')
+      .eq('user_id', drUser.id).eq('role','admin');
+    if(error) throw error;
+    return (rows||[]).filter(function(r){ return r.dojo && r.dojo.id; })
+      .map(function(r){ return {dojo_id:String(r.dojo.id), dojo_name:r.dojo.name||''}; });
+  }
+
+  // ══ ★v9 道場の選手会員一覧（道場主のみ）と「この道場から外す」 ══
+  async function drRenderMembers(dojoId, notice){
+    const box=document.querySelector('.members[data-dojo="'+dojoId+'"]'); if(!box) return;
+    box.innerHTML='<div class="note" style="margin:0;">会員を確認中…</div>';
+    let rows=[];
+    try{
+      const {data, error} = await drSb().rpc('kw_dojo_members', { p_dojo_id: dojoId });
+      if(error) throw error; rows=data||[];
+    }catch(e){ box.innerHTML='<div class="note" style="margin:0;color:var(--err);">会員一覧を読み込めませんでした: '+drEsc(e&&e.message||e)+'</div>'; return; }
+    if(!document.body.contains(box)) return;
+    const tierName=function(t){ return t==='member'?'選手会員':t==='dojo'?'道場会員':t==='premium'?'プレミアム':t==='admin'?'運営':'個別購入'; };
+    const fmt=function(t){ try{ const d=new Date(t); return d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate(); }catch(e){ return ''; } };
+    box.innerHTML =
+      (notice ? '<div class="msg '+(notice.kind||'ok')+'" style="margin:0 0 8px;">'+drEsc(notice.text)+'</div>' : '')+
+      '<div class="mem-h">この道場の会員（'+rows.length+'名）</div>'+
+      (rows.length ? rows.map(function(r){
+        return '<div class="mem">'+
+          '<div class="mem-main"><b>'+drEsc(r.display_name||'（名前なし）')+'</b><span class="tier">'+tierName(r.membership_tier)+'</span></div>'+
+          '<div class="mem-sub">'+drEsc(r.email||'')+'</div>'+
+          '<div class="mem-sub">選手名：'+drEsc((r.player_names||[]).join('、')||'—')+'　<span style="white-space:nowrap;">申込日：'+fmt(r.joined_at)+'</span></div>'+
+          '<button type="button" class="mini danger kw-dr-rm" data-dojo="'+drEsc(dojoId)+'" data-user="'+drEsc(r.user_id)+'" data-name="'+drEsc(r.display_name||r.email||'')+'">この道場から外す</button>'+
+        '</div>';
+      }).join('') : '<div class="note" style="margin:0;">まだ会員はいません。父兄・選手のみなさんが観戦アプリで選手会員に申し込むと、ここに表示されます。</div>');
+    box.querySelectorAll('.kw-dr-rm').forEach(function(b){
+      b.onclick=async function(){
+        if(!confirm('「'+b.dataset.name+'」さんをこの道場から外しますか？\n外すと、この道場が参加した大会の動画が見られなくなります。')) return;
+        b.disabled=true;
+        let notice;
+        try{
+          const {data, error} = await drSb().rpc('kw_remove_dojo_member', { p_dojo_id: b.dataset.dojo, p_user_id: b.dataset.user });
+          if(error) throw error;
+          notice = {kind:'ok', text: data==='removed' ? '「'+b.dataset.name+'」さんを道場から外しました' : 'すでに外れています'};
+        }catch(e){ notice = {kind:'err', text:'外せませんでした: '+(e&&e.message||e)}; }
+        drRenderMembers(b.dataset.dojo, notice);
+      };
+    });
+  }
+
+  function drTier(){ return (drProfile && drProfile.membership_tier) || 'free'; }
+  // ★v8 1契約1道場: 運営(admin)以外で、管理する道場が1つ以上あれば新規登録不可
+  function drIsLimited(list){ return drTier()!=='admin' && list.length>=1; }
+
+  async function drRenderMine(){
+    const box=document.getElementById('kw-dr-mine');
+    if(!box || !drUser) return;
+    box.innerHTML='<div class="note" style="margin-top:10px;">このアカウントの道場を確認中…</div>';
+    let list=[];
+    try{ list = await drFetchMyDojos(); }
+    catch(e){ console.warn('[dojo-register] my dojos failed:', e); if(document.body.contains(box)) box.innerHTML=''; return; }
+    if(!document.body.contains(box)) return;
+    if(!list.length){ box.innerHTML=''; return; }
     const curId = (function(){ try{ return localStorage.getItem('kw_dojo_id')||''; }catch(e){ return ''; } })();
-    drBody(
-      '<div style="font-size:17px;font-weight:800;">この端末で登録した道場（'+list.length+'件）</div>'+
+    const limited = drIsLimited(list);
+    const paid = PAID_TIERS.indexOf(drTier())>=0;
+    box.innerHTML =
+      '<div class="mine-h">このアカウントの道場（'+list.length+'件）</div>'+
       list.map(function(d){ return drDojoCard(d, curId); }).join('')+
-      MSG+
-      '<button id="kw-dr-new" type="button" class="btn main">新しい道場を登録する</button>'
-    );
+      (!limited
+        ? '<div class="mine-sep">新しく道場を登録する場合は、下に入力してください</div>'
+        : paid
+          ? '<div class="msg info" style="margin-top:14px;">道場会員の契約1つにつき、登録できる道場は1つです。別の道場を登録する場合は、その道場の代表者のアカウントで登録してください。</div>'
+          : '<div class="msg info" style="margin-top:14px;">道場会員の契約が終了しています。同じ道場で契約を再開できます。</div>'+
+            '<button id="kw-dr-resume" type="button" class="btn main">道場会員の契約を再開する</button>');
+    const nf=document.getElementById('kw-dr-newform'); if(nf) nf.style.display = limited ? 'none' : '';
     drBindDojoCardActions();
-    document.getElementById('kw-dr-new').onclick=drStartNewRegistration;
+    list.forEach(function(d){ drRenderMembers(d.dojo_id); });
+    const rs=document.getElementById('kw-dr-resume');
+    if(rs) rs.onclick=function(){
+      drSet(REG_KEY, {name:list[0].dojo_name, dojo_id:list[0].dojo_id, ts:Date.now(), resume:true});
+      drShowPayStep();
+    };
   }
 
-  function drDojoCard(done, curId){
+  function drDojoCard(done, curId, withMembers){
     const isCur = curId && String(done.dojo_id)===String(curId);
     const showUse = !isCur && !drIsMobile();
     return (
       '<div class="dojo">'+
         '<div class="nm"><span style="flex:1;">'+drEsc(done.dojo_name||'')+'</span>'+(isCur&&!drIsMobile()?'<span class="badge">このPCで設定中</span>':'')+'</div>'+
-        '<div class="code-lbl">招待コード</div>'+
-        '<div class="row"><div class="code">'+drEsc(done.invite_code||'—')+'</div>'+
-          '<button type="button" class="mini kw-dr-copy" data-code="'+drEsc(done.invite_code||'')+'">コピー</button>'+
-          (showUse?'<button type="button" class="mini kw-dr-use" data-id="'+drEsc(done.dojo_id||'')+'">このPCの設定に使う</button>':'')+
-        '</div>'+
         '<div class="id">道場ID：'+drEsc(done.dojo_id||'')+'</div>'+
+        (showUse?'<div class="row" style="margin-top:8px;"><button type="button" class="mini kw-dr-use" data-id="'+drEsc(done.dojo_id||'')+'">このPCの設定に使う</button></div>':'')+
+        (withMembers===false ? '' : '<div class="members" data-dojo="'+drEsc(done.dojo_id||'')+'"></div>')+
       '</div>'
     );
   }
 
   function drBindDojoCardActions(){
-    document.querySelectorAll('#kw-dr-body .kw-dr-copy').forEach(function(btn){
-      btn.onclick=function(){
-        try{
-          navigator.clipboard.writeText(String(btn.dataset.code||''));
-          drMsg('招待コード '+btn.dataset.code+' をコピーしました','ok');
-        }catch(e){ drMsg('コピーできませんでした。長押しして選択し、コピーしてください。','err'); }
-      };
-    });
     document.querySelectorAll('#kw-dr-body .kw-dr-use').forEach(function(btn){
       btn.onclick=function(){
         const id=String(btn.dataset.id||'');
@@ -667,8 +833,8 @@
           const el=document.getElementById('c-dojo'); if(el) el.value=id;
           if(window.cfg) window.cfg.dojo=id;
         }catch(e){}
-        drShowHistory();
-        setTimeout(function(){ drMsg('このパソコンの Karate Win の道場を切り替えました','ok'); },50);
+        drRenderMine();
+        drMsg('このパソコンの Karate Win の道場を切り替えました','ok');
       };
     });
   }
