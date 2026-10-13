@@ -21,13 +21,25 @@
   .top .sub{font-size:14px;color:var(--sub);font-weight:700;}
   .wrap{max-width:600px;margin:0 auto;padding:18px 16px 56px;}
   .card{background:var(--card);border:1px solid var(--line);border-radius:12px;}
-  .hero{padding:18px 20px;margin-bottom:16px;}
-  .hero h1{margin:0 0 4px;font-size:20px;font-weight:800;color:var(--text);}
+  .hero{padding:18px 20px;margin-top:16px;}
+  .hero h1{margin:0 0 2px;font-size:18px;font-weight:800;color:var(--text);}
   .hero .price{font-size:15px;color:var(--sub);font-weight:700;}
   .hero .price b{font-size:28px;color:var(--navy2);font-weight:800;margin-right:2px;}
-  .hero ul{margin:12px 0 0;padding:0;list-style:none;font-size:15px;color:var(--text);}
-  .hero li{padding:4px 0 4px 26px;position:relative;line-height:1.6;}
-  .hero li::before{content:"✓";position:absolute;left:2px;top:4px;color:var(--ok);font-weight:900;}
+  .planbar{background:#fff;border:1px solid var(--line);border-left:6px solid var(--navy);border-radius:12px;padding:12px 16px;margin-bottom:14px;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px;}
+  .planbar .pb-name{font-size:17px;font-weight:800;color:var(--text);}
+  .planbar .pb-price{font-size:15px;color:var(--sub);font-weight:700;}
+  .planbar .pb-price b{font-size:22px;color:var(--navy2);font-weight:800;margin-right:2px;}
+  .feat{margin:14px 0 0;padding:0;list-style:none;counter-reset:f;}
+  .feat>li{counter-increment:f;position:relative;padding:12px 0 12px 40px;border-top:1px solid var(--line);}
+  .feat>li::before{content:counter(f);position:absolute;left:0;top:12px;width:28px;height:28px;border-radius:50%;background:var(--navy);color:#fff;font-size:15px;font-weight:800;display:flex;align-items:center;justify-content:center;}
+  .feat .ft{font-size:16px;font-weight:700;color:var(--text);line-height:1.65;}
+  .feat .sub{margin:8px 0 0;padding:0;list-style:none;counter-reset:s;}
+  .feat .sub>li{counter-increment:s;position:relative;padding:4px 0 4px 26px;font-size:15px;color:var(--text);line-height:1.7;font-weight:500;}
+  .feat .sub>li::before{position:absolute;left:0;top:4px;}
+  .feat .sub>li:nth-child(1)::before{content:"①";}
+  .feat .sub>li:nth-child(2)::before{content:"②";}
+  .feat .sub>li:nth-child(3)::before{content:"③";}
+  .feat .aside{font-size:14px;color:var(--sub);margin-top:4px;line-height:1.65;}
   .panel-head{padding:14px 20px;border-bottom:1px solid var(--line);font-size:18px;font-weight:800;color:var(--text);}
   #kw-dr-stepbar{display:flex;gap:6px;padding:14px 20px 0;}
   .step{flex:1;text-align:center;padding:6px 2px;border-radius:8px;font-size:13px;font-weight:800;line-height:1.4;border:1px solid var(--line);background:#f1f3f6;color:#4b5563;}
@@ -82,23 +94,32 @@
 <body>
 <div class="top"><div class="top-in"><div class="logo">Karate Win</div><div class="sub">道場会員登録</div></div></div>
 <div class="wrap">
-  <div class="card hero">
-    <h1>道場会員プラン</h1>
-    <div class="price"><b>¥3,300</b>/月（税込）・毎月自動更新</div>
-    <ul>
-      <li>道場の登録と、父兄・選手向け招待コードの発行</li>
-      <li>大会運営アプリ「Karate Win」での試合運営・動画記録</li>
-      <li>道場の試合動画の管理</li>
-      <li>父兄・選手は招待コードで観戦アプリに参加し、自分の道場の動画を見られます</li>
-    </ul>
+  <div class="planbar">
+    <div class="pb-name">道場会員プラン</div>
+    <div class="pb-price"><b>¥3,300</b>/月（税込）・毎月自動更新</div>
   </div>
 
-  <div class="card">
+  <div class="card" id="reg">
     <div class="panel-head">登録手続き</div>
     <div id="dr-root">
       <div id="kw-dr-stepbar"></div>
       <div id="kw-dr-body"><div class="loading">読み込み中…</div></div>
     </div>
+  </div>
+
+
+  <div class="card hero">
+    <h1>プランの内容</h1>
+    <ol class="feat">
+      <li>
+        <div class="ft">大会のタイマー・得点表示システムと同じソフトを使用でき、大会さながらの練習試合を行えます</div>
+        <div class="aside">※大会同様の機材を道場でご用意頂く必要がございます（Amazonの参考価格で65,000円程度）</div>
+      </li>
+      <li>
+        <div class="ft">大会で録画された試合動画を視聴可能です。スローモーションやコマ送り、飛ばし見の機能もあります</div>
+        <div class="aside">※自分の道場が参加した大会の動画は見放題です</div>
+      </li>
+    </ol>
   </div>
 
   <div class="foot">
@@ -112,7 +133,9 @@
 <script>
 'use strict';
 // ══════════════════════════════════════════════════════════════
-//  道場会員登録ウィザード（独立ページ版 v4）
+//  道場会員登録ウィザード（独立ページ版 v6）
+//  v6: 登録手続きを上に移動し、プラン説明を短くして下に配置
+//  v5: 道場会員プランの説明文を差し替え（機材・オフライン動作・動画視聴とDL枠）
 //  v4: 白地・濃い文字のデザインに全面変更（スタイルをクラス化）
 //      確認メールのリンク先をこのページにする（emailRedirectTo）。
 //      指定しないと Supabase の Site URL（観客アプリ）に飛ぶため。
