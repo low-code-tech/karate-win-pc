@@ -4193,6 +4193,26 @@ function impRenderTable(){
         <td style="padding:6px 8px;font-size:10px;color:#8090b0;">${kwEscHtml(p.kata||'—')}</td>
       </tr>`).join('');
 }
+// ══ v1.20 生年月日の読み取り → 'YYYY-MM-DD'（読めなければ ''）══
+//  Excel の日付セル（Date）・日付のシリアル値・'2014/4/1' '2014-04-01' '2014.4.1' '20140401'
+//  '2014年4月1日'・和暦（平成26年4月1日 / H26.4.1 / 令和2年…）・全角数字に対応
+function kwParseDob(v){
+  const pad=n=>String(n).padStart(2,'0');
+  const ok=(y,m,d)=>{ if(!(y>=1940&&m>=1&&m<=12&&d>=1&&d<=31)) return ''; const t=new Date(y,m-1,d); if(t.getFullYear()!==y||t.getMonth()!==m-1||t.getDate()!==d) return ''; if(t>new Date()) return ''; return y+'-'+pad(m)+'-'+pad(d); };
+  if(v===null||v===undefined||v==='') return '';
+  if(v instanceof Date && !isNaN(v)){ const t=new Date(v.getTime()+6*3600*1000); return ok(t.getFullYear(),t.getMonth()+1,t.getDate()); }  // 時差・秒ずれを吸収
+  if(typeof v==='number'){ if(v>20000&&v<80000){ const t=new Date(Date.UTC(1899,11,30)+Math.round(v)*86400000); return ok(t.getUTCFullYear(),t.getUTCMonth()+1,t.getUTCDate()); } return ''; }
+  let s=String(v).normalize('NFKC').replace(/\s+/g,'').trim(); if(!s) return '';
+  const era={'明治':1868,'大正':1912,'昭和':1926,'平成':1989,'令和':2019,'M':1868,'T':1912,'S':1926,'H':1989,'R':2019};
+  let m=s.match(/^(明治|大正|昭和|平成|令和|[MTSHRmtshr])(元|\d{1,2})[年.\/-](\d{1,2})[月.\/-](\d{1,2})日?$/);
+  if(m){ const b=era[m[1].toUpperCase()]||era[m[1]]; const n=m[2]==='元'?1:parseInt(m[2],10); return ok(b+n-1,parseInt(m[3],10),parseInt(m[4],10)); }
+  m=s.match(/^(\d{4})[年.\/-](\d{1,2})[月.\/-](\d{1,2})日?/); if(m) return ok(+m[1],+m[2],+m[3]);
+  m=s.match(/^(\d{4})(\d{2})(\d{2})$/); if(m) return ok(+m[1],+m[2],+m[3]);
+  if(/^\d{5}(\.\d+)?$/.test(s)) return kwParseDob(parseFloat(s));
+  return '';
+}
+// 端末に保存するときは生年月日を外す（会場の共用パソコンに子どもの生年月日を残さない）
+function kwStripDob(list){ return (list||[]).map(p=>{ const o=Object.assign({},p); delete o.dob; return o; }); }
 function impHandleFile(file){
   if(!file)return;
   if(!file.name.match(/\.(xlsx|xls)$/i)){impLog('err','Excelファイルを選択してください');return;}
@@ -4204,6 +4224,7 @@ function impHandleFile(file){
       // 選手名列の候補（別名対応）
       const NAME_KEYS=['選手名','氏名','名前','選手氏名','name','Name'];
       const _k=(r,keys)=>{for(const k of keys){if(r[k]!==undefined&&String(r[k]).trim()!=='')return String(r[k]).trim();}return '';};
+      const _kRaw=(r,keys)=>{for(const k of keys){if(r[k]!==undefined&&r[k]!==null&&String(r[k]).trim()!=='')return r[k];}return '';};
       // 全シートから「選手名系の列を持つシート」を探索（Sensyu_List優先）
       const order=[...(wb.SheetNames.includes('Sensyu_List')?['Sensyu_List']:[]),
                    ...wb.SheetNames.filter(n=>n!=='Sensyu_List')];
@@ -4232,6 +4253,7 @@ function impHandleFile(file){
         kata:_k(r,['形・組手','形組手','種目','競技']),
         gender:_k(r,['性別','gender']),
         tournament:_k(r,['大会','大会名','tournament']),
+        dob:kwParseDob(_kRaw(r,['生年月日','誕生日','生年月日(西暦)','生年月日（西暦）','birthday','birth','dob'])),   // v1.20 端末には保存しない
         tournamentId:String(r['大会id']||'').trim(),
         place:_k(r,['大会場所','開催場所','会場','場所','place']),
         date:_k(r,['開催日時','開催日','日時','date']),
@@ -4240,6 +4262,10 @@ function impHandleFile(file){
       _impEventInfo={tournament:_k(s,['大会','大会名','tournament']),tournamentId:String(s['大会id']||'').trim(),date:_k(s,['開催日時','開催日','日時','date']),place:_k(s,['大会場所','開催場所','会場','場所','place'])};
       _impImportedAt=new Date().toISOString();
       impLog('ok',`${_impPlayers.length}名 読み込み完了`);
+      // v1.20 生年月日の読み取り状況（観戦アプリの会員確認に使う。画面・端末には残さない）
+      {const _nd=_impPlayers.filter(p=>p.dob).length, _hasCol=rows.length&&Object.keys(rows[0]).some(k=>['生年月日','誕生日','生年月日(西暦)','生年月日（西暦）','birthday','birth','dob'].includes(String(k).trim()));
+       if(_hasCol) impLog(_nd===_impPlayers.length?'ok':'warn',`生年月日: ${_nd}名 読み取り`+(_nd<_impPlayers.length?`（${_impPlayers.length-_nd}名は空欄または読めない形式。その選手の家族は、観戦アプリで道場主・運営の承認が必要になります）`:''));
+       else impLog('warn','「生年月日」の列がありません。観戦アプリの会員確認には生年月日が必要です（テンプレートに列があります）');}
       // 0名なら原因を具体的に案内
       if(!_impPlayers.length){
         const cols=Object.keys(rows[0]||{}).filter(c=>!/^__EMPTY/.test(c)).slice(0,12);
@@ -4332,16 +4358,16 @@ window.addEventListener('load',function(){ try{ kwBcTx(); kwMonMiniApply(); kwMo
 function impDownloadTemplate(){
   try{
     // ヘッダー（読込パーサーが認識する列名）
-    const header=['大会','大会場所','開催日時','氏名','よみ','学年','性別','身長','体重','ゼッケン','所属','クラス','コート','形・組手'];
-    // 記入例（削除して実データに置き換えて使用）
+    const header=['大会','大会場所','開催日時','氏名','よみ','学年','性別','生年月日','身長','体重','ゼッケン','所属','クラス','コート','形・組手'];
+    // 記入例（削除して実データに置き換えて使用）。生年月日は観戦アプリの会員確認に使う（画面には出さない）
     const sample=[
-      ['第12回関西ジュニア空手大会','大阪市中央体育館','2026/09/06 09:00','山田 太郎','やまだ たろう','小学1年','男',121,24,101,'大阪北道場','小学1年男子','A','組手'],
-      ['第12回関西ジュニア空手大会','大阪市中央体育館','2026/09/06 09:00','佐藤 花','さとう はな','小学1年','女',118,22,102,'梅田スポーツ少年団','小学1年女子','B','形'],
+      ['第12回関西ジュニア空手大会','大阪市中央体育館','2026/09/06 09:00','山田 太郎','やまだ たろう','小学1年','男','2019/05/12',121,24,101,'大阪北道場','小学1年男子','A','組手'],
+      ['第12回関西ジュニア空手大会','大阪市中央体育館','2026/09/06 09:00','佐藤 花','さとう はな','小学1年','女','2019/11/03',118,22,102,'梅田スポーツ少年団','小学1年女子','B','形'],
     ];
     const aoa=[header,...sample];
     const ws=XLSX.utils.aoa_to_sheet(aoa);
     // 列幅を見やすく設定
-    ws['!cols']=[{wch:24},{wch:18},{wch:18},{wch:14},{wch:16},{wch:8},{wch:6},{wch:6},{wch:6},{wch:8},{wch:20},{wch:14},{wch:6},{wch:8}];
+    ws['!cols']=[{wch:24},{wch:18},{wch:18},{wch:14},{wch:16},{wch:8},{wch:6},{wch:12},{wch:6},{wch:6},{wch:8},{wch:20},{wch:14},{wch:6},{wch:8}];
     const wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,ws,'Sensyu_List');
     XLSX.writeFile(wb,'大会選手登録テンプレート.xlsx');
@@ -4370,7 +4396,7 @@ function kwEntriesQueue(tournament, players, info){
   const tn=String(tournament||'').trim(); if(!tn) return;
   const entries=(players||[]).filter(p=>p && p.name && p.club).map(p=>({
     name:String(p.name).trim(), yomi:String(p.yomi||'').trim(), club:String(p.club).trim(),
-    cls:String(p.cls||'').trim(), bib:String(p.bib||'').trim()
+    cls:String(p.cls||'').trim(), bib:String(p.bib||'').trim(), dob:String(p.dob||'')
   }));
   if(!entries.length){ try{impLog('warn','所属（道場名）の入った選手がいないため、出場選手はサーバーに送りません');}catch(e){} return; }
   const o=kwEntriesPending();
@@ -4406,7 +4432,7 @@ async function kwEntriesFlush(opts){
       }
       sent++;
       delete o[tn]; kwEntriesSavePending(o);
-      const m=`☁ 出場選手を送信しました: ${tn}（${data.entries}名・新しい道場 ${data.dojos_created}件・大会参加道場 ${data.tournament_dojos_added}件追加・動画 ${data.videos_linked}本を大会に紐づけ${data.skipped?('・所属なし '+data.skipped+'名は対象外'):''}）`;
+      const m=`☁ 出場選手を送信しました: ${tn}（${data.entries}名・新しい道場 ${data.dojos_created}件・大会参加道場 ${data.tournament_dojos_added}件追加・動画 ${data.videos_linked}本を大会に紐づけ${data.skipped?('・所属なし '+data.skipped+'名は対象外'):''}${(data.with_birth_date!==undefined)?('・生年月日あり '+data.with_birth_date+'名'):''}）`;
       try{impLog('ok',m);}catch(e){} console.log('[entries]', tn, data);
     }catch(e){
       failed++;
@@ -4432,13 +4458,13 @@ async function kwEntriesSendNow(){
 function impSaveData(){
   if(!_impPlayers.length){impLog('err','0名のため保存しません（既存の保存済みデータは変更されていません）');return;}
   try{
-    localStorage.setItem('karate_players',JSON.stringify(_impPlayers));
+    localStorage.setItem('karate_players',JSON.stringify(kwStripDob(_impPlayers)));   // v1.20 生年月日は保存しない
     localStorage.setItem('karate_importedAt',_impImportedAt);
     localStorage.setItem('karate_eventInfo',JSON.stringify(_impEventInfo));
     impUpdateSummary();
     impLog('ok',`✅ ${_impPlayers.length}名 保存完了`);
     {const _tn=String((_impEventInfo.tournament||(_impPlayers[0]&&_impPlayers[0].tournament)||'')).trim();
-     if(_tn)kwArchSave(_tn,_impPlayers,_impEventInfo);
+     if(_tn)kwArchSave(_tn,kwStripDob(_impPlayers),_impEventInfo);
      // v1.19 出場選手をサーバー送信の待ちに入れ、ログイン済みならその場で送る
      if(_tn){ kwEntriesQueue(_tn,_impPlayers,_impEventInfo); kwEntriesFlush({silent:true}); }}
     if(_impEventInfo.tournament)impLog('ok',`大会: ${_impEventInfo.tournament}`);
@@ -4737,10 +4763,11 @@ function mlEditPlayer(idx){
 function mlExportRoster(){
   if(!_mlPlayers.length){toast('名簿が空です（データ取込またはテンプレートで登録してください）');return;}
   let ev={}; try{ev=JSON.parse(localStorage.getItem('karate_eventInfo')||'{}');}catch(e){}
-  const header=['大会','大会場所','開催日時','氏名','よみ','学年','性別','身長','体重','ゼッケン','所属','クラス','コート','形・組手'];
-  const rows=_mlPlayers.map(p=>[ev.tournament||p.tournament||'',ev.place||'',ev.date||'',p.name||'',p.yomi||'',p.grade||'',p.gender||'','','',p.bib||'',p.club||'',p.cls||'',p.court||'',p.kata||'']);
+  // v1.20 生年月日は端末に保存していないため空欄で出力（再取り込みしてもサーバーの生年月日は消えない）
+  const header=['大会','大会場所','開催日時','氏名','よみ','学年','性別','生年月日','身長','体重','ゼッケン','所属','クラス','コート','形・組手'];
+  const rows=_mlPlayers.map(p=>[ev.tournament||p.tournament||'',ev.place||'',ev.date||'',p.name||'',p.yomi||'',p.grade||'',p.gender||'','','','',p.bib||'',p.club||'',p.cls||'',p.court||'',p.kata||'']);
   const ws=XLSX.utils.aoa_to_sheet([header,...rows]);
-  ws['!cols']=[24,18,18,14,16,8,6,6,6,8,20,14,6,8].map(w=>({wch:w}));
+  ws['!cols']=[24,18,18,14,16,8,6,12,6,6,8,20,14,6,8].map(w=>({wch:w}));
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Sensyu_List');
   XLSX.writeFile(wb,(String(ev.tournament||'名簿').trim()||'名簿')+'_名簿.xlsx');
   toast('📤 名簿を出力しました（Excelで修正後、データ取込で再登録できます）');
@@ -4928,7 +4955,7 @@ function toast(msg,cls){
     fitPlayerName();
   }
   fit169();
-  window.KW_VER='1.19';   // v1.19 (2026-10-14): 選手データ取り込み時に出場選手をサーバーへ送信（道場・大会参加の自動登録）
+  window.KW_VER='1.20';   // v1.20 (2026-10-14): 選手データの「生年月日」を読み取り、出場選手と一緒にサーバーへ送信（観戦アプリの会員確認用。端末には保存しない） / v1.19: 選手データ取り込み時に出場選手をサーバーへ送信
   try{console.log('[Karate Win] version', KW_VER);}catch(e){}
 
   // ══ オンライン更新チェック機能 ══
