@@ -101,6 +101,7 @@
   .reqs:empty{display:none;}
   .req{padding:10px 12px;margin:8px 0;border:1px solid #f5d48a;background:#fffaeb;border-radius:8px;}
   .req .mem-main b{font-size:17px;}
+  .req .why.found{background:#ecfdf3;color:#05603a;border-color:#a6e3c1;}
   .req .why{font-size:13px;font-weight:800;padding:1px 8px;border-radius:10px;background:#fff;color:#93370d;border:1px solid #f5d48a;}
   .req .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
   .mini.okb{border-color:var(--ok-line);color:#fff;background:var(--ok);}
@@ -161,7 +162,10 @@
 <script>
 'use strict';
 // ══════════════════════════════════════════════════════════════
-//  道場会員登録ウィザード（独立ページ版 v10）
+//  道場会員登録ウィザード（独立ページ版 v11）
+//  v11: 会員の承認制（kw_approval_v1.sql と対応）。生年月日の照合をやめ、父兄の申込（選手名・所属道場）を
+//      道場主が承認する。承認待ちには「出場記録あり（大会名）／なし」を参考表示（生年月日の表示は削除）。
+//      運営の欄の「道場主のいない道場の選手申込」に、大会事務局がいる道場かどうかを表示。
 //  v10: 関係者だけに限る（kw_verify_v1.sql・register-dojo v3 と対応）
 //      ・選手会員の申込で生年月日が照合できなかった依頼（記録なし・不一致・出場記録なし・照合停止）を
 //        道場主がこのページで確認し「承認／却下」できる（RPC kw_pending_requests / kw_decide_request）。
@@ -507,7 +511,7 @@
       '</select>'+
       MSG+
       '<button id="kw-dr-go" type="button" class="btn main">次へ（お支払いの確認）</button>'+
-      '<div class="note">大会に出場したことのある道場は、すでに一覧に入っています。道場名を入れると候補が出るので、あなたの道場を選んでください。一覧にない場合は、そのまま新しく登録できます。<br>父兄・選手のみなさんは、観戦アプリで選手（お子さん）の名前・生年月日・所属道場を入れて申し込みます。大会の申込データと照合して確認します。</div>'+
+      '<div class="note">大会に出場したことのある道場は、すでに一覧に入っています。道場名を入れると候補が出るので、あなたの道場を選んでください。一覧にない場合は、そのまま新しく登録できます。<br>父兄・選手のみなさんは、観戦アプリで選手（お子さん）の名前と所属道場を入れて申し込みます。申込は道場主のあなたが承認します。</div>'+
       '</div>'
     );
     drBindWho();
@@ -737,8 +741,8 @@
         (mob
           ? '<li>大会で使うパソコンで Karate Win を開き、設定画面の「🔄 道場一覧を更新」（ログインが必要）を押してから、「道場」の一覧で <b>'+drEsc(done.dojo_name||'')+'</b> を選んでください。</li>'
           : '<li>Karate Win の設定画面の「道場」で <b>'+drEsc(done.dojo_name||'')+'</b> が選ばれていることを確認してください。このパソコンでは自動で選ばれます。別のパソコンでは「🔄 道場一覧を更新」を押してから選んでください。</li>')+
-        '<li>父兄・選手のみなさんには、観戦アプリで<b>選手（お子さん）の名前・生年月日・所属道場（'+drEsc(done.dojo_name||'')+'）</b>を入れて申し込むよう案内してください。大会の申込データと照合して、自動で確認します。</li>'+
-        '<li>生年月日の記録がない選手や入力の違いで確認できなかった申込は、このページの「承認待ち」に出ます。あなたの道場の選手・父兄であることを確かめてから「承認」してください。</li>'+
+        '<li>父兄・選手のみなさんには、観戦アプリで<b>選手（お子さん）の名前と所属道場（'+drEsc(done.dojo_name||'')+'）</b>を入れて申し込むよう案内してください。</li>'+
+        '<li>申込は、このページの「承認待ちの申込」に出ます。あなたの道場の選手・父兄であることを確かめてから「承認」してください。承認されるまで、申し込んだ人は動画の一覧も見られません。</li>'+
         '<li>このページにログインすると、あなたの道場の会員の一覧（名前・メール・選手名）を確認できます。心当たりのない人は「この道場から外す」で外せます。</li>'+
       '</ol></div>'+
       (mob ? '' : '<a class="btn main" href="karate-all-in-one.html" style="display:flex;align-items:center;justify-content:center;text-decoration:none;color:#fff;">Karate Win を開く</a>')+
@@ -772,7 +776,7 @@
   }
 
   // ══ ★v10 承認待ちの申込（道場主＝自分の道場、運営＝全道場） ══
-  const DR_REASON = { no_dob:'生年月日の記録なし', mismatch:'生年月日が一致しない', not_found:'出場記録が見つからない', locked:'照合が止まっている（入力ミスが続いた）' };
+
   let drReqCache = null;
   async function drFetchRequests(force){
     if(drReqCache && !force) return drReqCache;
@@ -784,12 +788,15 @@
     return drReqCache;
   }
   function drFmtDate(t){ try{ const d=new Date(t); if(isNaN(d)) return ''; return d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate(); }catch(e){ return ''; } }
-  function drFmtDob(s){ const m=String(s||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? m[1]+'年'+Number(m[2])+'月'+Number(m[3])+'日' : '（未入力）'; }
+
   function drReqHtml(r, showDojo){
     return '<div class="req">'+
-      '<div class="mem-main"><b>'+drEsc(r.player_name||'')+'</b><span class="why">'+drEsc(DR_REASON[r.reason]||'確認が必要')+'</span></div>'+
+      '<div class="mem-main"><b>'+drEsc(r.player_name||'')+'</b>'+(r.entry_found
+          ? '<span class="why found">出場記録あり</span>'
+          : '<span class="why">出場記録なし</span>')+'</div>'+
+      (r.entry_found && r.entry_tournament ? '<div class="mem-sub">出場記録：'+drEsc(r.entry_tournament)+'</div>' : '')+
+      (showDojo && !r.dojo_has_owner ? '<div class="mem-sub">'+(r.dojo_has_office ? '大会事務局も承認できます' : '大会事務局なし（運営が承認）')+'</div>' : '')+
       (showDojo ? '<div class="mem-sub">道場：'+drEsc(r.dojo_name||'')+'</div>' : '')+
-      '<div class="mem-sub">申込者が入力した生年月日：'+drEsc(drFmtDob(r.birth_date))+'</div>'+
       '<div class="mem-sub">申込者：'+drEsc(r.display_name||'（名前なし）')+'　'+drEsc(r.email||'')+'</div>'+
       '<div class="mem-sub">申込日：'+drFmtDate(r.created_at)+'</div>'+
       '<div class="acts">'+
@@ -828,7 +835,7 @@
       (notice ? '<div class="msg '+(notice.kind||'ok')+'" style="margin:0 0 8px;">'+drEsc(notice.text)+'</div>' : '')+
       (list.length
         ? '<div class="mem-h">承認待ちの申込（'+list.length+'件）</div>'+
-          '<div class="note" style="margin:0 0 4px;">大会の申込データと照合できなかった申込です。あなたの道場の選手・父兄であることを確かめてから承認してください。</div>'+
+          '<div class="note" style="margin:0 0 4px;">観戦アプリで、この道場の選手・父兄として申し込んだ人です。あなたの道場の選手・父兄であることを確かめてから承認してください。「出場記録あり」は、入力された選手名がこの道場の大会の出場記録にあることを表します（参考）。</div>'+
           list.map(function(r){ return drReqHtml(r,false); }).join('')
         : '');
     drBindDecide(box, function(n){ drRenderRequests(dojoId, n); if(n && n.kind==='ok') drRenderMembers(dojoId); });
