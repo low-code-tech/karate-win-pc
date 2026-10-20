@@ -162,7 +162,10 @@
 <script>
 'use strict';
 // ══════════════════════════════════════════════════════════════
-//  道場会員登録ウィザード（独立ページ版 v11）
+//  道場会員登録ウィザード（独立ページ版 v12）
+//  v12: 運営の判定に権限（role = admin / super_admin）も使う。会員区分が道場会員の運営アカウントでも
+//      「運営の確認待ち」（道場の引き受け・道場主のいない道場の申込）が出るようにした。
+//      契約の再開のときに、お支払い画面へ「引き受け」の案内が出ていたのを「契約の再開」に修正。
 //  v11: 会員の承認制（kw_approval_v1.sql と対応）。生年月日の照合をやめ、父兄の申込（選手名・所属道場）を
 //      道場主が承認する。承認待ちには「出場記録あり（大会名）／なし」を参考表示（生年月日の表示は削除）。
 //      運営の欄の「道場主のいない道場の選手申込」に、大会事務局がいる道場かどうかを表示。
@@ -275,7 +278,7 @@
   async function drLoadProfile(createIfMissing){
     if(!drUser) return null;
     const sb=drSb();
-    let {data} = await sb.from('user_profiles').select('id, email, display_name, membership_tier').eq('id', drUser.id).maybeSingle();
+    let {data} = await sb.from('user_profiles').select('id, email, display_name, membership_tier, role').eq('id', drUser.id).maybeSingle();
     if(!data && createIfMissing){
       await sb.from('user_profiles').upsert({
         id: drUser.id,
@@ -283,7 +286,7 @@
         display_name: (drUser.user_metadata && drUser.user_metadata.display_name) || (drUser.email||'').split('@')[0],
         membership_tier: 'free'
       });
-      const r2 = await sb.from('user_profiles').select('id, email, display_name, membership_tier').eq('id', drUser.id).maybeSingle();
+      const r2 = await sb.from('user_profiles').select('id, email, display_name, membership_tier, role').eq('id', drUser.id).maybeSingle();
       data = r2.data;
     }
     drProfile = data || null;
@@ -580,7 +583,7 @@
       '<div class="box">'+
         '<div class="plan-row"><span class="plan-name">道場会員（毎月自動更新）</span>'+
         '<span class="plan-price">¥3,300<small>/月（税込）</small></span></div>'+
-        '<div style="font-size:15px;color:var(--sub);margin-top:6px;">登録する道場：<b style="color:var(--text);">'+drEsc(reg.name||'')+'</b>'+(reg.prefecture?'（'+drEsc(reg.prefecture)+'）':'')+(reg.dojo_id?'<br><span style="font-size:14px;">（登録済みの道場の引き受けです。運営が確認したあと道場主になります）</span>':'')+'</div>'+
+        '<div style="font-size:15px;color:var(--sub);margin-top:6px;">登録する道場：<b style="color:var(--text);">'+drEsc(reg.name||'')+'</b>'+(reg.prefecture?'（'+drEsc(reg.prefecture)+'）':'')+(reg.resume?'<br><span style="font-size:14px;">（この道場の道場会員の契約を再開します）</span>':reg.dojo_id?'<br><span style="font-size:14px;">（登録済みの道場の引き受けです。運営が確認したあと道場主になります）</span>':'')+'</div>'+
       '</div>'+
       MSG+
       '<button id="kw-dr-go" type="button" class="btn main">お支払いへ進む（Stripe）</button>'+
@@ -746,7 +749,7 @@
         '<li>このページにログインすると、あなたの道場の会員の一覧（名前・メール・選手名）を確認できます。心当たりのない人は「この道場から外す」で外せます。</li>'+
       '</ol></div>'+
       (mob ? '' : '<a class="btn main" href="karate-all-in-one.html" style="display:flex;align-items:center;justify-content:center;text-decoration:none;color:#fff;">Karate Win を開く</a>')+
-      (drTier()==='admin' ? '<button id="kw-dr-new" type="button" class="btn sub">続けて別の道場を登録する</button>' : '')
+      (drIsAdmin() ? '<button id="kw-dr-new" type="button" class="btn sub">続けて別の道場を登録する</button>' : '')
     );
     drTop();
     drBindDojoCardActions();
@@ -941,9 +944,11 @@
   }
 
   function drTier(){ return (drProfile && drProfile.membership_tier) || 'free'; }
+  // ★v12 運営かどうか（会員区分 admin、または権限 admin / super_admin）
+  function drIsAdmin(){ return drTier()==='admin' || ['admin','super_admin'].indexOf(drProfile && drProfile.role)>=0; }
   // ★v8 1契約1道場: 運営(admin)以外で、管理する道場が1つ以上あれば新規登録不可
   //   ★v10 運営の確認待ちの引き受け依頼も1件と数える
-  function drIsLimited(list, claims){ return drTier()!=='admin' && (list.length + (claims||[]).filter(function(c){ return c.status==='pending'; }).length)>=1; }
+  function drIsLimited(list, claims){ return !drIsAdmin() && (list.length + (claims||[]).filter(function(c){ return c.status==='pending'; }).length)>=1; }
 
   async function drRenderMine(){
     const box=document.getElementById('kw-dr-mine');
@@ -955,7 +960,7 @@
     catch(e){ console.warn('[dojo-register] my dojos failed:', e); if(document.body.contains(box)) box.innerHTML=''; return; }
     try{ claims = await drFetchMyClaims(); }catch(e){ console.warn('[dojo-register] my claims failed:', e); }
     if(!document.body.contains(box)) return;
-    const isAdmin = drTier()==='admin';
+    const isAdmin = drIsAdmin();
     const pendingClaims = claims.filter(function(c){ return c.status==='pending'; });
     const rejectedClaims = claims.filter(function(c){ return c.status==='rejected'; }).slice(0,3);
     if(!list.length && !claims.length && !isAdmin){ box.innerHTML=''; return; }
