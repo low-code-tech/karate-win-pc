@@ -4235,6 +4235,8 @@ function impHandleFile(file){
         court:_k(r,['コート','コートNo','court']),
         kata:_k(r,['形・組手','形組手','種目','競技']),
         gender:_k(r,['性別','gender']),
+        grade:_k(r,['学年','grade']),   // v1.22 名簿出力で学年が空になっていたのを修正
+        record:_k(r,['戦歴（ベスト８以上）','戦歴（ベスト8以上）','戦歴(ベスト8以上)','戦歴(ベスト８以上)','戦歴']),   // v1.22 端末内のみ（サーバーには送らない）
         tournament:_k(r,['大会','大会名','tournament']),
         tournamentId:String(r['大会id']||'').trim(),
         place:_k(r,['大会場所','開催場所','会場','場所','place']),
@@ -4336,16 +4338,17 @@ window.addEventListener('load',function(){ try{ kwBcTx(); kwMonMiniApply(); kwMo
 function impDownloadTemplate(){
   try{
     // ヘッダー（読込パーサーが認識する列名）
-    const header=['大会','大会場所','開催日時','氏名','よみ','学年','性別','身長','体重','ゼッケン','所属','クラス','コート','形・組手'];
+    // v1.22 身長・体重を削除、戦歴（ベスト８以上）を追加
+    const header=['大会','大会場所','開催日時','氏名','よみ','学年','性別','ゼッケン','所属','クラス','コート','形・組手','戦歴（ベスト８以上）'];
     // 記入例（削除して実データに置き換えて使用）
     const sample=[
-      ['第12回関西ジュニア空手大会','大阪市中央体育館','2026/09/06 09:00','山田 太郎','やまだ たろう','小学1年','男',121,24,101,'大阪北道場','小学1年男子','A','組手'],
-      ['第12回関西ジュニア空手大会','大阪市中央体育館','2026/09/06 09:00','佐藤 花','さとう はな','小学1年','女',118,22,102,'梅田スポーツ少年団','小学1年女子','B','形'],
+      ['第12回関西ジュニア空手大会','京都市武道館','2026/09/06 09:00','山田 太郎','やまだ たろう','小学1年','男',101,'河原町道場','小学1年男子','1','組手','○○大会で3位'],
+      ['第12回関西ジュニア空手大会','京都市武道館','2026/09/06 09:00','佐藤 花','さとう はな','小学1年','女',102,'京都北道場','小学1年女子','2','形',''],
     ];
     const aoa=[header,...sample];
     const ws=XLSX.utils.aoa_to_sheet(aoa);
     // 列幅を見やすく設定
-    ws['!cols']=[{wch:24},{wch:18},{wch:18},{wch:14},{wch:16},{wch:8},{wch:6},{wch:6},{wch:6},{wch:8},{wch:20},{wch:14},{wch:6},{wch:8}];
+    ws['!cols']=[{wch:24},{wch:16},{wch:18},{wch:14},{wch:16},{wch:8},{wch:6},{wch:8},{wch:16},{wch:14},{wch:6},{wch:8},{wch:24}];
     const wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,ws,'Sensyu_List');
     XLSX.writeFile(wb,'大会選手登録テンプレート.xlsx');
@@ -4742,10 +4745,10 @@ function mlEditPlayer(idx){
 function mlExportRoster(){
   if(!_mlPlayers.length){toast('名簿が空です（データ取込またはテンプレートで登録してください）');return;}
   let ev={}; try{ev=JSON.parse(localStorage.getItem('karate_eventInfo')||'{}');}catch(e){}
-  const header=['大会','大会場所','開催日時','氏名','よみ','学年','性別','身長','体重','ゼッケン','所属','クラス','コート','形・組手'];
-  const rows=_mlPlayers.map(p=>[ev.tournament||p.tournament||'',ev.place||'',ev.date||'',p.name||'',p.yomi||'',p.grade||'',p.gender||'','','',p.bib||'',p.club||'',p.cls||'',p.court||'',p.kata||'']);
+  const header=['大会','大会場所','開催日時','氏名','よみ','学年','性別','ゼッケン','所属','クラス','コート','形・組手','戦歴（ベスト８以上）'];   // v1.22
+  const rows=_mlPlayers.map(p=>[ev.tournament||p.tournament||'',ev.place||'',ev.date||'',p.name||'',p.yomi||'',p.grade||'',p.gender||'',p.bib||'',p.club||'',p.cls||'',p.court||'',p.kata||'',p.record||'']);
   const ws=XLSX.utils.aoa_to_sheet([header,...rows]);
-  ws['!cols']=[24,18,18,14,16,8,6,6,6,8,20,14,6,8].map(w=>({wch:w}));
+  ws['!cols']=[24,16,18,14,16,8,6,8,16,14,6,8,24].map(w=>({wch:w}));
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Sensyu_List');
   XLSX.writeFile(wb,(String(ev.tournament||'名簿').trim()||'名簿')+'_名簿.xlsx');
   toast('📤 名簿を出力しました（Excelで修正後、データ取込で再登録できます）');
@@ -4933,7 +4936,7 @@ function toast(msg,cls){
     fitPlayerName();
   }
   fit169();
-  window.KW_VER='1.21';   // v1.21 (2026-10-17): 生年月日の読み取り・送信をやめる（会員の承認制に変更）。テンプレート・名簿出力の生年月日列を削除。大会事務局のアカウントからも出場選手を送れる / v1.20 (2026-10-14): 選手データの「生年月日」を読み取り、出場選手と一緒にサーバーへ送信（観戦アプリの会員確認用。端末には保存しない） / v1.19: 選手データ取り込み時に出場選手をサーバーへ送信
+  window.KW_VER='1.22';   // v1.22 (2026-10-21): 選手テンプレート・名簿出力の列を変更（身長・体重を削除、戦歴（ベスト８以上）を追加）。記入例を京都市武道館・河原町道場／京都北道場・コート1／2に。名簿出力で学年が空になっていたのを修正。取り込み時に戦歴を読み、端末の選手データに保持（サーバーには送らない） / v1.21 (2026-10-17): 生年月日の読み取り・送信をやめる（会員の承認制に変更）。テンプレート・名簿出力の生年月日列を削除。大会事務局のアカウントからも出場選手を送れる / v1.20 (2026-10-14): 選手データの「生年月日」を読み取り、出場選手と一緒にサーバーへ送信（観戦アプリの会員確認用。端末には保存しない） / v1.19: 選手データ取り込み時に出場選手をサーバーへ送信
   try{console.log('[Karate Win] version', KW_VER);}catch(e){}
 
   // ══ オンライン更新チェック機能 ══
