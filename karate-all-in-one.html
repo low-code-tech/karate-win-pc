@@ -4195,7 +4195,17 @@ function impRenderTable(){
 }
 // v1.21 生年月日は読み取らない・送らない（会員の承認制に変更したため不要）
 // 端末に保存するときは生年月日を外す（会場の共用パソコンに子どもの生年月日を残さない）
-function kwStripDob(list){ return (list||[]).map(p=>{ const o=Object.assign({},p); delete o.dob; return o; }); }
+function kwStripDob(list){ return (list||[]).map(p=>{ const o=Object.assign({},p); delete o.dob; delete o.phone; delete o.phoneKind; return o; }); }   // v1.23 保護者携帯も端末に残さない
+// v1.23 保護者携帯の判定: mobile（060/070/080/090 の11桁）/ landline（固定電話など。照合に使えない）/ bad（桁数が違う）/ ''（空欄）
+function kwPhoneInfo(raw){
+  let d=String(raw==null?'':raw).replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).replace(/[^0-9]/g,'');
+  if(!d) return {kind:'',norm:''};
+  if(d.startsWith('81')&&(d.length===11||d.length===12)) d='0'+d.slice(2);
+  if(/^[6-9]0[0-9]{8}$/.test(d)) d='0'+d;   // Excel で先頭の0が消えた携帯番号（9012345678 など）
+  if(!/^0[1-9][0-9]{8,9}$/.test(d)) return {kind:'bad',norm:''};
+  if(/^0[6-9]0[0-9]{8}$/.test(d)) return {kind:'mobile',norm:d};
+  return {kind:'landline',norm:''};
+}
 function impHandleFile(file){
   if(!file)return;
   if(!file.name.match(/\.(xlsx|xls)$/i)){impLog('err','Excelファイルを選択してください');return;}
@@ -4237,6 +4247,7 @@ function impHandleFile(file){
         gender:_k(r,['性別','gender']),
         grade:_k(r,['学年','grade']),   // v1.22 名簿出力で学年が空になっていたのを修正
         record:_k(r,['戦歴（ベスト８以上）','戦歴（ベスト8以上）','戦歴(ベスト8以上)','戦歴(ベスト８以上)','戦歴']),   // v1.22 端末内のみ（サーバーには送らない）
+        phone:_k(r,['保護者携帯','保護者携帯番号','保護者携帯（固定電話不可）','保護者の携帯','保護者携帯電話','携帯電話','携帯','携帯番号','保護者連絡先','連絡先','電話番号','電話']),   // v1.23 サーバーへ送るだけ（端末に保存しない）
         tournament:_k(r,['大会','大会名','tournament']),
         tournamentId:String(r['大会id']||'').trim(),
         place:_k(r,['大会場所','開催場所','会場','場所','place']),
@@ -4246,6 +4257,15 @@ function impHandleFile(file){
       _impEventInfo={tournament:_k(s,['大会','大会名','tournament']),tournamentId:String(s['大会id']||'').trim(),date:_k(s,['開催日時','開催日','日時','date']),place:_k(s,['大会場所','開催場所','会場','場所','place'])};
       _impImportedAt=new Date().toISOString();
       impLog('ok',`${_impPlayers.length}名 読み込み完了`);
+      // v1.23 保護者携帯の確認（番号は画面に出さない）
+      { const st={mobile:0,landline:0,bad:[],empty:0};
+        _impPlayers.forEach(p=>{ const pi=kwPhoneInfo(p.phone); p.phoneKind=pi.kind; p.phone=pi.norm;   // 携帯以外は番号を持たない
+          if(pi.kind==='mobile')st.mobile++; else if(pi.kind==='landline')st.landline++; else if(pi.kind==='bad')st.bad.push(p.name); else st.empty++; });
+        if(_impPlayers.length){
+          impLog(st.mobile?'ok':'warn',`保護者携帯: 携帯 ${st.mobile}名 ／ 固定電話 ${st.landline}名 ／ 空欄 ${st.empty}名`+(st.bad.length?(` ／ 番号の誤り ${st.bad.length}名`):''));
+          if(st.landline) impLog('warn',`固定電話の番号は SMS が届かないため、観戦アプリの照合に使えません（${st.landline}名）。可能なら保護者の携帯番号に直してください`);
+          if(st.bad.length) impLog('warn','保護者携帯の桁数が違います（送信しません）: '+st.bad.slice(0,10).join('、')+(st.bad.length>10?' ほか':''));
+        } }
       // 0名なら原因を具体的に案内
       if(!_impPlayers.length){
         const cols=Object.keys(rows[0]||{}).filter(c=>!/^__EMPTY/.test(c)).slice(0,12);
@@ -4339,16 +4359,19 @@ function impDownloadTemplate(){
   try{
     // ヘッダー（読込パーサーが認識する列名）
     // v1.22 身長・体重を削除、戦歴（ベスト８以上）を追加
-    const header=['大会','大会場所','開催日時','氏名','よみ','学年','性別','ゼッケン','所属','クラス','コート','形・組手','戦歴（ベスト８以上）'];
+    // v1.23 保護者携帯（観戦アプリの本人確認に使用。固定電話不可）を追加
+    const header=['大会','大会場所','開催日時','氏名','よみ','学年','性別','ゼッケン','所属','クラス','コート','形・組手','戦歴（ベスト８以上）','保護者携帯'];
     // 記入例（削除して実データに置き換えて使用）
     const sample=[
-      ['第12回関西ジュニア空手大会','京都市武道館','2026/09/06 09:00','山田 太郎','やまだ たろう','小学1年','男',101,'河原町道場','小学1年男子','1','組手','○○大会で3位'],
-      ['第12回関西ジュニア空手大会','京都市武道館','2026/09/06 09:00','佐藤 花','さとう はな','小学1年','女',102,'京都北道場','小学1年女子','2','形',''],
+      ['第12回関西ジュニア空手大会','京都市武道館','2026/09/06 09:00','山田 太郎','やまだ たろう','小学1年','男',101,'河原町道場','小学1年男子','1','組手','○○大会で3位','090-1234-5678'],
+      ['第12回関西ジュニア空手大会','京都市武道館','2026/09/06 09:00','佐藤 花','さとう はな','小学1年','女',102,'京都北道場','小学1年女子','2','形','','080-2345-6789'],
     ];
     const aoa=[header,...sample];
     const ws=XLSX.utils.aoa_to_sheet(aoa);
     // 列幅を見やすく設定
-    ws['!cols']=[{wch:24},{wch:16},{wch:18},{wch:14},{wch:16},{wch:8},{wch:6},{wch:8},{wch:16},{wch:14},{wch:6},{wch:8},{wch:24}];
+    ws['!cols']=[{wch:24},{wch:16},{wch:18},{wch:14},{wch:16},{wch:8},{wch:6},{wch:8},{wch:16},{wch:14},{wch:6},{wch:8},{wch:24},{wch:16}];
+    // v1.23 保護者携帯の列は文字列にする（先頭の0が消えないように）
+    for(let r=1;r<aoa.length;r++){ const a=XLSX.utils.encode_cell({r,c:13}); if(ws[a]){ ws[a].t='s'; ws[a].z='@'; } }
     const wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,ws,'Sensyu_List');
     XLSX.writeFile(wb,'大会選手登録テンプレート.xlsx');
@@ -4376,10 +4399,14 @@ function kwEntriesBadge(){
 }
 function kwEntriesQueue(tournament, players, info){
   const tn=String(tournament||'').trim(); if(!tn) return;
-  const entries=(players||[]).filter(p=>p && p.name && p.club).map(p=>({
-    name:String(p.name).trim(), yomi:String(p.yomi||'').trim(), club:String(p.club).trim(),
-    cls:String(p.cls||'').trim(), bib:String(p.bib||'').trim()
-  }));
+  const entries=(players||[]).filter(p=>p && p.name && p.club).map(p=>{
+    const e={ name:String(p.name).trim(), yomi:String(p.yomi||'').trim(), club:String(p.club).trim(),
+      cls:String(p.cls||'').trim(), bib:String(p.bib||'').trim() };
+    // v1.23 保護者携帯: 携帯は番号、固定電話は印だけを送る（送信待ちの間だけ端末に残り、送信後に消える）
+    const pi=kwPhoneInfo(p.phone);
+    if(pi.kind==='mobile') e.phone=pi.norm; else if(p.phoneKind==='landline'||pi.kind==='landline') e.phone_kind='landline';
+    return e;
+  });
   if(!entries.length){ try{impLog('warn','所属（道場名）の入った選手がいないため、出場選手はサーバーに送りません');}catch(e){} return; }
   const o=kwEntriesPending();
   o[tn]={ tournament:tn, date:String((info&&info.date)||'').trim(), place:String((info&&info.place)||'').trim(), entries, queuedAt:new Date().toISOString() };
@@ -4414,7 +4441,7 @@ async function kwEntriesFlush(opts){
       }
       sent++;
       delete o[tn]; kwEntriesSavePending(o);
-      const m=`☁ 出場選手を送信しました: ${tn}（${data.entries}名・新しい道場 ${data.dojos_created}件・大会参加道場 ${data.tournament_dojos_added}件追加・動画 ${data.videos_linked}本を大会に紐づけ${data.skipped?('・所属なし '+data.skipped+'名は対象外'):''}）`;
+      const m=`☁ 出場選手を送信しました: ${tn}（${data.entries}名・新しい道場 ${data.dojos_created}件・大会参加道場 ${data.tournament_dojos_added}件追加・動画 ${data.videos_linked}本を大会に紐づけ${data.skipped?('・所属なし '+data.skipped+'名は対象外'):''}${(data.phones_mobile!=null)?('・保護者携帯 '+data.phones_mobile+'名（固定電話 '+(data.phones_landline||0)+'名）'):''}${data.households_added?('・会員の世帯に '+data.households_added+'名を自動追加'):''}）`;
       try{impLog('ok',m);}catch(e){} console.log('[entries]', tn, data);
     }catch(e){
       failed++;
@@ -4936,7 +4963,7 @@ function toast(msg,cls){
     fitPlayerName();
   }
   fit169();
-  window.KW_VER='1.22';   // v1.22 (2026-10-21): 選手テンプレート・名簿出力の列を変更（身長・体重を削除、戦歴（ベスト８以上）を追加）。記入例を京都市武道館・河原町道場／京都北道場・コート1／2に。名簿出力で学年が空になっていたのを修正。取り込み時に戦歴を読み、端末の選手データに保持（サーバーには送らない） / v1.21 (2026-10-17): 生年月日の読み取り・送信をやめる（会員の承認制に変更）。テンプレート・名簿出力の生年月日列を削除。大会事務局のアカウントからも出場選手を送れる / v1.20 (2026-10-14): 選手データの「生年月日」を読み取り、出場選手と一緒にサーバーへ送信（観戦アプリの会員確認用。端末には保存しない） / v1.19: 選手データ取り込み時に出場選手をサーバーへ送信
+  window.KW_VER='1.23';   // v1.23 (2026-10-28): 選手テンプレートに「保護者携帯」列を追加。取り込み時に携帯／固定電話／誤りを確認し、携帯は番号・固定電話は印だけを出場選手と一緒にサーバーへ送る（観戦アプリの本人確認用。端末・名簿出力には残さない） / v1.22 (2026-10-21): 選手テンプレート・名簿出力の列を変更（身長・体重を削除、戦歴（ベスト８以上）を追加）。記入例を京都市武道館・河原町道場／京都北道場・コート1／2に。名簿出力で学年が空になっていたのを修正。取り込み時に戦歴を読み、端末の選手データに保持（サーバーには送らない） / v1.21 (2026-10-17): 生年月日の読み取り・送信をやめる（会員の承認制に変更）。テンプレート・名簿出力の生年月日列を削除。大会事務局のアカウントからも出場選手を送れる / v1.20 (2026-10-14): 選手データの「生年月日」を読み取り、出場選手と一緒にサーバーへ送信（観戦アプリの会員確認用。端末には保存しない） / v1.19: 選手データ取り込み時に出場選手をサーバーへ送信
   try{console.log('[Karate Win] version', KW_VER);}catch(e){}
 
   // ══ オンライン更新チェック機能 ══
