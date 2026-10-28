@@ -88,7 +88,9 @@
 <script>
 'use strict';
 // ══════════════════════════════════════════════════════════════
-//  大会事務局ページ v1（2026-10-17）  kw_approval_v1.sql と対応
+//  大会事務局ページ v2（2026-10-28）  kw_approval_v1.sql・kw_household_v1.sql と対応
+//   v2: 承認待ちに申込者の携帯の下4桁を表示。「例外で通した会員」（第38回京都市空手道選手権大会）の一覧を追加。
+//       運営は「確認済みにする」「外す」、大会事務局は担当の大会の会員を「外す」ができる。
 //   ・大会事務局：自分の大会の一覧と、道場主のいない道場の申込の承認・却下
 //   ・運営（admin）：大会事務局アカウントの登録・削除、大会の割り当て、
 //     道場主のいない道場の申込（すべて）の承認・却下
@@ -213,12 +215,14 @@
     }
     if(notice) h += '<div class="msg '+(notice.kind||'ok')+'" style="margin:0 0 12px;">'+esc(notice.text)+'</div>';
     h += '<div class="card"><div class="h">承認待ちの申込</div><div id="reqs"><div class="loading">読み込み中…</div></div></div>';
+    h += '<div class="card"><div class="h">例外で通した会員（あとで本人確認）</div><div id="exc"><div class="loading">読み込み中…</div></div></div>';
     if(isOffice) h += '<div class="card"><div class="h">あなたの大会</div><div id="tours"><div class="loading">読み込み中…</div></div></div>';
     if(isAdmin) h += '<div class="card"><div class="h">運営：大会事務局アカウント</div><div id="offices"><div class="loading">読み込み中…</div></div></div>';
     root(h); bindCommon();
     loadRequests();
     if(isOffice) loadTours();
     if(isAdmin) loadOffices();
+    loadExceptions();
   }
   function bindCommon(){
     const lo=$('logout'); if(lo) lo.onclick=async()=>{ try{ await sb().auth.signOut(); }catch(e){} user=null; profile=null; showAuth('login',{kind:'info',text:'ログアウトしました。'}); };
@@ -236,6 +240,7 @@
         '<div class="sub">道場：'+esc(r.dojo_name)+(isAdmin && !r.dojo_has_office?'（大会事務局なし）':'')+'</div>'+
         (r.entry_found&&r.entry_tournament?'<div class="sub">出場記録：'+esc(r.entry_tournament)+'</div>':'')+
         '<div class="sub">申込者：'+esc(r.display_name||'（名前なし）')+'　'+esc(r.email||'')+'</div>'+
+        (r.phone_last4?'<div class="sub">申込者の携帯：末尾 <b>'+esc(r.phone_last4)+'</b>（SMS で確認済み）</div>':'<div class="sub">申込者の携帯：未確認</div>')+
         '<div class="sub">申込日：'+fmtDate(r.created_at)+'</div>'+
         '<div class="acts"><button type="button" class="mini okb dec" data-id="'+esc(r.id)+'" data-ok="1" data-name="'+esc(r.player_name)+'">承認する</button>'+
         '<button type="button" class="mini danger dec" data-id="'+esc(r.id)+'" data-ok="0" data-name="'+esc(r.player_name)+'">却下する</button></div></div>').join('')
@@ -252,6 +257,38 @@
           nn = data==='approved'?{kind:'ok',text:'「'+b.dataset.name+'」さんを承認しました'}:data==='rejected'?{kind:'ok',text:'「'+b.dataset.name+'」さんの申込を却下しました'}:{kind:'info',text:'この申込はすでに処理されています'};
         }catch(e){ nn={kind:'err',text:'処理できませんでした: '+(e&&e.message||e)}; }
         loadRequests(nn); if(isOffice) loadTours();
+      };
+    });
+  }
+
+  // ══ v2 例外で通した会員（保護者携帯の準備が間に合わなかった大会だけ。選手名・道場名で通した会員）══
+  const EXC_LABEL={unconfirmed:'未確認',confirmed:'確認済み',removed:'外した'};
+  async function loadExceptions(n){
+    const box=$('exc'); if(!box) return;
+    let rows=[];
+    try{ const {data,error}=await sb().rpc('kw_exception_members'); if(error) throw error; rows=data||[]; }
+    catch(e){ box.innerHTML='<div class="msg err">読み込めませんでした: '+esc(e&&e.message||e)+'（kw_household_v1.sql が未実行の可能性）</div>'; return; }
+    const un=rows.filter(r=>r.status==='unconfirmed').length;
+    box.innerHTML=(n?'<div class="msg '+(n.kind||'ok')+'" style="margin:0 0 8px;">'+esc(n.text)+'</div>':'')+
+      '<div class="note" style="margin:0 0 6px;">保護者携帯が申込データに無かったため、登録時の選手名・道場名で通した会員です'+(rows.length?'（'+rows.length+'件・未確認 '+un+'件）':'')+'。申込書の電話番号に電話する・道場に確かめるなどで本人か確認してください。'+(isAdmin?'確認できたら「確認済みにする」、本人でなければ「外す」（動画が見られなくなり、書き込んだ携帯番号も取り消します）。':'本人でなければ「外す」を押してください（確認済みにするのは運営です）。')+'</div>'+
+      (rows.length?rows.map(r=>
+        '<div class="req"><div><b>'+esc(r.player_name)+'</b><span class="pill '+(r.status==='confirmed'?'ok':'warn')+'">'+esc(EXC_LABEL[r.status]||r.status)+'</span>'+(r.conflict?'<span class="pill warn">申込データの番号が別の番号に直されています</span>':'')+'</div>'+
+        '<div class="sub">大会：'+esc(r.tournament_name||'')+'　道場：'+esc(r.dojo_name||'')+'</div>'+
+        '<div class="sub">会員：'+esc(r.owner_name||'（名前なし）')+'　'+esc(r.owner_email||'')+'　携帯 末尾 <b>'+esc(r.phone_last4||'-')+'</b></div>'+
+        '<div class="sub">登録日：'+fmtDate(r.created_at)+(r.checked_at?'　確認日：'+fmtDate(r.checked_at):'')+'</div>'+
+        (r.status!=='removed'?'<div class="acts">'+(r.can_confirm&&r.status!=='confirmed'?'<button type="button" class="mini okb exd" data-id="'+esc(r.id)+'" data-a="confirm" data-name="'+esc(r.player_name)+'">確認済みにする</button>':'')+
+          '<button type="button" class="mini danger exd" data-id="'+esc(r.id)+'" data-a="remove" data-name="'+esc(r.player_name)+'">外す</button></div>':'')+
+        '</div>').join(''):'<div class="note" style="margin:0;">例外で通した会員はいません。</div>');
+    box.querySelectorAll('.exd').forEach(b=>{
+      b.onclick=async()=>{
+        const conf=b.dataset.a==='confirm';
+        if(!confirm(conf?'「'+b.dataset.name+'」さんの保護者として確認済みにしますか？':'「'+b.dataset.name+'」さんの会員を外しますか？\nその会員（世帯の家族も）はこの選手の動画を見られなくなります。')) return;
+        box.querySelectorAll('.exd').forEach(x=>x.disabled=true);
+        let nn;
+        try{ const {data,error}=await sb().rpc('kw_exception_decide',{p_id:b.dataset.id,p_action:b.dataset.a}); if(error) throw error;
+          nn={kind:'ok',text:data==='confirmed'?'確認済みにしました':data==='removed'?'外しました':String(data)}; }
+        catch(e){ nn={kind:'err',text:'処理できませんでした: '+(e&&e.message||e)}; }
+        loadExceptions(nn);
       };
     });
   }
