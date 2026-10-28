@@ -162,7 +162,9 @@
 <script>
 'use strict';
 // ══════════════════════════════════════════════════════════════
-//  道場会員登録ウィザード（独立ページ版 v12）
+//  道場会員登録ウィザード（独立ページ版 v13）
+//  v13 (2026-10-28): 承認待ちの申込に、申込者の携帯番号の下4桁（SMS 確認済み）を表示（kw_household_v1.sql と対応）。
+//       道場に「この下4桁の番号は保護者のものですか」と確かめやすくするため。番号の全体は表示しない。
 //  v12: 運営の判定に権限（role = admin / super_admin）も使う。会員区分が道場会員の運営アカウントでも
 //      「運営の確認待ち」（道場の引き受け・道場主のいない道場の申込）が出るようにした。
 //      契約の再開のときに、お支払い画面へ「引き受け」の案内が出ていたのを「契約の再開」に修正。
@@ -801,6 +803,7 @@
       (showDojo && !r.dojo_has_owner ? '<div class="mem-sub">'+(r.dojo_has_office ? '大会事務局も承認できます' : '大会事務局なし（運営が承認）')+'</div>' : '')+
       (showDojo ? '<div class="mem-sub">道場：'+drEsc(r.dojo_name||'')+'</div>' : '')+
       '<div class="mem-sub">申込者：'+drEsc(r.display_name||'（名前なし）')+'　'+drEsc(r.email||'')+'</div>'+
+      (r.phone_last4 ? '<div class="mem-sub">申込者の携帯：末尾 <b>'+drEsc(r.phone_last4)+'</b>（SMS で確認済み）</div>' : '<div class="mem-sub">申込者の携帯：未確認</div>')+
       '<div class="mem-sub">申込日：'+drFmtDate(r.created_at)+'</div>'+
       '<div class="acts">'+
         '<button type="button" class="mini okb kw-dr-dec" data-id="'+drEsc(r.id)+'" data-ok="1" data-name="'+drEsc(r.player_name||'')+'">承認する</button>'+
