@@ -52,6 +52,13 @@ html,body{
 #tb-tournament{font-size:20px;font-weight:700;color:#6080b0;letter-spacing:1px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #tb-court{font-size:20px;color:#8aa4d0;font-weight:700;letter-spacing:1px;white-space:nowrap}
+#tb-center{display:flex;align-items:center;justify-content:center;gap:12px;min-width:0}
+#tb-event{display:none;font-size:15px;font-weight:900;letter-spacing:3px;padding:3px 12px;border-radius:5px;
+  background:#ffd400;color:#1a1208;border:1px solid #c8a000;white-space:nowrap}
+#tb-event.on{display:inline-block}
+#ml-event-badge{font-size:11px;font-weight:700;white-space:nowrap;padding:0 9px;height:28px;line-height:26px;border-radius:4px;border:1px solid #1a3060;color:#6090b0;background:#07090f}
+#ml-event-badge.kata{color:#1a1208;background:#ffd400;border-color:#c8a000}
+#ml-event-badge.kumite{color:#8ab8f0;background:#0a1a30;border-color:#2a4a80}
 #tb-cls{
   font-size:22px;font-weight:900;
   color:#c8d8f8;letter-spacing:2px;
@@ -1083,7 +1090,7 @@ html,body{
       <button class="ht-decide" onclick="commitHantei()">
        決定
       </button>
-      <div style="font-size:9px;color:#405060;letter-spacing:0.5px">
+      <div id="ht-judge-note" style="font-size:9px;color:#405060;letter-spacing:0.5px">
        主審は同点時のタイブレーク
       </div>
      </div>
@@ -1101,7 +1108,7 @@ html,body{
      <div class="logo" onclick="sw('onboarding',null)" style="cursor:pointer" title="はじめに画面へ戻る">
       Karate Win
       <small id="kw-ver">
-       v1.18
+       v1.24
       </small>
      </div>
      <button class="tb-right-btn" onclick="sw('settings',this)">
@@ -1140,8 +1147,11 @@ html,body{
      <div id="tb-tournament">
       大会名未設定
      </div>
-     <div id="tb-cls">
-      クラス / 学年
+     <div id="tb-center">
+      <div id="tb-cls">
+       クラス / 学年
+      </div>
+      <div id="tb-event" title="この試合は形として進行しています（選手データの種目列、またはクラス名／手動設定による）">形</div>
      </div>
      <div id="tb-court" style="display:none">
       コート —
@@ -1515,6 +1525,8 @@ html,body{
         </span>
         <span id="win-banner-type">
         </span>
+        <span id="win-banner-flags" style="display:none;font-size:.7em;font-weight:700;letter-spacing:2px;opacity:.95;">
+        </span>
        </div>
        <!-- LEFT: 青の合計得点 -->
        <div id="bot-blue">
@@ -1809,6 +1821,16 @@ html,body{
        クラス / 学年
       </label>
       <input id="i-cl" value="小学2年男子"/>
+     </div>
+     <div class="fg">
+      <label>
+       種目（形／組手）
+      </label>
+      <select id="i-ev" style="background:#05080f;border:1px solid #1a2840;border-radius:4px;color:#e8eaf0;font-size:12px;padding:6px 9px;width:100%;cursor:pointer;">
+       <option value="">自動（クラス名に「形」を含めば形）</option>
+       <option value="kata">形</option>
+       <option value="kumite">組手</option>
+      </select>
      </div>
      <div class="frow2">
       <div class="fg">
@@ -2205,7 +2227,7 @@ html,body{
             コート
            </th>
            <th style="background:#05080f;color:#3a5070;font-size:9px;letter-spacing:1px;padding:6px 8px;text-align:left;border-bottom:1px solid #1a2840;position:sticky;top:0;">
-            形・組手
+            種目（形／組手）
            </th>
           </tr>
          </thead>
@@ -2310,6 +2332,18 @@ html,body{
        ▼
       </span>
      </div>
+     <label style="font-size:10px;font-weight:700;color:#3a5080;letter-spacing:1px;white-space:nowrap;flex-shrink:0;">
+      種目
+     </label>
+     <div style="position:relative;flex-shrink:0;">
+      <select id="ml-event" onchange="mlOnEventChange()" title="自動＝選手データの「種目（形／組手）」列で判定（空欄ならクラス名に「形」を含むかで判定）。形／組手を選ぶと手動で上書きします" style="width:96px;background:#05080f;border:1px solid #1a2840;border-radius:4px;color:#c8d8f0;font-size:12px;padding:5px 22px 5px 7px;outline:none;font-family:inherit;-webkit-appearance:none;appearance:none;cursor:pointer;">
+       <option value="">自動</option>
+       <option value="kata">形</option>
+       <option value="kumite">組手</option>
+      </select>
+      <span style="pointer-events:none;position:absolute;right:7px;top:50%;transform:translateY(-50%);color:#4a6080;font-size:10px;">▼</span>
+     </div>
+     <div id="ml-event-badge" title="いまの判定結果と、その根拠">—</div>
      <div id="ml-filter-status" style="display:none;font-size:11px;color:#4a7090;white-space:nowrap;flex-shrink:0;padding:0 6px;background:#07090f;border:1px solid #111820;border-radius:4px;height:28px;line-height:28px;">
       <b id="ml-filter-count" style="color:#6090b0;">
        0
@@ -2972,6 +3006,10 @@ function doForce(){
 function doLoad(){
   window._kwKataMode=(typeof window._kwKataModeNext==='boolean')?window._kwKataModeNext:undefined;
   window._kwKataModeNext=undefined;
+  if(typeof window._kwKataMode!=='boolean'){   // v1.24 手入力画面の種目選択
+    const _ev=document.getElementById('i-ev')?.value||'';
+    if(_ev==='kata')window._kwKataMode=true; else if(_ev==='kumite')window._kwKataMode=false;
+  }
   if(!kwDojoCurrentId()){ toast('⚠ 道場が未設定です。設定→「道場」で選ぶと録画動画が道場に紐づきます（アップロード前に設定すれば反映されます）','w'); }
   // 進行中の録画があれば、前の試合分として停止・保存（選手変更で別選手の映像が混ざるのを防止）
   if(typeof _mr!=='undefined' && _mr && _mr.state!=='inactive'){
@@ -2998,10 +3036,11 @@ function doLoad(){
   // 選手情報・大会情報をdetailに埋め込む（Excel出力で全試合を正確に再現するため）
   const tname2=document.getElementById('i-tn')?document.getElementById('i-tn').value.trim():'';
   const courtNum=(document.getElementById('i-ct').value||'').trim()||'1';
-  alog('LoadMatch',initMs,'試合ロード:'+mid+'|'+(rn||'')+'|'+(rclub||'')+'|'+(bn||'')+'|'+(bclub||'')+'|'+(tname2||'')+'|'+(cls||'')+'|'+courtNum+'|'+initMs);
+  if(typeof window._kwKataMode!=='boolean') window._kwKataMode=kwIsKataCls(cls);
+  alog('LoadMatch',initMs,'試合ロード:'+mid+'|'+(rn||'')+'|'+(rclub||'')+'|'+(bn||'')+'|'+(bclub||'')+'|'+(tname2||'')+'|'+(cls||'')+'|'+courtNum+'|'+initMs+'|'+(window._kwKataMode?'形':'組手'));   // v1.24 10番目に種目
+  kwTbEvent(window._kwKataMode);
   if(tname2){try{const _a=kwArchAll();if(!_a[tname2])kwArchSave(tname2,[],{tournament:tname2});}catch(e){}}
   document.getElementById('dn-r').textContent=rn||'赤山 太郎';
-  if(typeof window._kwKataMode!=='boolean') window._kwKataMode=kwIsKataCls(cls);
   document.getElementById('dn-b').textContent=bn||(window._kwKataMode?'—':'青木 次郎');
   document.getElementById('dn-r-bib').textContent=rbib||'—';
   document.getElementById('dn-r-furi').textContent=rfuri||'';
@@ -3104,6 +3143,7 @@ function cancelWin(){
   // バナー非表示
   document.getElementById('win-banner').style.display='none';
   document.getElementById('win-banner').className='';
+  {const _wf=document.getElementById('win-banner-flags'); if(_wf){_wf.style.display='none';_wf.textContent='';}}
   document.getElementById('win-cancel-btn').style.display='none';
   kwHasCancel(false);
   // タイマーを停止状態（再開可能）に戻す
@@ -3582,14 +3622,31 @@ function saveWinnerDecisionJson(side, type){
     toast('⚠️ JSON保存に失敗しました');
   }
 }
-function selectWin(type){
+function selectWin(type,_confirmed){
   if(T.finByWin){toast('⚠ 既に勝敗を確定済みです。修正は「↩ 勝利取消」、次の試合はリセット後に選手を選択してください');return;}
   const labels={normal:'勝ち',decision:'判定勝ち',foul:'勝ち（相手反則）',forfeit:'勝ち（相手棄権）'};
   const side=winSide;
   const name=side==='blue'
     ? document.getElementById('dn-b').textContent
     : document.getElementById('dn-r').textContent;
-  alog('WinDecision',T.baseMs,(side==='blue'?'青':'赤')+'勝利: '+labels[type]);
+  // v1.24 形の判定勝ち: 旗本数（判定ポップアップ）が未入力なら、まず旗を入れてもらう
+  const _flagsR=SC.r.hantei||0, _flagsB=SC.b.hantei||0, _hasFlags=(_flagsR+_flagsB)>0;
+  if(type==='decision' && kwKataModeNow() && !_hasFlags){
+    winSide=side;
+    const pop=document.getElementById('hantei-pop');
+    if(pop && !pop.classList.contains('on')) toggleHantei();
+    toast('形の判定勝ち: 先に「判定」で旗の本数（副審4本＋主審）を入れて「決定」→ もう一度「判定勝ち」を押してください','w');
+    return;
+  }
+  if(type==='decision' && _hasFlags && !_confirmed){
+    const _winFlags=side==='blue'?_flagsB:_flagsR, _loseFlags=side==='blue'?_flagsR:_flagsB;
+    if(_winFlags<_loseFlags){
+      sov('旗は 赤'+_flagsR+'本・青'+_flagsB+'本 で、'+(side==='blue'?'青':'赤')+'の方が少ないです。\n\nそれでも'+(side==='blue'?'青':'赤')+'の判定勝ちにしますか？\n（旗を直す場合はキャンセルして「判定」で入力し直してください）',function(){winSide=side;selectWin(type,true);},(side==='blue'?'青':'赤')+'の判定勝ちにする');
+      return;
+    }
+  }
+  const _flagTxt=(type==='decision'&&_hasFlags)?' [旗 赤'+_flagsR+' 青'+_flagsB+']':'';
+  alog('WinDecision',T.baseMs,(side==='blue'?'青':'赤')+'勝利: '+labels[type]+_flagTxt);
   // 勝者確定 → 相手（敗者）を自動で敗退マーク
   mlMarkLoserBySide(side);
   // タイマーを停止・終了状態に固定（以降の開始・再開を不可にする）
@@ -3604,6 +3661,8 @@ function selectWin(type){
   banner.classList.add(side==='blue'?'blue-win':'red-win');
   document.getElementById('win-banner-name').textContent=name;
   document.getElementById('win-banner-type').textContent=labels[type];
+  {const _wf=document.getElementById('win-banner-flags');
+   if(_wf){ const _show=(type==='decision'&&_hasFlags); _wf.style.display=_show?'':'none'; _wf.textContent=_show?('赤 '+_flagsR+'本　青 '+_flagsB+'本'):''; }}
   banner.style.display='flex';
   document.getElementById('win-cancel-btn').style.display='block';
   kwHasCancel(true);
@@ -3715,6 +3774,7 @@ function toggleHantei(){
     HT.blue=0; HT.red=0; HT.judge=null;
     _htBuildFlags();
     _htRefresh();
+    kwHanteiLabel();
     pop.classList.add('on');
     btn.classList.add('active');
   }
@@ -3729,9 +3789,20 @@ function commitHantei(){
   const bc = HT.blue + (HT.judge==='blue' ? 1 : 0);
   const rc = HT.red  + (HT.judge==='red'  ? 1 : 0);
   // 判定は勝敗を決めるためのもので、試合の得点(SC)には一切加算・反映しない
+  // v1.24 旗本数は SC.*.hantei に保持（モニターへ送信・判定勝ち時に記録。得点には含めない）
+  SC.r.hantei=rc; SC.b.hantei=bc;
   alog('Hantei',T.baseMs,'判定: 青'+HT.blue+'票 赤'+HT.red+'票'+(HT.judge?' 主審:'+(HT.judge==='red'?'赤':'青'):'')+' → 青'+bc+' 対 赤'+rc);
-  toast('判定を記録しました（青'+bc+' 対 赤'+rc+'）。得点は変わりません。勝った側の「判定勝ち」ボタンで確定してください');
+  const _kata=kwKataModeNow();
+  if(_kata && (bc+rc)!==5){
+    toast('⚠ 形は副審4本＋主審1本＝5本です（いま '+(bc+rc)+'本）。主審の旗を入れ忘れていませんか？','w');
+  }
+  toast((_kata?'形の判定を記録しました':'判定を記録しました')+'（赤'+rc+'本 対 青'+bc+'本）。'+(_kata?'':'得点は変わりません。')+'勝った側の「判定勝ち」ボタンで確定してください');
   // ポップアップは閉じず表示維持 → 勝利判定「判定勝ち」で消える
+}
+// v1.24 判定ポップアップの見出し（形では「主審の旗（5本目）」）
+function kwHanteiLabel(){
+  const el=document.getElementById('ht-judge-note'); if(!el)return;
+  el.textContent=kwKataModeNow()?'形: 副審4本＋主審1本＝5本で多い方が勝ち':'主審は同点時のタイブレーク';
 }
 
 // ══ UI ══
@@ -3803,6 +3874,7 @@ function buildResultRows(){
           bName:  parts[3]||'', bClub:  parts[4]||'',
           tn:     parts[5]||'', cls:    parts[6]||'', court: parts[7]||'',
           initMs: parseInt(parts[8])||60000,
+          kata: (parts[9]||'')==='形',   // v1.24 種目
           rSc:{y:0,w:0,i:0,p:0}, bSc:{y:0,w:0,i:0,p:0},
           rSentoku:false, bSentoku:false, _finishRow:null
         };
@@ -3896,9 +3968,13 @@ function buildResultRows(){
       const rSent=ctx.rSentoku?'先取':'', bSent=ctx.bSentoku?'先取':'';
       const isRedWin=e.detail.startsWith('赤勝利');
       const rWin=isRedWin?'勝ち':'負け', bWin=isRedWin?'負け':'勝ち';
-      const reason=e.detail.replace(/^(赤|青)勝利:\s*/,'');
+      // v1.24 旗本数 [旗 赤3 青2] は理由から外し、形なら得点欄に旗本数を入れる
+      const fm=e.detail.match(/\[旗 赤(\d+) 青(\d+)\]/);
+      const reason=e.detail.replace(/^(赤|青)勝利:\s*/,'').replace(/\s*\[旗[^\]]*\]\s*$/,'');
       const rReason=isRedWin?reason:'', bReason=isRedWin?'':reason;
-      rows.push([at,'試合結果',bReason,bSent,bPen,'',bPts,ctx.bClub,ctx.bName,bWin,bPts+' 対 '+rPts,rWin,ctx.rName,ctx.rClub,rPts,'',rPen,rSent,rReason,ctx.tn,ctx.cls,ctx.court]); rows[rows.length-1]._iso=e.at;
+      let rPtsOut=rPts, bPtsOut=bPts, waza='';
+      if(fm && ctx.kata){ rPtsOut=parseInt(fm[1]); bPtsOut=parseInt(fm[2]); waza='旗'; }
+      rows.push([at,'試合結果',bReason,bSent,bPen,waza,bPtsOut,ctx.bClub,ctx.bName,bWin,bPtsOut+' 対 '+rPtsOut,rWin,ctx.rName,ctx.rClub,rPtsOut,waza,rPen,rSent,rReason,ctx.tn,ctx.cls,ctx.court]); rows[rows.length-1]._iso=e.at;
       ctx._finishRow=null;
       // 勝敗確定＝一区切り。ただし「勝ち取消」や時間戻しでの再開は同一試合として継続する。
       // 次試合として区切るのは、リセット（Reset）を挟んで開始された場合のみ（Start側で判定）。
@@ -4218,6 +4294,9 @@ function impHandleFile(file){
       const NAME_KEYS=['選手名','氏名','名前','選手氏名','name','Name'];
       const _k=(r,keys)=>{for(const k of keys){if(r[k]!==undefined&&String(r[k]).trim()!=='')return String(r[k]).trim();}return '';};
       const _kRaw=(r,keys)=>{for(const k of keys){if(r[k]!==undefined&&r[k]!==null&&String(r[k]).trim()!=='')return r[k];}return '';};
+      // v1.24 種目列: 列名が「種目（形／組手）」「種目(形/組手)」「形・組手」「形組手」「種目」「競技」のどれでも読む
+      const _kEvent=(r)=>{const ks=Object.keys(r).filter(k=>{const s=String(k).replace(/\s/g,'');return /^種目/.test(s)||/^形[・･]?組手/.test(s)||s==='競技';});
+        for(const k of ks){const v=String(r[k]==null?'':r[k]).trim();if(v)return v;}return '';};
       // 全シートから「選手名系の列を持つシート」を探索（Sensyu_List優先）
       const order=[...(wb.SheetNames.includes('Sensyu_List')?['Sensyu_List']:[]),
                    ...wb.SheetNames.filter(n=>n!=='Sensyu_List')];
@@ -4243,7 +4322,7 @@ function impHandleFile(file){
         club:_k(r,['所属','所属道場','道場','club']),
         cls:_k(r,['クラス','クラス・学年','クラス/学年','学年','class']),
         court:_k(r,['コート','コートNo','court']),
-        kata:_k(r,['形・組手','形組手','種目','競技']),
+        kata:kwNormEvent(_kEvent(r)),   // v1.24 「種目（形／組手）」「形・組手」「種目」等の列を読み、形／組手に正規化
         gender:_k(r,['性別','gender']),
         grade:_k(r,['学年','grade']),   // v1.22 名簿出力で学年が空になっていたのを修正
         record:_k(r,['戦歴（ベスト８以上）','戦歴（ベスト8以上）','戦歴(ベスト8以上)','戦歴(ベスト８以上)','戦歴']),   // v1.22 端末内のみ（サーバーには送らない）
@@ -4266,6 +4345,13 @@ function impHandleFile(file){
           if(st.landline) impLog('warn',`固定電話の番号は SMS が届かないため、観戦アプリの照合に使えません（${st.landline}名）。可能なら保護者の携帯番号に直してください`);
           if(st.bad.length) impLog('warn','保護者携帯の桁数が違います（送信しません）: '+st.bad.slice(0,10).join('、')+(st.bad.length>10?' ほか':''));
         } }
+      // v1.24 種目（形／組手）の確認: どの列で判定しているかを明示する
+      if(_impPlayers.length){
+        const ek={kata:0,kumite:0,empty:0};
+        _impPlayers.forEach(p=>{ if(p.kata==='形')ek.kata++; else if(p.kata==='組手')ek.kumite++; else ek.empty++; });
+        impLog(ek.empty?'warn':'ok',`種目: 形 ${ek.kata}名 ／ 組手 ${ek.kumite}名 ／ 未記入 ${ek.empty}名`);
+        if(ek.empty) impLog('warn','種目が未記入の選手は、クラス名に「形」を含む場合だけ形として扱います。形の選手は「種目（形／組手）」列に「形」と記入してください（選手選択画面の「種目」欄で手動切替もできます）');
+      }
       // 0名なら原因を具体的に案内
       if(!_impPlayers.length){
         const cols=Object.keys(rows[0]||{}).filter(c=>!/^__EMPTY/.test(c)).slice(0,12);
@@ -4360,7 +4446,7 @@ function impDownloadTemplate(){
     // ヘッダー（読込パーサーが認識する列名）
     // v1.22 身長・体重を削除、戦歴（ベスト８以上）を追加
     // v1.23 保護者携帯（観戦アプリの本人確認に使用。固定電話不可）を追加
-    const header=['大会','大会場所','開催日時','氏名','よみ','学年','性別','ゼッケン','所属','クラス','コート','形・組手','戦歴（ベスト８以上）','保護者携帯'];
+    const header=['大会','大会場所','開催日時','氏名','よみ','学年','性別','ゼッケン','所属','クラス','コート','種目（形／組手）','戦歴（ベスト８以上）','保護者携帯'];   // v1.24 列名を「種目（形／組手）」に（旧「形・組手」も読み取り可）
     // 記入例（削除して実データに置き換えて使用）
     const sample=[
       ['第12回関西ジュニア空手大会','京都市武道館','2026/09/06 09:00','山田 太郎','やまだ たろう','小学1年','男',101,'河原町道場','小学1年男子','1','組手','○○大会で3位','090-1234-5678'],
@@ -4621,20 +4707,21 @@ function mlOnClassChange(){
   if(_tbc)_tbc.textContent=_c||'クラス / 学年';
   // クラスを変えたら赤青の割当をクリア（形1名で前の選手が青に残るのを防止）
   if(_mlRed||_mlBlue){_mlRed=null;_mlBlue=null;mlUpdateSlot('red',null);mlUpdateSlot('blue',null);}
-  const _hasKata=kwIsKataCls(_c)||(_mlPlayers||[]).some(p=>String(p.cls||'')===_c&&kwKataFromPlayer(p)===true);
-  if(_hasKata)toast('形: 選手が1人の場合は「赤」にのみ割り当ててください（形・組手は選手データの「形・組手」列で判定します）');
+  {const _es=document.getElementById('ml-event'); if(_es)_es.value='';}   // v1.24 クラスを変えたら手動の種目選択は解除（自動に戻す）
   mlApplyFilter();
+  {const _r=mlResolveEvent(); if(_r.kata&&_r.src!=='none')toast('形: 選手が1人の場合は「赤」にのみ割り当ててください（種目は「種目」欄で確認・変更できます）');}
 }
 function mlApplyFilter(){
   const court=document.getElementById('ml-court').value;
   const cls=document.getElementById('ml-class').value;
-  if(!cls){document.getElementById('ml-filter-status').style.display='none';mlShowEmpty('クラスを選択すると選手一覧が表示されます');return;}
+  if(!cls){document.getElementById('ml-filter-status').style.display='none';mlShowEmpty('クラスを選択すると選手一覧が表示されます');_mlVisible=[];mlEventBadge();mlCheckReady();return;}
   _mlVisible=_mlPlayers.filter(p=>{const mc=!court||String(p.court||'').trim()===court;return mc&&String(p.cls||'').trim()===cls;});
   // ゼッケン番号を文字列自然順でソート（A01,A02…A09,A10,A11 の順に）
   _mlVisible.sort((a,b)=>String(a.bib||'').localeCompare(String(b.bib||''),undefined,{numeric:true,sensitivity:'base'}));
   document.getElementById('ml-filter-status').style.display='';
   document.getElementById('ml-filter-count').textContent=_mlVisible.length;
   mlRenderPlayers();
+  mlEventBadge(); mlCheckReady();
 }
 function mlRenderPlayers(){
   var list=document.getElementById('ml-player-list');
@@ -4668,7 +4755,7 @@ function mlRenderPlayers(){
         +'<span style="font-size:14px;font-weight:700;color:'+nameColor+';line-height:1.25;white-space:nowrap;flex-shrink:0;'+(isL?'text-decoration:line-through;':'')+'">'+kwEscHtml(p.name||'名称不明')+'</span>'
         +(p.yomi?'<span style="font-size:10px;color:#5a7898;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">'+kwEscHtml(p.yomi)+'</span>':'')
         +'</div>';
-    if(p.club) html+='<div style="font-size:10px;color:#4a6880;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0;">'+kwEscHtml(p.club)+'</div>';
+    if(p.club) html+='<div style="font-size:10px;color:#4a6880;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0;">'+kwEscHtml(p.club)+(p.kata?'　<span style="color:'+(kwKataFromPlayer(p)?'#e8c060':'#5a80b8')+';font-weight:700;">'+kwEscHtml(p.kata)+'</span>':'')+'</div>';
 
     var rBdr=isR?'#c04060':'#3a1020'; var rClr=isR?'#ff8090':'#b04060'; var rBg=isR?'#2a0d18':'#0e0810';
     var bBdr=isB?'#3060b0':'#102040'; var bClr=isB?'#80c0ff':'#3870b8'; var bBg=isB?'#0a1828':'#070c18';
@@ -4709,11 +4796,44 @@ function kwEnsurePractice(){
   kwArchSave(KW_PRACTICE,ps,{tournament:KW_PRACTICE,place:'練習会場'});
 }
 function kwIsKataCls(cls){return String(cls||'').includes('形');}
+// v1.24 種目列の値を「形」／「組手」／''（未記入）に正規化
+function kwNormEvent(v){
+  const s=String(v==null?'':v).replace(/[\s　]/g,'').toLowerCase();
+  if(!s) return '';
+  if(s.includes('形')||s==='kata') return '形';
+  if(s.includes('組手')||s==='kumite') return '組手';
+  return s;   // 不明な値はそのまま保持（形以外は組手扱い）
+}
 function kwKataFromPlayer(p){
   const k=String((p&&p.kata)||'').trim();
   if(!k) return null;              // 列が空 → 判定不能（クラス名で判定）
   return k.includes('形');         // 「形」を含めば形、それ以外（組手等）は組手
 }
+// v1.24 選手選択画面の種目判定（優先順: 手動選択 → 赤選手の種目列 → 表示中の選手全員の種目列 → クラス名）
+// 戻り値 {kata:true/false, src:'manual'|'player'|'players'|'class'|'none'}
+function mlResolveEvent(){
+  const sel=document.getElementById('ml-event'); const v=sel?sel.value:'';
+  if(v==='kata') return {kata:true,src:'manual'};
+  if(v==='kumite') return {kata:false,src:'manual'};
+  const kp=kwKataFromPlayer(_mlRed);
+  if(kp!==null) return {kata:kp,src:'player'};
+  const cols=(_mlVisible||[]).map(kwKataFromPlayer).filter(x=>x!==null);
+  if(cols.length){ const nk=cols.filter(Boolean).length; return {kata:nk*2>=cols.length,src:'players'}; }
+  const cls=document.getElementById('ml-class')?.value||'';
+  if(!cls) return {kata:false,src:'none'};
+  return {kata:kwIsKataCls(cls),src:'class'};
+}
+function mlEventBadge(){
+  const b=document.getElementById('ml-event-badge'); if(!b) return;
+  const r=mlResolveEvent();
+  const srcTxt={manual:'手動',player:'赤選手の種目列',players:'選手データの種目列',class:'クラス名',none:''}[r.src]||'';
+  if(r.src==='none'){ b.className=''; b.textContent='—'; b.title='クラスを選ぶと種目を判定します'; return; }
+  b.className=r.kata?'kata':'kumite';
+  b.textContent=(r.kata?'形':'組手')+(srcTxt?'（'+srcTxt+'）':'');
+  b.title=(r.kata?'形':'組手')+'として進行します。判定の根拠: '+srcTxt+(r.src==='class'?'（選手データの種目列が未記入のためクラス名に「形」を含むかで判定）':'');
+}
+function mlOnEventChange(){ mlEventBadge(); mlCheckReady(); if(_mlVisible&&_mlVisible.length)mlRenderPlayers(); }
+function kwTbEvent(on){ const e=document.getElementById('tb-event'); if(e) e.classList.toggle('on',!!on); }
 function kwKataModeNow(){
   if(typeof window._kwKataMode==='boolean') return window._kwKataMode;
   return kwIsKataCls(document.getElementById('tb-cls')?.textContent||'');
@@ -4772,7 +4892,7 @@ function mlEditPlayer(idx){
 function mlExportRoster(){
   if(!_mlPlayers.length){toast('名簿が空です（データ取込またはテンプレートで登録してください）');return;}
   let ev={}; try{ev=JSON.parse(localStorage.getItem('karate_eventInfo')||'{}');}catch(e){}
-  const header=['大会','大会場所','開催日時','氏名','よみ','学年','性別','ゼッケン','所属','クラス','コート','形・組手','戦歴（ベスト８以上）'];   // v1.22
+  const header=['大会','大会場所','開催日時','氏名','よみ','学年','性別','ゼッケン','所属','クラス','コート','種目（形／組手）','戦歴（ベスト８以上）'];   // v1.24
   const rows=_mlPlayers.map(p=>[ev.tournament||p.tournament||'',ev.place||'',ev.date||'',p.name||'',p.yomi||'',p.grade||'',p.gender||'',p.bib||'',p.club||'',p.cls||'',p.court||'',p.kata||'',p.record||'']);
   const ws=XLSX.utils.aoa_to_sheet([header,...rows]);
   ws['!cols']=[24,16,18,14,16,8,6,8,16,14,6,8,24].map(w=>({wch:w}));
@@ -4793,11 +4913,11 @@ function mlAssign(side,idx){
   const cur=(side==='red')?_mlRed:_mlBlue;
   if(cur&&mlIsSame(p,cur)){ mlClearSlot(side); return; }
   if(side==='red')_mlRed=p;else _mlBlue=p;
-  mlUpdateSlot(side,p);mlRenderPlayers();mlCheckReady();
+  mlUpdateSlot(side,p);mlRenderPlayers();mlEventBadge();mlCheckReady();
 }
 function mlClearSlot(side){
   if(side==='red')_mlRed=null;else _mlBlue=null;
-  mlUpdateSlot(side,null);if(_mlVisible.length)mlRenderPlayers();mlCheckReady();
+  mlUpdateSlot(side,null);if(_mlVisible.length)mlRenderPlayers();mlEventBadge();mlCheckReady();
 }
 function mlUpdateSlot(side,p){
   document.getElementById(`ml-${side}-empty`).style.display=p?'none':'';
@@ -4814,9 +4934,8 @@ function mlUpdateSlot(side,p){
   }else{slot.style.borderColor='#1a2840';slot.style.background='#0a0f1a';}
 }
 function mlCheckReady(){
-  const btn=document.getElementById('ml-btn-launch');
-  const _kp=kwKataFromPlayer(_mlRed);
-  const kata=(_kp!==null)?_kp:kwIsKataCls(document.getElementById('ml-class')?.value||'');
+  const btn=document.getElementById('ml-btn-launch'); if(!btn)return;
+  const kata=mlResolveEvent().kata;   // v1.24 手動選択→種目列→クラス名の順で判定
   const ok=kata? !!_mlRed : !!(_mlRed&&_mlBlue);
   btn.disabled=!ok;btn.style.opacity=ok?'1':'.25';
   btn.innerHTML=(kata&&_mlBlue&&!_mlRed)?'形は「赤」に割り当ててください':(kata&&_mlRed&&!_mlBlue)?'▶ タイマー起動（形・1名）':'▶ タイマー起動';
@@ -4824,8 +4943,7 @@ function mlCheckReady(){
 function mlLaunch(){
   const cls=document.getElementById('ml-class').value;
   if(!_mlRed)return;
-  const _kpL=kwKataFromPlayer(_mlRed);
-  const _kataSel=(_kpL!==null)?_kpL:kwIsKataCls(cls);
+  const _kataSel=mlResolveEvent().kata;   // v1.24
   if(!_kataSel&&!_mlBlue)return;
   window._kwKataModeNext=_kataSel;   // ロード先(doLoad)へ形/組手モードを引き渡す
   const matchId=document.getElementById('ml-match-id').value.trim()||'M0001';
@@ -4849,6 +4967,7 @@ function mlLaunch(){
   _s('i-m',matchId);
   _s('i-ct',court);
   _s('i-cl',cls);
+  _s('i-ev','');
   _s('i-r',_mlRed.name||'');
   _s('i-b',_mlBlue?(_mlBlue.name||''):'');
   _s('i-r-bib',String(_mlRed.bib||''));
@@ -4963,7 +5082,7 @@ function toast(msg,cls){
     fitPlayerName();
   }
   fit169();
-  window.KW_VER='1.23';   // v1.23 (2026-10-28): 選手テンプレートに「保護者携帯」列を追加。取り込み時に携帯／固定電話／誤りを確認し、携帯は番号・固定電話は印だけを出場選手と一緒にサーバーへ送る（観戦アプリの本人確認用。端末・名簿出力には残さない） / v1.22 (2026-10-21): 選手テンプレート・名簿出力の列を変更（身長・体重を削除、戦歴（ベスト８以上）を追加）。記入例を京都市武道館・河原町道場／京都北道場・コート1／2に。名簿出力で学年が空になっていたのを修正。取り込み時に戦歴を読み、端末の選手データに保持（サーバーには送らない） / v1.21 (2026-10-17): 生年月日の読み取り・送信をやめる（会員の承認制に変更）。テンプレート・名簿出力の生年月日列を削除。大会事務局のアカウントからも出場選手を送れる / v1.20 (2026-10-14): 選手データの「生年月日」を読み取り、出場選手と一緒にサーバーへ送信（観戦アプリの会員確認用。端末には保存しない） / v1.19: 選手データ取り込み時に出場選手をサーバーへ送信
+  window.KW_VER='1.24';   // v1.24 (2026-10-31): 種目（形／組手）の判定を画面に表示・手動切替を追加（選手選択画面の「種目」欄、トップバーの「形」バッジ、取込時の種目集計）。テンプレート列名を「種目（形／組手）」に。形の判定勝ちは判定ポップアップの旗本数（副審4＋主審1）を記録し、操作画面・モニターの勝利表示に「赤◯本 青◯本」、試合結果の得点欄・動画メタの得点に旗本数を入れる / v1.23 (2026-10-28): 選手テンプレートに「保護者携帯」列を追加。取り込み時に携帯／固定電話／誤りを確認し、携帯は番号・固定電話は印だけを出場選手と一緒にサーバーへ送る（観戦アプリの本人確認用。端末・名簿出力には残さない） / v1.22 (2026-10-21): 選手テンプレート・名簿出力の列を変更（身長・体重を削除、戦歴（ベスト８以上）を追加）。記入例を京都市武道館・河原町道場／京都北道場・コート1／2に。名簿出力で学年が空になっていたのを修正。取り込み時に戦歴を読み、端末の選手データに保持（サーバーには送らない） / v1.21 (2026-10-17): 生年月日の読み取り・送信をやめる（会員の承認制に変更）。テンプレート・名簿出力の生年月日列を削除。大会事務局のアカウントからも出場選手を送れる / v1.20 (2026-10-14): 選手データの「生年月日」を読み取り、出場選手と一緒にサーバーへ送信（観戦アプリの会員確認用。端末には保存しない） / v1.19: 選手データ取り込み時に出場選手をサーバーへ送信
   try{console.log('[Karate Win] version', KW_VER);}catch(e){}
 
   // ══ オンライン更新チェック機能 ══
@@ -5159,6 +5278,8 @@ function toast(msg,cls){
       // スコア
       sc_r_y:SC.r.y, sc_r_w:SC.r.w, sc_r_i:SC.r.i, sc_r_p:SC.r.p, sc_r_hantei:SC.r.hantei,
       sc_b_y:SC.b.y, sc_b_w:SC.b.w, sc_b_i:SC.b.i, sc_b_p:SC.b.p, sc_b_hantei:SC.b.hantei,
+      // v1.24 判定の旗本数（モニター v12 で勝利表示の下に「赤◯本 青◯本」）
+      flags_r:SC.r.hantei||0, flags_b:SC.b.hantei||0,
       // 先取
       sentoku_r: sentokuState.red,
       sentoku_b: sentokuState.blue,
@@ -5692,7 +5813,7 @@ function buildMatchList(){
         tn:parts[5]||'', cls:parts[6]||'', court:parts[7]||'',
         redName:parts[1]||'', redClub:parts[2]||'',
         blueName:parts[3]||'', blueClub:parts[4]||'',
-        initMs:parseInt(parts[8])||60000, highlights:[]
+        initMs:parseInt(parts[8])||60000, highlights:[], kata:(parts[9]||'')==='形'
       };
       if(parts.length < 9){
         cur.redName =(document.getElementById('dn-r')?.textContent||'').trim();
@@ -6611,7 +6732,16 @@ function recManualStop(){
 // 勝敗確定／時間切れ時点の得点を録画メタに反映（停止がリセット後になっても得点が残る）
 function kwRecSnapScore(){
   try{
-    if(window._mrStartMeta && _mr && _mr.state!=='inactive' && (tot('r')||tot('b'))){
+    if(!(window._mrStartMeta && _mr && _mr.state!=='inactive')) return;
+    if(kwKataModeNow()){
+      // v1.24 形: 得点欄には旗本数（赤◯本・青◯本）を入れる（観戦アプリのタイトル「○○ 3－2 ◇◇」用）
+      if((SC.r.hantei||0)+(SC.b.hantei||0)>0){
+        window._mrStartMeta.r_score=String(SC.r.hantei||0);
+        window._mrStartMeta.b_score=String(SC.b.hantei||0);
+      }
+      return;
+    }
+    if(tot('r')||tot('b')){
       window._mrStartMeta.r_score=String(tot('r')||0);
       window._mrStartMeta.b_score=String(tot('b')||0);
     }

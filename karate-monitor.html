@@ -233,6 +233,15 @@ html,body{
 #wb-name{font-size:8rem;font-weight:900;letter-spacing:4px;color:#fff;
   white-space:nowrap;max-width:92%;display:inline-block}
 #wb-type{font-size:4rem;font-weight:900;letter-spacing:5px;color:#ffe44a}
+/* v12: 判定の旗本数 */
+#wb-flags{display:none;align-items:center;gap:2.4rem;font-size:3.6rem;font-weight:900;letter-spacing:.3rem;color:#fff;
+  background:rgba(0,0,0,.28);border-radius:1.2rem;padding:.4rem 2.6rem}
+#wb-flags.on{display:flex}
+#wb-flags .fr{color:#ffb0bc}#wb-flags .fb{color:#b8ccff}
+#win-banner.red-win #wb-flags .fr,#win-banner.blue-win #wb-flags .fb{color:#fff}
+#wb-flags .fn{font-size:5rem;margin:0 .3rem;font-variant-numeric:tabular-nums}
+#kt-event{display:inline-block;margin-right:1.2rem;font-size:2.4rem;font-weight:900;letter-spacing:.4rem;padding:.2rem 1.4rem;border-radius:.6rem;
+  background:#ffd400;color:#1a1208;vertical-align:middle}
 @keyframes glow-pulse{
   from{box-shadow:inset 0 0 80px rgba(255,215,0,.08)}
   to{box-shadow:inset 0 0 160px rgba(255,215,0,.22)}}
@@ -467,6 +476,7 @@ html.kiosk,html.kiosk body{cursor:none}
     <div id="wb-name">—</div>
     <div id="wb-club"></div>
     <div id="wb-type">勝ち</div>
+    <div id="wb-flags"><span class="fr">赤 <span class="fn" id="wb-fr">0</span>本</span><span class="fb">青 <span class="fn" id="wb-fb">0</span>本</span></div>
   </div>
 
   <!-- ════ インターバルオーバーレイ ════ -->
@@ -474,7 +484,7 @@ html.kiosk,html.kiosk body{cursor:none}
   <div id="kata-root">
     <div id="kt-header">
       <div id="kt-tour">大会名未設定</div>
-      <div id="kt-cls">クラス / 学年</div>
+      <div id="kt-cls"><span id="kt-event">形</span><span id="kt-cls-txt">クラス / 学年</span></div>
       <div id="kt-sp"></div>
     </div>
     <div id="kt-main">
@@ -523,7 +533,7 @@ html.kiosk,html.kiosk body{cursor:none}
 
 <script>
 // ══ BroadcastChannel ══
-const MON_VER='v11';
+const MON_VER='v12';   // v12: 形の判定勝ちで旗本数「赤◯本 青◯本」を勝利表示の下に表示、形ビューのヘッダーに「形」バッジ
 // v10: ?kiosk=1 … 起動ランチャー(KarateWin-Start)がブラウザ自体を全画面で開くモード。
 //   ブラウザレベルの全画面は操作画面のダイアログや Esc では解除されない。クリックで全画面にする案内・処理は不要なので無効化する。
 const KIOSK=/[?&]kiosk=1/.test(location.search);
@@ -605,7 +615,7 @@ function applyState(st) {
     if(kmode){
       document.getElementById('kt-main').classList.toggle('flip',!!st.flip);
       document.getElementById('kt-tour').textContent=st.tournament||'大会名未設定';
-      document.getElementById('kt-cls').textContent=st.cls||'クラス / 学年';
+      document.getElementById('kt-cls-txt').textContent=st.cls||'クラス / 学年';
       const kfit=(id,name)=>{const el=document.getElementById(id);const nm=name||'—';
         const key=st.mon_page+'|'+nm;
         if(el.dataset.fitKey===key)return;   // 同じ名前・モードなら再計算しない
@@ -734,6 +744,15 @@ function applyState(st) {
     // 「赤の勝ち／青の勝ち」と重複する通常勝ちは種別を出さない（判定勝ち・相手反則などのみ表示）
     setText('wb-type', st.win_type || '');   // v10a: 勝ち種別（判定勝ち・相手反則 等）の文言が反映されない不具合を修正
     document.getElementById('wb-type').style.display = (!st.win_type || st.win_type==='勝ち') ? 'none' : '';
+    // v12: 判定勝ちのとき旗本数（操作画面 v1.24 の flags_r/flags_b。旧版は sc_*_hantei）
+    {
+      const fr=Number(st.flags_r!==undefined?st.flags_r:st.sc_r_hantei)||0;
+      const fb=Number(st.flags_b!==undefined?st.flags_b:st.sc_b_hantei)||0;
+      const showF = st.win_type==='判定勝ち' && (fr+fb)>0;
+      const wf=document.getElementById('wb-flags');
+      wf.classList.toggle('on',showF);
+      if(showF){ setText('wb-fr',fr); setText('wb-fb',fb); }
+    }
     const _isB = st.win_side === 'blue';
     setText('wb-side-txt', _isB ? '青の勝ち' : '赤の勝ち');
     setText('wb-furi', (_isB ? st.bfuri : st.rfuri) || '');
