@@ -324,8 +324,9 @@ html.kiosk,html.kiosk body{cursor:none}
   padding:1.125rem 2rem;position:relative;min-width:0}
 .kpnl.kblue{background:linear-gradient(160deg,#0a2060,#0d3090)}
 .kpnl.kred{background:linear-gradient(160deg,#3a0015,#6b0020)}
-#kt-main .kblue{order:1}#kt-main .kred{order:2}
-#kt-main.flip .kblue{order:2}#kt-main.flip .kred{order:1}
+/* v12a: 形ビューの基本の並びを組手と同じ「左＝赤／右＝青」に（反転ONで左＝青） */
+#kt-main .kred{order:1}#kt-main .kblue{order:2}
+#kt-main.flip .kred{order:2}#kt-main.flip .kblue{order:1}
 #kata-root.solo .kblue{display:none}
 .kp-tag{position:absolute;top:0.9rem;left:1.4rem;font-size:2.2rem;font-weight:900;letter-spacing:.3rem;
   padding:0.225rem 1.2rem;border-radius:.5rem;color:#fff}
@@ -533,7 +534,7 @@ html.kiosk,html.kiosk body{cursor:none}
 
 <script>
 // ══ BroadcastChannel ══
-const MON_VER='v12';   // v12: 形の判定勝ちで旗本数「赤◯本 青◯本」を勝利表示の下に表示、形ビューのヘッダーに「形」バッジ
+const MON_VER='v12a';   // v12a: 形ビューの基本の並びを組手と同じ 左＝赤／右＝青 に統一 / v12: 形の判定勝ちで旗本数「赤◯本 青◯本」を勝利表示の下に表示、形ビューのヘッダーに「形」バッジ
 // v10: ?kiosk=1 … 起動ランチャー(KarateWin-Start)がブラウザ自体を全画面で開くモード。
 //   ブラウザレベルの全画面は操作画面のダイアログや Esc では解除されない。クリックで全画面にする案内・処理は不要なので無効化する。
 const KIOSK=/[?&]kiosk=1/.test(location.search);
