@@ -1108,7 +1108,7 @@ html,body{
      <div class="logo" onclick="sw('onboarding',null)" style="cursor:pointer" title="はじめに画面へ戻る">
       Karate Win
       <small id="kw-ver">
-       v1.24
+       v1.25
       </small>
      </div>
      <button class="tb-right-btn" onclick="sw('settings',this)">
@@ -2478,6 +2478,16 @@ html,body{
       </div>
      </div>
      <div class="card">
+      <h3>☁ 試合結果の速報（観戦アプリにリアルタイム表示）</h3>
+      <div style="font-size:11px;color:#5a7090;line-height:1.7;margin-bottom:10px;">勝敗が確定するたびに「勝ち ○○選手 3 - 2 ◇◇選手」をサーバーへ送り、観戦アプリの「速報」画面に大会・クラスごとに表示します。オフラインや未ログインのときは端末に送信待ちとして保持し、つながり次第まとめて送ります（動画アップロード時の試合結果送信とは別です）。</div>
+      <div id="kw-live-status" style="font-size:12px;color:#8ab0d0;line-height:1.8;margin-bottom:10px;">—</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+       <button class="kw-set-btn" id="btn-live-on" onclick="kwLiveToggle()">速報送信：<span id="btn-live-state">ON</span></button>
+       <button class="kw-set-btn" onclick="kwLiveLogin()">ログイン</button>
+       <button class="kw-set-btn" onclick="kwLiveFlush({silent:false})">送信待ちをいま送る</button>
+      </div>
+     </div>
+     <div class="card">
       <h3>🔄 試合リセット</h3>
       <div style="font-size:11px;color:#5a7090;line-height:1.7;margin-bottom:10px;">得点・旗・タイマーを初期状態に戻します（記録済みの試合結果は消えません）。リセットはこの画面からのみ実行できます。</div>
       <button onclick="cfR()" style="width:100%;padding:12px;background:#2a1408;border:1px solid #8a5020;border-radius:7px;color:#f0a860;font-size:14px;font-weight:900;cursor:pointer;font-family:inherit;letter-spacing:2px;">リセット</button>
@@ -2841,6 +2851,7 @@ function _scheduleBuzzers(){
       _loopId++;
       if(raf){cancelAnimationFrame(raf);raf=null;}
       buz00();rend(0);updB();updBg();updF();
+      try{ kwLiveOnTimeUp(''); }catch(e){}   // v1.25 速報
     }
   }, toEnd);
 }
@@ -2870,7 +2881,9 @@ function loop(id){
   if(!T.fin&&rem<=0){
     _cancelBuzzers();
     T.baseMs=0;T.run=false;T.status='Finished';T.fin=true;
-    buz00();rend(0);updB();updBg();updF();raf=null;return;
+    buz00();rend(0);updB();updBg();updF();raf=null;
+    try{ kwLiveOnTimeUp(''); }catch(e){}   // v1.25 速報
+    return;
   }
   raf=requestAnimationFrame(()=>loop(id));
 }
@@ -3001,6 +3014,7 @@ function doForce(){
   _cancelBuzzers();
   Object.assign(T,{baseMs:0,run:false,status:'Finished',fin:true});
   alog('ForceFinish',0,'強制終了');buz00();rend(0);updB();updBg();updF();
+  try{ kwLiveOnTimeUp('強制終了'); }catch(e){}   // v1.25 速報
   // ※カメラ停止はbuz00()内のsetTimeoutで実行される
 }
 function doLoad(){
@@ -3152,6 +3166,7 @@ function cancelWin(){
   // この試合で自動付与した敗退マークを取り消す
   mlUnmarkLastAutoLoser();
   alog('WinCancel', T.baseMs, '勝利取消・試合再開可能');
+  try{ kwLiveDelete(kwLiveMatchKey()); }catch(e){}   // v1.25 速報の取り消し
 }
 function exportMatchJson(filename, payload){
   try{
@@ -3647,6 +3662,7 @@ function selectWin(type,_confirmed){
   }
   const _flagTxt=(type==='decision'&&_hasFlags)?' [旗 赤'+_flagsR+' 青'+_flagsB+']':'';
   alog('WinDecision',T.baseMs,(side==='blue'?'青':'赤')+'勝利: '+labels[type]+_flagTxt);
+  try{ kwLiveQueue(kwLiveBuildRow(side, labels[type]==='勝ち'?'':labels[type])); }catch(e){ console.warn('[live]',e); }   // v1.25 速報
   // 勝者確定 → 相手（敗者）を自動で敗退マーク
   mlMarkLoserBySide(side);
   // タイマーを停止・終了状態に固定（以降の開始・再開を不可にする）
@@ -4173,7 +4189,7 @@ function sw(name,btn){
   // 追加画面の初期化
   if(name==='import'){impOnOpen();}
   if(name==='matchload'){mlOnOpen();}
-  if(name==='settings'){_syncTimeSelects(cfg.it);kwDojoRenderSelect();}
+  if(name==='settings'){_syncTimeSelects(cfg.it);kwDojoRenderSelect();try{kwLiveStatus();}catch(e){}}
   const _tbc=document.getElementById('tb-court');if(_tbc)_tbc.style.visibility=(name==='matchload')?'hidden':'visible';
   if(name==='result'){renderResultScreen();}
   if(name==='video-setting'){ytRenderSessions();}
@@ -4467,6 +4483,104 @@ function impDownloadTemplate(){
     else alert('テンプレート生成失敗: '+e.message);
   }
 }
+
+// ══ v1.25 試合結果の速報送信（kw_live_results） ══
+//  勝敗が確定するたびに1行を upsert（match_key は kw_match_results と同じ体系: 開始時刻_試合ID_赤_青）。
+//  会場ではオフライン・未ログインのことがあるため、端末の送信待ち(kw_live_pending)に入れてから送り、
+//  成功した行だけ消す。オンライン復帰・60秒ごと・試合結果の送信時にも再送する。勝利取消は削除。
+const KW_LIVE_KEY='kw_live_pending';
+function kwLiveEnabled(){ try{ return localStorage.getItem('kw_live_on')!=='0'; }catch(e){ return true; } }
+function kwLiveToggle(){ const on=!kwLiveEnabled(); try{ localStorage.setItem('kw_live_on',on?'1':'0'); }catch(e){} kwLiveStatus(); toast('速報送信を '+(on?'ON':'OFF')+' にしました'); if(on) kwLiveFlush({silent:true}); }
+function kwLivePending(){ try{ return JSON.parse(localStorage.getItem(KW_LIVE_KEY)||'{}')||{}; }catch(e){ return {}; } }
+function kwLiveSavePending(o){ try{ localStorage.setItem(KW_LIVE_KEY, JSON.stringify(o)); }catch(e){} }
+function kwLiveMatchKey(){
+  let at=''; for(let i=EL.length-1;i>=0;i--){ if(EL[i].act==='LoadMatch'){ at=EL[i].at; break; } }
+  const rn=(document.getElementById('dn-r')?.textContent||'').trim(), bn=(document.getElementById('dn-b')?.textContent||'').trim();
+  return at+'_'+(T.mid||'')+'_'+rn+'_'+bn;
+}
+function kwLiveBuildRow(winner, reason){
+  const t=id=>{ const v=(document.getElementById(id)?.textContent||'').trim(); return (v==='—'||v==='所属道場')?'':v; };
+  const kata=kwKataModeNow();
+  let rs=tot('r'), bs=tot('b');
+  if(kata && ((SC.r.hantei||0)+(SC.b.hantei||0))>0){ rs=SC.r.hantei||0; bs=SC.b.hantei||0; }
+  return {
+    match_key:kwLiveMatchKey(),
+    tournament:(t('tb-tournament')||'').replace('大会名未設定','')||'大会',
+    cls:(t('tb-cls')||'').replace('クラス / 学年',''), court:String(T.court||''),
+    red_name:t('dn-r'), red_club:t('dn-r-club'), red_bib:t('dn-r-bib'),
+    blue_name:kata&&t('dn-b')==='—'?'':t('dn-b'), blue_club:t('dn-b-club'), blue_bib:t('dn-b-bib'),
+    red_score:rs, blue_score:bs, winner:winner, reason:reason||'', kata:!!kata,
+    decided_at:new Date().toISOString(), updated_at:new Date().toISOString()
+  };
+}
+function kwLiveOnTimeUp(reason){
+  // 時間切れ・強制終了: 得点で勝敗（同点は引き分け。あとで判定勝ちを押せば同じ行が更新される）
+  const rt=tot('r'), bt=tot('b');
+  const w=rt>bt?'red':bt>rt?'blue':'draw';
+  kwLiveQueue(kwLiveBuildRow(w, reason||''));
+}
+function kwLiveQueue(row){
+  if(!row||!row.match_key) return;
+  if(!kwLiveEnabled()) return;
+  if(kwKataModeNow() && !row.blue_name) return;   // 形1名は勝敗がないので送らない
+  const o=kwLivePending(); o[row.match_key]=row; kwLiveSavePending(o);
+  kwLiveFlush({silent:true});
+}
+function kwLiveDelete(key){
+  if(!key) return;
+  const o=kwLivePending(); o[key]={match_key:key,_delete:true,decided_at:new Date().toISOString()}; kwLiveSavePending(o);
+  kwLiveFlush({silent:true});
+}
+let _kwLiveBusy=false;
+async function kwLiveFlush(opts){
+  opts=opts||{};
+  if(_kwLiveBusy) return;
+  const o=kwLivePending(); const keys=Object.keys(o);
+  if(!keys.length){ if(!opts.silent) toast('速報の送信待ちはありません'); kwLiveStatus(); return; }
+  if(!navigator.onLine){ if(!opts.silent) toast('オフラインのため速報を送れません（接続後に自動送信します）','w'); kwLiveStatus(); return; }
+  _kwLiveBusy=true;
+  try{
+    const f=window.kwSbClient||window.KW_SB; if(typeof f!=='function') return;
+    const sb=f();
+    let s=(await sb.auth.getSession()).data.session;
+    if(!s){
+      if(opts.silent){ kwLiveStatus(); return; }
+      const ok=await window.kwEnsureVideoUploadLogin(); if(!ok) return;
+      s=(await sb.auth.getSession()).data.session; if(!s) return;
+    }
+    let sent=0, failed=0, lastErr='';
+    for(const k of keys){
+      const row=o[k];
+      try{
+        if(row._delete){
+          const { error }=await sb.from('kw_live_results').delete().eq('match_key',k);
+          if(error) throw error;
+        }else{
+          const r=Object.assign({},row); r.sent_by=s.user.id; r.updated_at=new Date().toISOString();
+          const { error }=await sb.from('kw_live_results').upsert(r,{onConflict:'match_key'});
+          if(error) throw error;
+        }
+        delete o[k]; kwLiveSavePending(o); sent++;
+      }catch(e){ failed++; lastErr=String(e&&e.message||e); console.warn('[live]',k,lastErr); }
+    }
+    if(!opts.silent){
+      if(failed) toast('速報: 送信 '+sent+'件／失敗 '+failed+'件（'+lastErr.slice(0,60)+'）','w');
+      else toast('☁ 速報を送信しました（'+sent+'件）');
+    }else if(sent&&!failed){ try{console.log('[live] sent',sent);}catch(e){} }
+  }finally{ _kwLiveBusy=false; kwLiveStatus(); }
+}
+async function kwLiveLogin(){ const ok=await window.kwEnsureVideoUploadLogin(); if(ok){ toast('ログインしました'); kwLiveFlush({silent:true}); } kwLiveStatus(); }
+async function kwLiveStatus(){
+  const el=document.getElementById('kw-live-status'); const st=document.getElementById('btn-live-state');
+  if(st) st.textContent=kwLiveEnabled()?'ON':'OFF';
+  if(!el) return;
+  const n=Object.keys(kwLivePending()).length;
+  let login='未ログイン（送信にはログインが必要です）';
+  try{ const f=window.kwSbClient||window.KW_SB; if(typeof f==='function'){ const s=(await f().auth.getSession()).data.session; if(s) login='ログイン中: '+kwEscHtml(s.user.email||''); } }catch(e){}
+  el.innerHTML=(navigator.onLine?'🌐 オンライン':'📴 オフライン')+'　／　'+login+'　／　送信待ち <b style="color:'+(n?'#f0a040':'#48d878')+'">'+n+'件</b>';
+}
+window.addEventListener('online',function(){ try{ kwLiveFlush({silent:true}); }catch(e){} });
+setInterval(function(){ try{ if(Object.keys(kwLivePending()).length) kwLiveFlush({silent:true}); }catch(e){} },60000);
 
 // ══ v1.19 出場選手のサーバー送信（kw_register_entries） ══
 //  取り込んだ選手（大会・所属道場・選手名・よみ）をサーバーに送り、道場・大会参加道場・
@@ -5082,7 +5196,7 @@ function toast(msg,cls){
     fitPlayerName();
   }
   fit169();
-  window.KW_VER='1.24';   // v1.24 (2026-10-31): 種目（形／組手）の判定を画面に表示・手動切替を追加（選手選択画面の「種目」欄、トップバーの「形」バッジ、取込時の種目集計）。テンプレート列名を「種目（形／組手）」に。形の判定勝ちは判定ポップアップの旗本数（副審4＋主審1）を記録し、操作画面・モニターの勝利表示に「赤◯本 青◯本」、試合結果の得点欄・動画メタの得点に旗本数を入れる / v1.23 (2026-10-28): 選手テンプレートに「保護者携帯」列を追加。取り込み時に携帯／固定電話／誤りを確認し、携帯は番号・固定電話は印だけを出場選手と一緒にサーバーへ送る（観戦アプリの本人確認用。端末・名簿出力には残さない） / v1.22 (2026-10-21): 選手テンプレート・名簿出力の列を変更（身長・体重を削除、戦歴（ベスト８以上）を追加）。記入例を京都市武道館・河原町道場／京都北道場・コート1／2に。名簿出力で学年が空になっていたのを修正。取り込み時に戦歴を読み、端末の選手データに保持（サーバーには送らない） / v1.21 (2026-10-17): 生年月日の読み取り・送信をやめる（会員の承認制に変更）。テンプレート・名簿出力の生年月日列を削除。大会事務局のアカウントからも出場選手を送れる / v1.20 (2026-10-14): 選手データの「生年月日」を読み取り、出場選手と一緒にサーバーへ送信（観戦アプリの会員確認用。端末には保存しない） / v1.19: 選手データ取り込み時に出場選手をサーバーへ送信
+  window.KW_VER='1.25';   // v1.25 (2026-10-31): 試合結果の速報送信 — 勝敗が確定するたび（勝ちボタン・時間切れ・強制終了）に kw_live_results へ即時送信（オフライン・未ログイン時は端末に送信待ちとして保持し、オンライン復帰・ログイン後に自動送信）。勝利取消で取り消し。設定画面に ON/OFF・ログイン・送信待ち件数。観戦アプリ v59 の「速報」画面に大会・クラスごとにリアルタイム表示 / v1.24 (2026-10-31): 種目（形／組手）の判定を画面に表示・手動切替を追加（選手選択画面の「種目」欄、トップバーの「形」バッジ、取込時の種目集計）。テンプレート列名を「種目（形／組手）」に。形の判定勝ちは判定ポップアップの旗本数（副審4＋主審1）を記録し、操作画面・モニターの勝利表示に「赤◯本 青◯本」、試合結果の得点欄・動画メタの得点に旗本数を入れる / v1.23 (2026-10-28): 選手テンプレートに「保護者携帯」列を追加。取り込み時に携帯／固定電話／誤りを確認し、携帯は番号・固定電話は印だけを出場選手と一緒にサーバーへ送る（観戦アプリの本人確認用。端末・名簿出力には残さない） / v1.22 (2026-10-21): 選手テンプレート・名簿出力の列を変更（身長・体重を削除、戦歴（ベスト８以上）を追加）。記入例を京都市武道館・河原町道場／京都北道場・コート1／2に。名簿出力で学年が空になっていたのを修正。取り込み時に戦歴を読み、端末の選手データに保持（サーバーには送らない） / v1.21 (2026-10-17): 生年月日の読み取り・送信をやめる（会員の承認制に変更）。テンプレート・名簿出力の生年月日列を削除。大会事務局のアカウントからも出場選手を送れる / v1.20 (2026-10-14): 選手データの「生年月日」を読み取り、出場選手と一緒にサーバーへ送信（観戦アプリの会員確認用。端末には保存しない） / v1.19: 選手データ取り込み時に出場選手をサーバーへ送信
   try{console.log('[Karate Win] version', KW_VER);}catch(e){}
 
   // ══ オンライン更新チェック機能 ══
@@ -6152,6 +6266,7 @@ async function kwSendAllMatchResults(){
     if(!loginOk){ kwNotify('試合結果の送信にはログインが必要です','ng'); return; }
     // v1.19 送信待ちの出場選手があれば先に送る（失敗しても試合結果の送信は続ける）
     try{ await kwEntriesFlush({silent:true}); }catch(e){ console.warn('[entries] flush failed', e); }
+    try{ await kwLiveFlush({silent:true}); }catch(e){ console.warn('[live] flush failed', e); }   // v1.25
     // 動画のある試合のみ送信（動画の無い試合結果は父兄用アプリ等で参照されないため送らない）
     const list=buildMatchList().filter(m=>(m.redWin||m.blueWin||m.score) && vwMatchHasVideo(m));
     if(!list.length){ kwNotify('送信できる試合結果がありません（動画があり勝敗を確定した試合が対象です）','ng'); return; }
