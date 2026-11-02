@@ -162,7 +162,15 @@
 <script>
 'use strict';
 // ══════════════════════════════════════════════════════════════
-//  道場会員登録ウィザード（独立ページ版 v13）
+//  道場会員登録ウィザード（独立ページ版 v14）
+//  v14 (2026-11-02): 観戦アプリからのアップグレードが途中で止まる問題の対応（観戦アプリ v60・create-checkout v6 と対応）
+//       ・観戦アプリから渡されたメール（?email=）をログイン欄に入力済みにし、「観戦アプリと同じメール・パスワードで
+//         ログインしてください」と案内（別ドメインのためログインは共有されない）。
+//       ・決済ステップで、運営（admin）・すでに道場会員のアカウントは決済を飛ばしていたが、無言で「完了」に進んで
+//         いたため「決済画面に進まない」と見えていた。理由を表示し、ボタンを押して進む形にした。
+//       ・create-checkout のエラー（選手会員を契約中＝already_subscribed など）を日本語で表示し、次にすることを案内。
+//       ・選手会員・プレミアムを契約中のアカウントは、道場会員のお支払い完了後に旧契約が自動で解約される
+//         （create-checkout v6・stripe-webhook v2）ことを決済ステップで案内。
 //  v13 (2026-10-28): 承認待ちの申込に、申込者の携帯番号の下4桁（SMS 確認済み）を表示（kw_household_v1.sql と対応）。
 //       道場に「この下4桁の番号は保護者のものですか」と確かめやすくするため。番号の全体は表示しない。
 //  v12: 運営の判定に権限（role = admin / super_admin）も使う。会員区分が道場会員の運営アカウントでも
@@ -211,6 +219,21 @@
   const DR_RESET_REDIRECT = 'https://karate-spectator.vercel.app/';
   // 確認メールのリンク先 = このページ（Supabase の Redirect URLs に登録が必要）
   const DR_SELF_URL = location.origin + location.pathname;
+  // ★v14 観戦アプリから渡された情報（?email=…&tier=…）。ログイン欄の入力済みと案内にだけ使う（認証には使わない）
+  const DR_FROM_APP = (function(){
+    try{
+      const q = new URLSearchParams(location.search||'');
+      const em = (q.get('email')||'').trim();
+      const tier = (q.get('tier')||'').trim();
+      if(em || tier){
+        // URL からは消す（ブックマーク・履歴に残さない）。決済復帰の checkout= は別処理なので触らない
+        q.delete('email'); q.delete('tier');
+        const rest = q.toString();
+        try{ history.replaceState(null,'',location.pathname+(rest?'?'+rest:'')+(location.hash||'')); }catch(e){}
+      }
+      return {email: em, tier: tier};
+    }catch(e){ return {email:'', tier:''}; }
+  })();
 
   // メールのリンクから戻ってきたか（Supabaseクライアントが URL を消す前に読む）
   const DR_ARRIVAL = (function(){
@@ -352,6 +375,12 @@
     document.getElementById('kw-dr-tab-signup').onclick = function(){ drShowAuthStep('signup'); };
     document.getElementById('kw-dr-go').onclick = su ? drDoSignup : drDoLogin;
     const fg=document.getElementById('kw-dr-forgot'); if(fg) fg.onclick=drDoForgot;
+    // ★v14 観戦アプリから来た場合はメールを入力済みにし、同じアカウントでログインするよう案内
+    if(!su && DR_FROM_APP.email){
+      const em=document.getElementById('kw-dr-email'); if(em && !em.value) em.value=DR_FROM_APP.email;
+      const pw=document.getElementById('kw-dr-pwd'); if(pw) pw.focus();
+      drMsg('観戦アプリと同じアカウント（'+DR_FROM_APP.email+'）のパスワードを入れてログインしてください。\n道場会員ページは観戦アプリとは別のサイトのため、ログインの状態は引き継がれません。','info');
+    }
   }
 
   async function drDoLogin(){
@@ -567,26 +596,45 @@
     drBody('<div class="loading">会員の状態を確認中…</div>');
     try{ await drLoadProfile(false); }catch(e){}
     const tier = drProfile && drProfile.membership_tier;
-    if(PAID_TIERS.indexOf(tier)>=0){
+    const reg = drGet(REG_KEY) || {};
+    if(PAID_TIERS.indexOf(tier)>=0 || drIsAdmin()){
       // ★v8 契約済みで別の道場を持っている場合は新しい道場を作らない
-      if(tier!=='admin'){
+      if(!drIsAdmin()){
         let mine=[]; try{ mine=await drFetchMyDojos(); }catch(e){}
-        const reg0 = drGet(REG_KEY) || {};
-        if(mine.length && !mine.some(function(d){ return (reg0.dojo_id && d.dojo_id===String(reg0.dojo_id)) || drNorm(d.dojo_name)===drNorm(reg0.name); })){
+        if(mine.length && !mine.some(function(d){ return (reg.dojo_id && d.dojo_id===String(reg.dojo_id)) || drNorm(d.dojo_name)===drNorm(reg.name); })){
           drDel(REG_KEY);
           drShowInfoStep();
           return;
         }
       }
-      drFinalize(); return;
+      // ★v14 以前はここで無言で drFinalize() に進んでいた（＝「決済画面に進まない」ように見えた）。理由を表示して進む
+      const why = drIsAdmin()
+        ? '運営（管理者）のアカウントでログインしています。運営アカウントはお支払いなしで道場を登録できます。\n一般の道場主としてお支払いの動作を確認する場合は、運営権限のない別のアカウントでログインし直してください。'
+        : 'このアカウントはすでに道場会員（お支払い済み）です。お支払いは不要なので、そのまま道場の登録に進みます。';
+      drBody(
+        '<div class="box">'+
+          '<div class="plan-row"><span class="plan-name">道場会員（毎月自動更新）</span>'+
+          '<span class="plan-price">¥3,300<small>/月（税込）</small></span></div>'+
+          '<div style="font-size:15px;color:var(--sub);margin-top:6px;">登録する道場：<b style="color:var(--text);">'+drEsc(reg.name||'')+'</b>'+(reg.prefecture?'（'+drEsc(reg.prefecture)+'）':'')+'</div>'+
+        '</div>'+
+        '<div class="msg info" style="margin-top:12px;">'+drEsc(why)+'</div>'+
+        MSG+
+        '<button id="kw-dr-go" type="button" class="btn main">お支払いなしで道場の登録に進む</button>'+
+        '<button id="kw-dr-back" type="button" class="btn sub">道場の情報を直す</button>'+
+        (drIsAdmin() ? '<button id="kw-dr-switch2" type="button" class="btn link">別のアカウントでログインし直す</button>' : '')
+      );
+      document.getElementById('kw-dr-go').onclick = drFinalize;
+      document.getElementById('kw-dr-back').onclick = drShowInfoStep;
+      const sw=document.getElementById('kw-dr-switch2'); if(sw) sw.onclick=drSwitchAccount;
+      return;
     }
-    const reg = drGet(REG_KEY) || {};
     drBody(
       '<div class="box">'+
         '<div class="plan-row"><span class="plan-name">道場会員（毎月自動更新）</span>'+
         '<span class="plan-price">¥3,300<small>/月（税込）</small></span></div>'+
         '<div style="font-size:15px;color:var(--sub);margin-top:6px;">登録する道場：<b style="color:var(--text);">'+drEsc(reg.name||'')+'</b>'+(reg.prefecture?'（'+drEsc(reg.prefecture)+'）':'')+(reg.resume?'<br><span style="font-size:14px;">（この道場の道場会員の契約を再開します）</span>':reg.dojo_id?'<br><span style="font-size:14px;">（登録済みの道場の引き受けです。運営が確認したあと道場主になります）</span>':'')+'</div>'+
       '</div>'+
+      ((tier==='member'||tier==='premium') ? '<div class="msg info" style="margin-top:12px;">今の「'+(tier==='member'?'選手会員（¥550/月）':'プレミアム会員')+'」の契約は、道場会員のお支払いが完了した時点で自動的に解約されます。残りの日数分の料金は、次回の請求から差し引かれます（二重に請求されることはありません）。</div>' : '')+
       MSG+
       '<button id="kw-dr-go" type="button" class="btn main">お支払いへ進む（Stripe）</button>'+
       '<button id="kw-dr-back" type="button" class="btn sub">道場の情報を直す</button>'+
@@ -605,6 +653,26 @@
     };
   }
 
+  // ★v14 create-checkout のエラーを日本語に（v6 の code / live_plan に対応。旧版の英語メッセージも拾う）
+  function drCheckoutErrText(result, status){
+    const code = result && result.code || '';
+    const raw  = result && result.error || '';
+    const planName = function(p){ return p==='member'?'選手会員':p==='premium'?'プレミアム会員':p==='dojo'?'道場会員':'別のプラン'; };
+    if(code==='already_subscribed' || /already subscribed/i.test(raw)){
+      const lp = result && result.live_plan || '';
+      if(lp==='dojo') return 'このアカウントはすでに道場会員を契約中です。お支払いは不要です。「お支払い済みの方はこちら（状態を再確認）」を押してください。';
+      return 'このアカウントは現在「'+planName(lp||'member')+'」を契約中のため、道場会員の契約を重ねることができませんでした。\n'+
+        'サーバー（create-checkout v6）が更新されていれば選手会員からの切り替えは自動で行われます。更新済みでもこの表示が出る場合は運営までご連絡ください。\n'+
+        'それまでは、観戦アプリのマイ情報 →「契約を管理」で今の契約を解約し、契約期間が終わったあとにお申し込みいただくか、道場の代表者用に別のメールアドレスでアカウントを作ってお申し込みください。'+
+        (result && result.subscription_status && result.subscription_status!=='active' ? '\n（今の契約の状態: '+result.subscription_status+'）' : '');
+    }
+    if(code==='verify_check_failed') return 'サーバー側で会員の状態を確認できませんでした。時間をおいてもう一度お試しください。続く場合は運営までご連絡ください。';
+    if(status===401 || /Invalid user|No authorization/i.test(raw)) return 'ログインの有効期限が切れました。ページを再読み込みして、もう一度ログインしてください。';
+    if(/Invalid plan/i.test(raw)) return 'サーバーの設定（道場会員の価格 PRICE_DOJO）が見つかりません。運営までご連絡ください。';
+    if(/Profile not found/i.test(raw)) return 'アカウント情報（user_profiles）が見つかりません。ページを再読み込みしてもう一度お試しください。';
+    return 'お支払い画面を開けませんでした: '+(raw||('エラー('+(status||'')+')'));
+  }
+
   async function drStartCheckout(){
     if(!/^https?:/.test(location.protocol)){
       drMsg('お支払いはWeb公開版（https）でのみ利用できます。','err');
@@ -620,9 +688,9 @@
         headers:{'Content-Type':'application/json','Authorization':'Bearer '+data.session.access_token,'apikey': DR_SUPABASE_KEY},
         body: JSON.stringify({ type:'subscription', plan:'dojo', return_url: DR_SELF_URL })
       });
-      const result = await res.json();
+      const result = await res.json().catch(function(){ return {}; });
       if(!res.ok || !result.url){
-        drMsg('お支払い画面を開けませんでした: '+(result.error||('エラー('+res.status+')')),'err');
+        drMsg(drCheckoutErrText(result, res.status),'err');
         return;
       }
       location.href = result.url;
