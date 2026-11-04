@@ -248,7 +248,8 @@ html,body{
 
 /* v9: 操作画面内プレビュー(?preview=1)では案内・接続表示を出さない */
 html.preview #fs-hint,html.preview #conn-status,html.kiosk #fs-hint{display:none !important}
-html.kiosk,html.kiosk body{cursor:none}
+/* v12b: カーソルは常に消さず、マウスを3秒動かさなかったときだけ隠す（動かせばすぐ表示） */
+html.cur-idle,html.cur-idle *{cursor:none !important}
 /* ─── 接続ステータス ─── */
 #conn-status{
   position:fixed;bottom:6px;right:10px;
@@ -534,13 +535,21 @@ html.kiosk,html.kiosk body{cursor:none}
 
 <script>
 // ══ BroadcastChannel ══
-const MON_VER='v12a';   // v12a: 形ビューの基本の並びを組手と同じ 左＝赤／右＝青 に統一 / v12: 形の判定勝ちで旗本数「赤◯本 青◯本」を勝利表示の下に表示、形ビューのヘッダーに「形」バッジ
+const MON_VER='v12b';   // v12b: ランチャー起動時もマウスカーソルを表示（3秒操作がないときだけ隠す） / v12a: 形ビューの基本の並びを組手と同じ 左＝赤／右＝青 に統一 / v12: 形の判定勝ちで旗本数「赤◯本 青◯本」を勝利表示の下に表示、形ビューのヘッダーに「形」バッジ
 // v10: ?kiosk=1 … 起動ランチャー(KarateWin-Start)がブラウザ自体を全画面で開くモード。
 //   ブラウザレベルの全画面は操作画面のダイアログや Esc では解除されない。クリックで全画面にする案内・処理は不要なので無効化する。
 const KIOSK=/[?&]kiosk=1/.test(location.search);
 if(KIOSK) document.documentElement.classList.add('kiosk');
 const PREVIEW=/[?&]preview=1/.test(location.search);   // 操作画面内の縮小プレビュー(iframe)
 if(PREVIEW) document.documentElement.classList.add('preview');
+// v12b: マウスを3秒動かさないとカーソルを隠し、動かすとすぐ表示する
+(function(){
+  if(PREVIEW) return;
+  const html=document.documentElement; let t=null;
+  function wake(){ html.classList.remove('cur-idle'); clearTimeout(t); t=setTimeout(function(){ html.classList.add('cur-idle'); },3000); }
+  ['mousemove','mousedown','wheel'].forEach(function(ev){ document.addEventListener(ev,wake,{passive:true}); });
+  wake();
+})();
 const ch = new BroadcastChannel('karate-win-sync');
 function _rw(){const r=document.getElementById('root');const w=r&&r.getBoundingClientRect().width;return w||window.innerWidth;}
 // ══ 形モードはページ内で切替（全画面を維持するためページ遷移しない） ══
