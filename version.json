@@ -1,5 +1,5 @@
 {
-  "version": "1.26",
+  "version": "1.25",
   "message": "更新機能のテストです。",
   "installerUrl": "https://karate-win-pc.vercel.app/KarateWinSetup.exe",
   "sha256": "50ED6F20C48AE096F8D5FA5B8BBBF752B3E2FCA2EEF796729BDBD97EF536480F"
