@@ -1108,7 +1108,7 @@ html,body{
      <div class="logo" onclick="sw('onboarding',null)" style="cursor:pointer" title="はじめに画面へ戻る">
       Karate Win
       <small id="kw-ver">
-       v1.25
+       v1.26
       </small>
      </div>
      <button class="tb-right-btn" onclick="sw('settings',this)">
@@ -4718,6 +4718,7 @@ function impOnOpen(){
 //  MATCH LOAD (統合版)
 // ══════════════════════════════════════
 let _mlPlayers=[],_mlEventInfo={},_mlVisible=[],_mlRed=null,_mlBlue=null,_mlMatchCounter=1;
+let _mlLastMixedCls='';   // v1.26 形・組手混在の案内を出したクラス（同じクラスで何度も出さない）
 
 // ── 敗者マーク（トーナメントで負けた選手の再選択防止）──
 var _mlLosers=(function(){try{return new Set(JSON.parse(localStorage.getItem('karate_ml_losers')||'[]'));}catch(e){return new Set();}})();
@@ -4829,7 +4830,27 @@ function mlApplyFilter(){
   const court=document.getElementById('ml-court').value;
   const cls=document.getElementById('ml-class').value;
   if(!cls){document.getElementById('ml-filter-status').style.display='none';mlShowEmpty('クラスを選択すると選手一覧が表示されます');_mlVisible=[];mlEventBadge();mlCheckReady();return;}
-  _mlVisible=_mlPlayers.filter(p=>{const mc=!court||String(p.court||'').trim()===court;return mc&&String(p.cls||'').trim()===cls;});
+  let base=_mlPlayers.filter(p=>{const mc=!court||String(p.court||'').trim()===court;return mc&&String(p.cls||'').trim()===cls;});
+  // v1.26 同じクラス名に形と組手の選手が混在する場合、種目で絞り込む（従来は種目欄を変えても一覧が混在のままだった）
+  {
+    const es=document.getElementById('ml-event');
+    const nK=base.filter(p=>kwKataFromPlayer(p)===true).length;
+    const nU=base.filter(p=>kwKataFromPlayer(p)===false).length;
+    const mixed=nK>0&&nU>0;
+    if(es&&!es.value&&mixed){
+      // 自動のまま混在 → 多数派の種目を自動選択（種目欄で切替可能）
+      es.value=(nK>nU)?'kata':'kumite';
+      es.dataset.auto='1';   // v1.26 自動選択（バッジ表記用）
+      if(_mlLastMixedCls!==cls){_mlLastMixedCls=cls;toast('このクラスは形・組手が混在しています。「種目」欄で切り替えてください（いま '+(nK>nU?'形':'組手')+' を表示）');}
+    }
+    const v=es?es.value:'';
+    if(v==='kata'||v==='kumite'){
+      const wantK=(v==='kata');
+      // 種目列が空欄の選手は判定不能なので残す（クラス名での判定に委ねる）
+      base=base.filter(p=>{const k=kwKataFromPlayer(p);return k===null||k===wantK;});
+    }
+  }
+  _mlVisible=base;
   // ゼッケン番号を文字列自然順でソート（A01,A02…A09,A10,A11 の順に）
   _mlVisible.sort((a,b)=>String(a.bib||'').localeCompare(String(b.bib||''),undefined,{numeric:true,sensitivity:'base'}));
   document.getElementById('ml-filter-status').style.display='';
@@ -4940,13 +4961,24 @@ function mlResolveEvent(){
 function mlEventBadge(){
   const b=document.getElementById('ml-event-badge'); if(!b) return;
   const r=mlResolveEvent();
-  const srcTxt={manual:'手動',player:'赤選手の種目列',players:'選手データの種目列',class:'クラス名',none:''}[r.src]||'';
+  const _esA=document.getElementById('ml-event')?.dataset.auto==='1';   // v1.26
+  const srcTxt={manual:_esA?'混在クラス・自動選択':'手動',player:'赤選手の種目列',players:'選手データの種目列',class:'クラス名',none:''}[r.src]||'';
   if(r.src==='none'){ b.className=''; b.textContent='—'; b.title='クラスを選ぶと種目を判定します'; return; }
   b.className=r.kata?'kata':'kumite';
   b.textContent=(r.kata?'形':'組手')+(srcTxt?'（'+srcTxt+'）':'');
   b.title=(r.kata?'形':'組手')+'として進行します。判定の根拠: '+srcTxt+(r.src==='class'?'（選手データの種目列が未記入のためクラス名に「形」を含むかで判定）':'');
 }
-function mlOnEventChange(){ mlEventBadge(); mlCheckReady(); if(_mlVisible&&_mlVisible.length)mlRenderPlayers(); }
+function mlOnEventChange(){
+  {const es=document.getElementById('ml-event'); if(es)es.dataset.auto='';}   // v1.26 ユーザーが変えたら自動選択フラグを解除
+  // v1.26 種目を切り替えたら一覧を絞り直す。絞り込みで消えた選手が赤・青に残らないようにする
+  if(document.getElementById('ml-class')?.value){
+    mlApplyFilter();
+    if(_mlRed&&!_mlVisible.some(p=>mlIsSame(p,_mlRed))){_mlRed=null;mlUpdateSlot('red',null);}
+    if(_mlBlue&&!_mlVisible.some(p=>mlIsSame(p,_mlBlue))){_mlBlue=null;mlUpdateSlot('blue',null);}
+    mlRenderPlayers();
+  }
+  mlEventBadge(); mlCheckReady();
+}
 function kwTbEvent(on){ const e=document.getElementById('tb-event'); if(e) e.classList.toggle('on',!!on); }
 function kwKataModeNow(){
   if(typeof window._kwKataMode==='boolean') return window._kwKataMode;
@@ -5196,7 +5228,7 @@ function toast(msg,cls){
     fitPlayerName();
   }
   fit169();
-  window.KW_VER='1.25';   // v1.25 (2026-10-31): 試合結果の速報送信 — 勝敗が確定するたび（勝ちボタン・時間切れ・強制終了）に kw_live_results へ即時送信（オフライン・未ログイン時は端末に送信待ちとして保持し、オンライン復帰・ログイン後に自動送信）。勝利取消で取り消し。設定画面に ON/OFF・ログイン・送信待ち件数。観戦アプリ v59 の「速報」画面に大会・クラスごとにリアルタイム表示 / v1.24 (2026-10-31): 種目（形／組手）の判定を画面に表示・手動切替を追加（選手選択画面の「種目」欄、トップバーの「形」バッジ、取込時の種目集計）。テンプレート列名を「種目（形／組手）」に。形の判定勝ちは判定ポップアップの旗本数（副審4＋主審1）を記録し、操作画面・モニターの勝利表示に「赤◯本 青◯本」、試合結果の得点欄・動画メタの得点に旗本数を入れる / v1.23 (2026-10-28): 選手テンプレートに「保護者携帯」列を追加。取り込み時に携帯／固定電話／誤りを確認し、携帯は番号・固定電話は印だけを出場選手と一緒にサーバーへ送る（観戦アプリの本人確認用。端末・名簿出力には残さない） / v1.22 (2026-10-21): 選手テンプレート・名簿出力の列を変更（身長・体重を削除、戦歴（ベスト８以上）を追加）。記入例を京都市武道館・河原町道場／京都北道場・コート1／2に。名簿出力で学年が空になっていたのを修正。取り込み時に戦歴を読み、端末の選手データに保持（サーバーには送らない） / v1.21 (2026-10-17): 生年月日の読み取り・送信をやめる（会員の承認制に変更）。テンプレート・名簿出力の生年月日列を削除。大会事務局のアカウントからも出場選手を送れる / v1.20 (2026-10-14): 選手データの「生年月日」を読み取り、出場選手と一緒にサーバーへ送信（観戦アプリの会員確認用。端末には保存しない） / v1.19: 選手データ取り込み時に出場選手をサーバーへ送信
+  window.KW_VER='1.26';   // v1.26 (2026-11-10): 選手選択画面で、同じクラス名に形と組手の選手が混在していると一覧が混在表示され、「種目」欄で形／組手を選んでも絞り込まれなかったのを修正。混在クラスは多数派の種目を自動選択して案内を表示、種目欄の切替で一覧を絞り直す（種目列が空欄の選手は残す） / v1.25 (2026-10-31): 試合結果の速報送信 — 勝敗が確定するたび（勝ちボタン・時間切れ・強制終了）に kw_live_results へ即時送信（オフライン・未ログイン時は端末に送信待ちとして保持し、オンライン復帰・ログイン後に自動送信）。勝利取消で取り消し。設定画面に ON/OFF・ログイン・送信待ち件数。観戦アプリ v59 の「速報」画面に大会・クラスごとにリアルタイム表示 / v1.24 (2026-10-31): 種目（形／組手）の判定を画面に表示・手動切替を追加（選手選択画面の「種目」欄、トップバーの「形」バッジ、取込時の種目集計）。テンプレート列名を「種目（形／組手）」に。形の判定勝ちは判定ポップアップの旗本数（副審4＋主審1）を記録し、操作画面・モニターの勝利表示に「赤◯本 青◯本」、試合結果の得点欄・動画メタの得点に旗本数を入れる / v1.23 (2026-10-28): 選手テンプレートに「保護者携帯」列を追加。取り込み時に携帯／固定電話／誤りを確認し、携帯は番号・固定電話は印だけを出場選手と一緒にサーバーへ送る（観戦アプリの本人確認用。端末・名簿出力には残さない） / v1.22 (2026-10-21): 選手テンプレート・名簿出力の列を変更（身長・体重を削除、戦歴（ベスト８以上）を追加）。記入例を京都市武道館・河原町道場／京都北道場・コート1／2に。名簿出力で学年が空になっていたのを修正。取り込み時に戦歴を読み、端末の選手データに保持（サーバーには送らない） / v1.21 (2026-10-17): 生年月日の読み取り・送信をやめる（会員の承認制に変更）。テンプレート・名簿出力の生年月日列を削除。大会事務局のアカウントからも出場選手を送れる / v1.20 (2026-10-14): 選手データの「生年月日」を読み取り、出場選手と一緒にサーバーへ送信（観戦アプリの会員確認用。端末には保存しない） / v1.19: 選手データ取り込み時に出場選手をサーバーへ送信
   try{console.log('[Karate Win] version', KW_VER);}catch(e){}
 
   // ══ オンライン更新チェック機能 ══
