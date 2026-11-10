@@ -385,6 +385,11 @@ html,body{
 .tadj:hover{filter:brightness(1.3)}
 .tadj-plus{left:2px;background:linear-gradient(135deg,#1a3a00,#50a000);color:#e0ff80;border:2px solid #70cc00}
 .tadj-minus{right:2px;background:#16203a;color:#c0d0ea;border:2px solid #4a6090}
+/* v1.27: 時間切れ(0.0)後に表示する「試合再開」ボタン。タイマー直下中央・±1秒と同じ高さ。押すとロック解除（得点・ペナルティ・±1秒が試合中と同様に操作可能） */
+.tadj-resume{left:50%;transform:translateX(-50%);display:none;background:linear-gradient(135deg,#3a2a00,#b08000);color:#fff4c0;border:2px solid #ffd400;padding:7px 28px}
+.tadj-resume.on{display:inline-block}
+.tadj-resume:active{transform:translateX(-50%) scale(.9)}
+#bot-row.has-cancel .tadj-resume{display:none}
 /* v1.17: カメラ ミニモニター */
 #cam-mini{position:absolute;top:8px;left:8px;z-index:120;width:200px;height:113px;   /* v1.17d: 先取バッジと重ならない幅 */
   background:#000;border:3px solid #2ecc71;border-radius:8px;overflow:hidden;cursor:pointer;
@@ -1108,7 +1113,7 @@ html,body{
      <div class="logo" onclick="sw('onboarding',null)" style="cursor:pointer" title="はじめに画面へ戻る">
       Karate Win
       <small id="kw-ver">
-       v1.26
+       v1.27
       </small>
      </div>
      <button class="tb-right-btn" onclick="sw('settings',this)">
@@ -1560,6 +1565,7 @@ html,body{
         <div id="tdis">
          <button class="tadj tadj-plus" onclick="dA(1000)" title="＋1秒（←キー）">＋1秒</button>
          <button class="tadj tadj-minus" onclick="dA(-1000)" title="－1秒（→キー）">－1秒</button>
+         <button class="tadj tadj-resume" id="tadj-resume" onclick="resumeMatch()" title="時間切れ後のロックを解除し、得点・ペナルティ・±1秒を試合中と同様に操作できるようにします">▶ 試合再開</button>
          <span id="tm">
           1:00
          </span>
@@ -2716,10 +2722,17 @@ function sc(side,type,d){
   // 試合終了後(時間切れ/勝敗確定)にリセットせず得点を入れ始めた場合は
   // 「次の試合のつもり」の可能性が高いため確認する
   if(T.fin||T.finByWin){
-    kwInfo('⚠ 前の試合は終了しています。\n\n'
-      +'１．試合を再開する場合は「↩ 勝利取消」ボタンを押して直前状態に戻してください\n\n'
-      +'２．次の試合であれば、「選手選択」を押して始めてください');
-    return;   // ポップアップを閉じるだけ（得点は入力されません）
+    // v1.27: 時間切れ後は「試合再開」でロック解除できる（勝敗確定後は従来どおり「勝利取消」）
+    if(T.finByWin){
+      kwInfo('⚠ 前の試合は終了しています。\n\n'
+        +'１．試合を再開する場合は「↩ 勝利取消」ボタンを押して直前状態に戻してください\n\n'
+        +'２．次の試合であれば、「選手選択」を押して始めてください');
+    }else{
+      sov('⚠ 前の試合は終了しています。\n\n'
+        +'１．試合を再開する場合は「試合再開」ボタンを押して直前状態に戻してください\n\n'
+        +'２．次の試合であれば、「選手選択」を押して始めてください', resumeMatch, '試合再開');
+    }
+    return;   // 得点は入力されません（「試合再開」を押した場合はロック解除のみ）
   }
   SC[side][type]=Math.max(0,SC[side][type]+d);
   alog('Score',T.rem,side+'_'+type+(d>0?'+':'')+d);
@@ -3167,6 +3180,17 @@ function cancelWin(){
   mlUnmarkLastAutoLoser();
   alog('WinCancel', T.baseMs, '勝利取消・試合再開可能');
   try{ kwLiveDelete(kwLiveMatchKey()); }catch(e){}   // v1.25 速報の取り消し
+}
+// v1.27: 時間切れ(0.0)後のロック解除。タイマーは 0.0 のまま「一時停止」に戻し、得点・ペナルティ・±1秒を試合中と同様に操作可能にする
+function resumeMatch(){
+  if(!T.fin||T.finByWin) return;
+  _cancelBuzzers();
+  T.fin=false; T.run=false; T.status='Stopped'; T._extRec=true;
+  T._snd00=false;   // 再開後にもう一度 0.0 になったら終了ブザーを鳴らす
+  rend(T.baseMs); updB(); updBg();
+  alog('MatchResume', T.baseMs, '試合再開（時間切れ後のロック解除）');
+  try{ kwLiveDelete(kwLiveMatchKey()); }catch(e){}   // 時間切れで送った速報を取り消す（再度終了したら送り直す）
+  toast('試合再開: 「＋1秒」で時間を戻し、得点・ペナルティを修正できます');
 }
 function exportMatchJson(filename, payload){
   try{
@@ -3836,6 +3860,7 @@ function updB(){
   document.getElementById('bf').disabled=s==='Finished';
   const cb=document.getElementById('win-cancel-btn');
   if(cb) cb.style.display=T.finByWin?'inline-block':'none';
+  { const rb=document.getElementById('tadj-resume'); if(rb) rb.classList.toggle('on', !!T.fin && !T.finByWin && s==='Finished'); }   // v1.27 時間切れ後のみ表示
   try{ if(typeof camUpdateUI==='function') camUpdateUI(); }catch(e){}
 }
 function updBg(){
@@ -3848,7 +3873,7 @@ function updF(){
 // ══ LOG ══
 const LBCLS={Start:'lb-s',Stop:'lb-x',Resume:'lb-s',Warning15:'lb-w',
   Finish:'lb-e',ForceFinish:'lb-e',Score:'lb-c',
-  LoadMatch:'lb-o',Reset:'lb-o',AdjPlus:'lb-o',AdjMinus:'lb-o',
+  LoadMatch:'lb-o',Reset:'lb-o',AdjPlus:'lb-o',AdjMinus:'lb-o',MatchResume:'lb-o',WinCancel:'lb-o',
   TestBeep15:'lb-o',TestBeep00:'lb-o'};
 function kwEscHtml(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 function kwSaveEL(){try{const keep=EL.length>3000?EL.slice(-3000):EL;localStorage.setItem('kw_el',JSON.stringify({seq:seq,el:keep}));}catch(e){}}
@@ -5228,7 +5253,7 @@ function toast(msg,cls){
     fitPlayerName();
   }
   fit169();
-  window.KW_VER='1.26';   // v1.26 (2026-11-10): 選手選択画面で、同じクラス名に形と組手の選手が混在していると一覧が混在表示され、「種目」欄で形／組手を選んでも絞り込まれなかったのを修正。混在クラスは多数派の種目を自動選択して案内を表示、種目欄の切替で一覧を絞り直す（種目列が空欄の選手は残す） / v1.25 (2026-10-31): 試合結果の速報送信 — 勝敗が確定するたび（勝ちボタン・時間切れ・強制終了）に kw_live_results へ即時送信（オフライン・未ログイン時は端末に送信待ちとして保持し、オンライン復帰・ログイン後に自動送信）。勝利取消で取り消し。設定画面に ON/OFF・ログイン・送信待ち件数。観戦アプリ v59 の「速報」画面に大会・クラスごとにリアルタイム表示 / v1.24 (2026-10-31): 種目（形／組手）の判定を画面に表示・手動切替を追加（選手選択画面の「種目」欄、トップバーの「形」バッジ、取込時の種目集計）。テンプレート列名を「種目（形／組手）」に。形の判定勝ちは判定ポップアップの旗本数（副審4＋主審1）を記録し、操作画面・モニターの勝利表示に「赤◯本 青◯本」、試合結果の得点欄・動画メタの得点に旗本数を入れる / v1.23 (2026-10-28): 選手テンプレートに「保護者携帯」列を追加。取り込み時に携帯／固定電話／誤りを確認し、携帯は番号・固定電話は印だけを出場選手と一緒にサーバーへ送る（観戦アプリの本人確認用。端末・名簿出力には残さない） / v1.22 (2026-10-21): 選手テンプレート・名簿出力の列を変更（身長・体重を削除、戦歴（ベスト８以上）を追加）。記入例を京都市武道館・河原町道場／京都北道場・コート1／2に。名簿出力で学年が空になっていたのを修正。取り込み時に戦歴を読み、端末の選手データに保持（サーバーには送らない） / v1.21 (2026-10-17): 生年月日の読み取り・送信をやめる（会員の承認制に変更）。テンプレート・名簿出力の生年月日列を削除。大会事務局のアカウントからも出場選手を送れる / v1.20 (2026-10-14): 選手データの「生年月日」を読み取り、出場選手と一緒にサーバーへ送信（観戦アプリの会員確認用。端末には保存しない） / v1.19: 選手データ取り込み時に出場選手をサーバーへ送信
+  window.KW_VER='1.27';   // v1.27 (2026-11-10): 時間切れ(0.0)でタイマー直下に「▶ 試合再開」ボタンを表示。押すとロックが解除され、得点・ペナルティ・±1秒を試合中と同様に操作できる（一時停止扱い、再度 0.0 で終了ブザー）。終了後に得点を押したときの確認ダイアログを「試合再開」「キャンセル」の2ボタンに変更（勝敗確定後は従来どおり「勝利取消」案内） / v1.26 (2026-11-10): 選手選択画面で、同じクラス名に形と組手の選手が混在していると一覧が混在表示され、「種目」欄で形／組手を選んでも絞り込まれなかったのを修正。混在クラスは多数派の種目を自動選択して案内を表示、種目欄の切替で一覧を絞り直す（種目列が空欄の選手は残す） / v1.25 (2026-10-31): 試合結果の速報送信 — 勝敗が確定するたび（勝ちボタン・時間切れ・強制終了）に kw_live_results へ即時送信（オフライン・未ログイン時は端末に送信待ちとして保持し、オンライン復帰・ログイン後に自動送信）。勝利取消で取り消し。設定画面に ON/OFF・ログイン・送信待ち件数。観戦アプリ v59 の「速報」画面に大会・クラスごとにリアルタイム表示 / v1.24 (2026-10-31): 種目（形／組手）の判定を画面に表示・手動切替を追加（選手選択画面の「種目」欄、トップバーの「形」バッジ、取込時の種目集計）。テンプレート列名を「種目（形／組手）」に。形の判定勝ちは判定ポップアップの旗本数（副審4＋主審1）を記録し、操作画面・モニターの勝利表示に「赤◯本 青◯本」、試合結果の得点欄・動画メタの得点に旗本数を入れる / v1.23 (2026-10-28): 選手テンプレートに「保護者携帯」列を追加。取り込み時に携帯／固定電話／誤りを確認し、携帯は番号・固定電話は印だけを出場選手と一緒にサーバーへ送る（観戦アプリの本人確認用。端末・名簿出力には残さない） / v1.22 (2026-10-21): 選手テンプレート・名簿出力の列を変更（身長・体重を削除、戦歴（ベスト８以上）を追加）。記入例を京都市武道館・河原町道場／京都北道場・コート1／2に。名簿出力で学年が空になっていたのを修正。取り込み時に戦歴を読み、端末の選手データに保持（サーバーには送らない） / v1.21 (2026-10-17): 生年月日の読み取り・送信をやめる（会員の承認制に変更）。テンプレート・名簿出力の生年月日列を削除。大会事務局のアカウントからも出場選手を送れる / v1.20 (2026-10-14): 選手データの「生年月日」を読み取り、出場選手と一緒にサーバーへ送信（観戦アプリの会員確認用。端末には保存しない） / v1.19: 選手データ取り込み時に出場選手をサーバーへ送信
   try{console.log('[Karate Win] version', KW_VER);}catch(e){}
 
   // ══ オンライン更新チェック機能 ══
