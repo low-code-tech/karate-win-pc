@@ -25,23 +25,26 @@ html,body{
 /* ─── HEADER ─── */
 #header{
   flex-shrink:0;height:11%;
-  display:flex;align-items:center;justify-content:center;
+  display:flex;align-items:center;justify-content:space-between;gap:1rem;
   background:#090d14;border-bottom:2px solid #1a3a6a;
   position:relative;padding:0 20px
 }
+/* v12b: 絶対配置をやめ3列化。長い大会名・クラス名が重ならない（各枠内でフォント自動縮小） */
 #h-tournament{
-  position:absolute;left:20px;
+  flex:0 0 26%;min-width:0;
   font-size:2.0rem;font-weight:700;color:#6080b0;letter-spacing:0;
-  white-space:nowrap;max-width:34%;line-height:1.15;
+  white-space:nowrap;line-height:1.15;text-align:left;overflow:hidden;
   /* JS fitTournament() が幅に応じてフォントを自動縮小し、全文を表示 */
 }
 #h-court{
-  position:absolute;right:20px;
-  font-size:2.2rem;color:#405070;white-space:nowrap
+  flex:0 0 26%;min-width:0;
+  font-size:2.2rem;color:#405070;white-space:nowrap;text-align:right
 }
 #h-cls{
+  flex:1 1 auto;min-width:0;
   font-size:3.6rem;font-weight:900;color:#c8d8f8;letter-spacing:3px;
-  text-align:center;padding:4px 6px;line-height:1.2
+  text-align:center;padding:4px 10px;line-height:1.2;white-space:nowrap
+  /* JS fitCls() が幅に応じてフォントを自動縮小。下限でも入らない場合のみ2行に折り返す */
 }
 
 /* ─── MAIN 2カラム ─── */
@@ -248,8 +251,7 @@ html,body{
 
 /* v9: 操作画面内プレビュー(?preview=1)では案内・接続表示を出さない */
 html.preview #fs-hint,html.preview #conn-status,html.kiosk #fs-hint{display:none !important}
-/* v12b: カーソルは常に消さず、マウスを3秒動かさなかったときだけ隠す（動かせばすぐ表示） */
-html.cur-idle,html.cur-idle *{cursor:none !important}
+html.kiosk,html.kiosk body{cursor:none}
 /* ─── 接続ステータス ─── */
 #conn-status{
   position:fixed;bottom:6px;right:10px;
@@ -535,21 +537,13 @@ html.cur-idle,html.cur-idle *{cursor:none !important}
 
 <script>
 // ══ BroadcastChannel ══
-const MON_VER='v12b';   // v12b: ランチャー起動時もマウスカーソルを表示（3秒操作がないときだけ隠す） / v12a: 形ビューの基本の並びを組手と同じ 左＝赤／右＝青 に統一 / v12: 形の判定勝ちで旗本数「赤◯本 青◯本」を勝利表示の下に表示、形ビューのヘッダーに「形」バッジ
+const MON_VER='v12b';   // v12b: ヘッダーを3列化し、長い大会名・クラス名が重ならないように（クラス名も自動縮小） / v12a: 形ビューの基本の並びを組手と同じ 左＝赤／右＝青 に統一 / v12: 形の判定勝ちで旗本数「赤◯本 青◯本」を勝利表示の下に表示、形ビューのヘッダーに「形」バッジ
 // v10: ?kiosk=1 … 起動ランチャー(KarateWin-Start)がブラウザ自体を全画面で開くモード。
 //   ブラウザレベルの全画面は操作画面のダイアログや Esc では解除されない。クリックで全画面にする案内・処理は不要なので無効化する。
 const KIOSK=/[?&]kiosk=1/.test(location.search);
 if(KIOSK) document.documentElement.classList.add('kiosk');
 const PREVIEW=/[?&]preview=1/.test(location.search);   // 操作画面内の縮小プレビュー(iframe)
 if(PREVIEW) document.documentElement.classList.add('preview');
-// v12b: マウスを3秒動かさないとカーソルを隠し、動かすとすぐ表示する
-(function(){
-  if(PREVIEW) return;
-  const html=document.documentElement; let t=null;
-  function wake(){ html.classList.remove('cur-idle'); clearTimeout(t); t=setTimeout(function(){ html.classList.add('cur-idle'); },3000); }
-  ['mousemove','mousedown','wheel'].forEach(function(ev){ document.addEventListener(ev,wake,{passive:true}); });
-  wake();
-})();
 const ch = new BroadcastChannel('karate-win-sync');
 function _rw(){const r=document.getElementById('root');const w=r&&r.getBoundingClientRect().width;return w||window.innerWidth;}
 // ══ 形モードはページ内で切替（全画面を維持するためページ遷移しない） ══
@@ -559,7 +553,7 @@ let connected = false;
 // ── フィット処理のキャッシュ（同じ文字列なら再計算しない＝レイアウトスラッシング防止）──
 // 送信は約10回/秒（setInterval 100ms）だが氏名・大会名は試合中ほぼ不変のため、
 // 変化時のみ scrollWidth を用いた自動縮小を実行する。resizeRoot() 側で無効化して再計算。
-let _fitRN=null, _fitBN=null, _fitTn=null, _fitWB=null;
+let _fitRN=null, _fitBN=null, _fitTn=null, _fitWB=null, _fitCls=null;
 
 // ══ 動画再生制御（video_play/video_stop はモニター状態を変更しない） ══
 let _mvUrl=null;
@@ -656,7 +650,8 @@ function applyState(st) {
 
   const _tn = st.tournament || '大会名未設定';
   if(_tn !== _fitTn){ fitTournament(_tn); _fitTn = _tn; }
-  setText('h-cls',        st.cls        || 'クラス / 学年');
+  const _cl = st.cls || 'クラス / 学年';
+  if(_cl !== _fitCls){ fitCls(_cl); _fitCls = _cl; }
   setText('h-court',      'コート ' + (st.court || '—'));
 
   const _rn = st.rn || '赤山 太郎';
@@ -827,6 +822,7 @@ function fitTournament(name) {
   const el = document.getElementById('h-tournament');
   if (!el) return;
   el.textContent = name;
+  el.style.whiteSpace = 'nowrap';
   const basePx = _rw() * 0.020;   // 2.0rem（基準）
   const minPx  = _rw() * 0.011;   // 1.1rem（最小＝全文表示を優先）
   el.style.fontSize = basePx + 'px';
@@ -835,8 +831,27 @@ function fitTournament(name) {
     fs -= 0.5;
     el.style.fontSize = fs + 'px';
   }
+  // v12b: 下限でも入らない場合のみ2行に折り返す（隣の枠へはみ出さない）
+  if (el.scrollWidth > el.clientWidth) el.style.whiteSpace = 'normal';
 }
 
+// ── v12b クラス名：ヘッダー中央枠に収まるようフォントを自動縮小。下限でも入らなければ2行に折り返す ──
+function fitCls(name) {
+  const el = document.getElementById('h-cls');
+  if (!el) return;
+  el.textContent = name;
+  el.style.whiteSpace = 'nowrap';
+  el.style.letterSpacing = '3px';
+  const basePx = _rw() * 0.036;   // 3.6rem（基準）
+  const minPx  = _rw() * 0.020;   // 2.0rem（最小）
+  el.style.fontSize = basePx + 'px';
+  let fs = basePx;
+  while (el.scrollWidth > el.clientWidth && fs > minPx) {
+    fs -= 1;
+    el.style.fontSize = fs + 'px';
+  }
+  if (el.scrollWidth > el.clientWidth) { el.style.letterSpacing = '0'; el.style.whiteSpace = 'normal'; }
+}
 // ── 勝者バナー氏名：バナー幅に収まるようフォントを自動縮小（改行・はみ出し防止）──
 function fitBannerName(name) {
   const el = document.getElementById('wb-name');
@@ -880,11 +895,12 @@ function resizeRoot() {
   // フォント基準(rem)を16:9ボックスの実幅に合わせる（横長・縦長でも崩れない）
   document.documentElement.style.fontSize=(root.getBoundingClientRect().width/100)+'px';
   // リサイズ後に名前を再フィット（vw基準が変わるため強制再計算＝キャッシュ無効化）
-  _fitRN = _fitBN = _fitTn = _fitWB = null;
+  _fitRN = _fitBN = _fitTn = _fitWB = _fitCls = null;
   requestAnimationFrame(() => {
     fitName('m-r-name', 'wrap-r', document.getElementById('m-r-name').textContent);
     fitName('m-b-name', 'wrap-b', document.getElementById('m-b-name').textContent);
     fitTournament(document.getElementById('h-tournament').textContent);
+    fitCls(document.getElementById('h-cls').textContent);
     // 勝者バナー表示中なら氏名も再フィット
     const banner = document.getElementById('win-banner');
     if (banner && banner.style.display !== 'none') {
