@@ -1113,7 +1113,7 @@ html,body{
      <div class="logo" onclick="sw('onboarding',null)" style="cursor:pointer" title="はじめに画面へ戻る">
       Karate Win
       <small id="kw-ver">
-       v1.27
+       v1.28
       </small>
      </div>
      <button class="tb-right-btn" onclick="sw('settings',this)">
@@ -2351,7 +2351,7 @@ html,body{
      </div>
      <div id="ml-event-badge" title="いまの判定結果と、その根拠">—</div>
      <div id="ml-filter-status" style="display:none;font-size:11px;color:#4a7090;white-space:nowrap;flex-shrink:0;padding:0 6px;background:#07090f;border:1px solid #111820;border-radius:4px;height:28px;line-height:28px;">
-      <b id="ml-filter-count" style="color:#6090b0;">
+      <span id="ml-filter-court" style="color:#6090b0;"></span><b id="ml-filter-count" style="color:#6090b0;">
        0
       </b>
       名
@@ -4829,17 +4829,32 @@ function mlBuildCourtDropdown(){
   mlBuildClassDropdown(sel.value);
 }
 function mlBuildClassDropdown(court){
-  // クラス一覧は全コート分を表示（コートは絞り込みのみに使用）
-  var allClasses=[...new Set(_mlPlayers.map(function(p){return String(p.cls||'').trim();}).filter(Boolean))].sort();
+  // v1.28: コートを選ぶと、そのコートに選手がいるクラスだけをクラス一覧に出す（「全コート」なら全クラス）。
+  //   従来は全クラスを出していたため、コートを選んでも一覧が変わらず「コート選択が効いていない」ように見えた。
+  //   各クラスの人数（そのコート内）も併記する。
+  court=String(court||'').trim();
+  var src=_mlPlayers.filter(function(p){return !court||String(p.court||'').trim()===court;});
+  var cnt={};
+  src.forEach(function(p){var c=String(p.cls||'').trim();if(c)cnt[c]=(cnt[c]||0)+1;});
+  var allClasses=Object.keys(cnt).sort();
   var sel=document.getElementById('ml-class');
   var prev=sel.value;
-  sel.innerHTML='<option value="">— クラスを選択 —</option>'+allClasses.map(function(c){return '<option value="'+c+'">'+c+'</option>';}).join('');
+  sel.innerHTML='<option value="">— クラスを選択'+(court?'（コート '+court+'：'+allClasses.length+'クラス）':'')+' —</option>'
+    +allClasses.map(function(c){return '<option value="'+c+'">'+c+'（'+cnt[c]+'名）</option>';}).join('');
   if(prev&&allClasses.indexOf(prev)>=0)sel.value=prev;
+  else if(prev){ sel.value=''; const _tbc=document.getElementById('tb-cls'); if(_tbc)_tbc.textContent='クラス / 学年'; }
 }
 function mlOnCourtChange(){
   const court=document.getElementById('ml-court').value;
   if(court)document.getElementById('ml-court-num').value=court;
-  mlBuildClassDropdown(court);mlApplyFilter();
+  const prevCls=document.getElementById('ml-class').value;
+  mlBuildClassDropdown(court);
+  if(prevCls && !document.getElementById('ml-class').value){
+    // v1.28 選択中のクラスがこのコートに無い → 割当もクリアして案内
+    if(_mlRed||_mlBlue){_mlRed=null;_mlBlue=null;mlUpdateSlot('red',null);mlUpdateSlot('blue',null);}
+    toast('「'+prevCls+'」はコート '+court+' にはありません。クラスを選び直してください');
+  }
+  mlApplyFilter();
 }
 function mlOnClassChange(){
   const _c=document.getElementById('ml-class').value;
@@ -4880,12 +4895,13 @@ function mlApplyFilter(){
   _mlVisible.sort((a,b)=>String(a.bib||'').localeCompare(String(b.bib||''),undefined,{numeric:true,sensitivity:'base'}));
   document.getElementById('ml-filter-status').style.display='';
   document.getElementById('ml-filter-count').textContent=_mlVisible.length;
+  { const fc=document.getElementById('ml-filter-court'); if(fc) fc.textContent=court?('コート '+court+'：'):'全コート：'; }   // v1.28
   mlRenderPlayers();
   mlEventBadge(); mlCheckReady();
 }
 function mlRenderPlayers(){
   var list=document.getElementById('ml-player-list');
-  if(!_mlVisible.length){mlShowEmpty('このクラス・コートに選手がいません');return;}
+  if(!_mlVisible.length){const _ct=document.getElementById('ml-court').value;mlShowEmpty(_ct?('コート '+_ct+' のこのクラスには選手がいません（コートを「全コート」にすると全員表示）'):'このクラスに選手がいません');return;}
   list.innerHTML='';
   // 利用可能高さからカード行数を動的算出（1カード最低86px確保、最大5行）
   var listH=list.parentElement.clientHeight||400;
@@ -5253,7 +5269,7 @@ function toast(msg,cls){
     fitPlayerName();
   }
   fit169();
-  window.KW_VER='1.27';   // v1.27 (2026-11-10): 時間切れ(0.0)でタイマー直下に「▶ 試合再開」ボタンを表示。押すとロックが解除され、得点・ペナルティ・±1秒を試合中と同様に操作できる（一時停止扱い、再度 0.0 で終了ブザー）。終了後に得点を押したときの確認ダイアログを「試合再開」「キャンセル」の2ボタンに変更（勝敗確定後は従来どおり「勝利取消」案内） / v1.26 (2026-11-10): 選手選択画面で、同じクラス名に形と組手の選手が混在していると一覧が混在表示され、「種目」欄で形／組手を選んでも絞り込まれなかったのを修正。混在クラスは多数派の種目を自動選択して案内を表示、種目欄の切替で一覧を絞り直す（種目列が空欄の選手は残す） / v1.25 (2026-10-31): 試合結果の速報送信 — 勝敗が確定するたび（勝ちボタン・時間切れ・強制終了）に kw_live_results へ即時送信（オフライン・未ログイン時は端末に送信待ちとして保持し、オンライン復帰・ログイン後に自動送信）。勝利取消で取り消し。設定画面に ON/OFF・ログイン・送信待ち件数。観戦アプリ v59 の「速報」画面に大会・クラスごとにリアルタイム表示 / v1.24 (2026-10-31): 種目（形／組手）の判定を画面に表示・手動切替を追加（選手選択画面の「種目」欄、トップバーの「形」バッジ、取込時の種目集計）。テンプレート列名を「種目（形／組手）」に。形の判定勝ちは判定ポップアップの旗本数（副審4＋主審1）を記録し、操作画面・モニターの勝利表示に「赤◯本 青◯本」、試合結果の得点欄・動画メタの得点に旗本数を入れる / v1.23 (2026-10-28): 選手テンプレートに「保護者携帯」列を追加。取り込み時に携帯／固定電話／誤りを確認し、携帯は番号・固定電話は印だけを出場選手と一緒にサーバーへ送る（観戦アプリの本人確認用。端末・名簿出力には残さない） / v1.22 (2026-10-21): 選手テンプレート・名簿出力の列を変更（身長・体重を削除、戦歴（ベスト８以上）を追加）。記入例を京都市武道館・河原町道場／京都北道場・コート1／2に。名簿出力で学年が空になっていたのを修正。取り込み時に戦歴を読み、端末の選手データに保持（サーバーには送らない） / v1.21 (2026-10-17): 生年月日の読み取り・送信をやめる（会員の承認制に変更）。テンプレート・名簿出力の生年月日列を削除。大会事務局のアカウントからも出場選手を送れる / v1.20 (2026-10-14): 選手データの「生年月日」を読み取り、出場選手と一緒にサーバーへ送信（観戦アプリの会員確認用。端末には保存しない） / v1.19: 選手データ取り込み時に出場選手をサーバーへ送信
+  window.KW_VER='1.28';   // v1.28 (2026-11-11): 選手選択画面でコートを選ぶと、そのコートに選手がいるクラスだけがクラス一覧に出るように（各クラスの人数も併記）。選択中のクラスがそのコートに無い場合はクラスをクリアして案内。絞り込み表示に「コート N：」を追加 / v1.27 (2026-11-10): 時間切れ(0.0)でタイマー直下に「▶ 試合再開」ボタンを表示。押すとロックが解除され、得点・ペナルティ・±1秒を試合中と同様に操作できる（一時停止扱い、再度 0.0 で終了ブザー）。終了後に得点を押したときの確認ダイアログを「試合再開」「キャンセル」の2ボタンに変更（勝敗確定後は従来どおり「勝利取消」案内） / v1.26 (2026-11-10): 選手選択画面で、同じクラス名に形と組手の選手が混在していると一覧が混在表示され、「種目」欄で形／組手を選んでも絞り込まれなかったのを修正。混在クラスは多数派の種目を自動選択して案内を表示、種目欄の切替で一覧を絞り直す（種目列が空欄の選手は残す） / v1.25 (2026-10-31): 試合結果の速報送信 — 勝敗が確定するたび（勝ちボタン・時間切れ・強制終了）に kw_live_results へ即時送信（オフライン・未ログイン時は端末に送信待ちとして保持し、オンライン復帰・ログイン後に自動送信）。勝利取消で取り消し。設定画面に ON/OFF・ログイン・送信待ち件数。観戦アプリ v59 の「速報」画面に大会・クラスごとにリアルタイム表示 / v1.24 (2026-10-31): 種目（形／組手）の判定を画面に表示・手動切替を追加（選手選択画面の「種目」欄、トップバーの「形」バッジ、取込時の種目集計）。テンプレート列名を「種目（形／組手）」に。形の判定勝ちは判定ポップアップの旗本数（副審4＋主審1）を記録し、操作画面・モニターの勝利表示に「赤◯本 青◯本」、試合結果の得点欄・動画メタの得点に旗本数を入れる / v1.23 (2026-10-28): 選手テンプレートに「保護者携帯」列を追加。取り込み時に携帯／固定電話／誤りを確認し、携帯は番号・固定電話は印だけを出場選手と一緒にサーバーへ送る（観戦アプリの本人確認用。端末・名簿出力には残さない） / v1.22 (2026-10-21): 選手テンプレート・名簿出力の列を変更（身長・体重を削除、戦歴（ベスト８以上）を追加）。記入例を京都市武道館・河原町道場／京都北道場・コート1／2に。名簿出力で学年が空になっていたのを修正。取り込み時に戦歴を読み、端末の選手データに保持（サーバーには送らない） / v1.21 (2026-10-17): 生年月日の読み取り・送信をやめる（会員の承認制に変更）。テンプレート・名簿出力の生年月日列を削除。大会事務局のアカウントからも出場選手を送れる / v1.20 (2026-10-14): 選手データの「生年月日」を読み取り、出場選手と一緒にサーバーへ送信（観戦アプリの会員確認用。端末には保存しない） / v1.19: 選手データ取り込み時に出場選手をサーバーへ送信
   try{console.log('[Karate Win] version', KW_VER);}catch(e){}
 
   // ══ オンライン更新チェック機能 ══
