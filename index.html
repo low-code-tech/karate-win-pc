@@ -1113,7 +1113,7 @@ html,body{
      <div class="logo" onclick="sw('onboarding',null)" style="cursor:pointer" title="はじめに画面へ戻る">
       Karate Win
       <small id="kw-ver">
-       v1.28
+       v1.28b
       </small>
      </div>
      <button class="tb-right-btn" onclick="sw('settings',this)">
@@ -4834,22 +4834,33 @@ function mlBuildClassDropdown(court){
   //   各クラスの人数（そのコート内）も併記する。
   court=String(court||'').trim();
   var src=_mlPlayers.filter(function(p){return !court||String(p.court||'').trim()===court;});
+  // v1.28b: 同じクラス名に形と組手が混在する場合は「クラス名（形N名）」「クラス名（組手N名）」の2行に分ける。
+  //   option の value は「クラス名\tkata」「クラス名\tkumite」（混在しないクラスは「クラス名」のみ）。
+  //   クラス名の取り出しは mlClsName()、種目は mlClsEvent() を使う。種目列が空欄の選手は両方に含める。
   var cnt={};
-  src.forEach(function(p){var c=String(p.cls||'').trim();if(c)cnt[c]=(cnt[c]||0)+1;});
+  src.forEach(function(p){var c=String(p.cls||'').trim();if(!c)return;var k=kwKataFromPlayer(p);
+    var o=cnt[c]||(cnt[c]={k:0,u:0,n:0}); if(k===true)o.k++; else if(k===false)o.u++; else o.n++;});
   var allClasses=Object.keys(cnt).sort();
+  var opts=[];
+  allClasses.forEach(function(c){var o=cnt[c];
+    if(o.k>0&&o.u>0){ opts.push({v:c+'\tkata',t:c+'（形'+(o.k+o.n)+'名）'}); opts.push({v:c+'\tkumite',t:c+'（組手'+(o.u+o.n)+'名）'}); }
+    else opts.push({v:c,t:c+'（'+(o.k+o.u+o.n)+'名）'});});
   var sel=document.getElementById('ml-class');
   var prev=sel.value;
   sel.innerHTML='<option value="">— クラスを選択'+(court?'（コート '+court+'：'+allClasses.length+'クラス）':'')+' —</option>'
-    +allClasses.map(function(c){return '<option value="'+c+'">'+c+'（'+cnt[c]+'名）</option>';}).join('');
-  if(prev&&allClasses.indexOf(prev)>=0)sel.value=prev;
+    +opts.map(function(o){return '<option value="'+kwEscHtml(o.v)+'">'+kwEscHtml(o.t)+'</option>';}).join('');
+  if(prev&&opts.some(function(o){return o.v===prev;}))sel.value=prev;
   else if(prev){ sel.value=''; const _tbc=document.getElementById('tb-cls'); if(_tbc)_tbc.textContent='クラス / 学年'; }
 }
+// v1.28b: クラス選択の value（「クラス名\t種目」）からクラス名／種目を取り出す
+function mlClsName(){ const v=(document.getElementById('ml-class')||{}).value||''; const i=v.indexOf('\t'); return i<0?v:v.slice(0,i); }
+function mlClsEvent(){ const v=(document.getElementById('ml-class')||{}).value||''; const i=v.indexOf('\t'); return i<0?'':v.slice(i+1); }
 function mlOnCourtChange(){
   const court=document.getElementById('ml-court').value;
   if(court)document.getElementById('ml-court-num').value=court;
-  const prevCls=document.getElementById('ml-class').value;
+  const prevCls=mlClsName();
   mlBuildClassDropdown(court);
-  if(prevCls && !document.getElementById('ml-class').value){
+  if(prevCls && !mlClsName()){
     // v1.28 選択中のクラスがこのコートに無い → 割当もクリアして案内
     if(_mlRed||_mlBlue){_mlRed=null;_mlBlue=null;mlUpdateSlot('red',null);mlUpdateSlot('blue',null);}
     toast('「'+prevCls+'」はコート '+court+' にはありません。クラスを選び直してください');
@@ -4857,18 +4868,20 @@ function mlOnCourtChange(){
   mlApplyFilter();
 }
 function mlOnClassChange(){
-  const _c=document.getElementById('ml-class').value;
+  const _c=mlClsName();
   const _tbc=document.getElementById('tb-cls');
   if(_tbc)_tbc.textContent=_c||'クラス / 学年';
   // クラスを変えたら赤青の割当をクリア（形1名で前の選手が青に残るのを防止）
   if(_mlRed||_mlBlue){_mlRed=null;_mlBlue=null;mlUpdateSlot('red',null);mlUpdateSlot('blue',null);}
-  {const _es=document.getElementById('ml-event'); if(_es)_es.value='';}   // v1.24 クラスを変えたら手動の種目選択は解除（自動に戻す）
+  {const _es=document.getElementById('ml-event'); if(_es){ const ce=mlClsEvent();
+     // v1.28b クラス一覧で「（形N名）」「（組手N名）」を選んだ場合はその種目を設定。それ以外は自動に戻す
+     _es.value=ce||''; _es.dataset.auto=ce?'2':''; }}
   mlApplyFilter();
   {const _r=mlResolveEvent(); if(_r.kata&&_r.src!=='none')toast('形: 選手が1人の場合は「赤」にのみ割り当ててください（種目は「種目」欄で確認・変更できます）');}
 }
 function mlApplyFilter(){
   const court=document.getElementById('ml-court').value;
-  const cls=document.getElementById('ml-class').value;
+  const cls=mlClsName();
   if(!cls){document.getElementById('ml-filter-status').style.display='none';mlShowEmpty('クラスを選択すると選手一覧が表示されます');_mlVisible=[];mlEventBadge();mlCheckReady();return;}
   let base=_mlPlayers.filter(p=>{const mc=!court||String(p.court||'').trim()===court;return mc&&String(p.cls||'').trim()===cls;});
   // v1.26 同じクラス名に形と組手の選手が混在する場合、種目で絞り込む（従来は種目欄を変えても一覧が混在のままだった）
@@ -4995,7 +5008,7 @@ function mlResolveEvent(){
   if(kp!==null) return {kata:kp,src:'player'};
   const cols=(_mlVisible||[]).map(kwKataFromPlayer).filter(x=>x!==null);
   if(cols.length){ const nk=cols.filter(Boolean).length; return {kata:nk*2>=cols.length,src:'players'}; }
-  const cls=document.getElementById('ml-class')?.value||'';
+  const cls=mlClsName();
   if(!cls) return {kata:false,src:'none'};
   return {kata:kwIsKataCls(cls),src:'class'};
 }
@@ -5003,7 +5016,8 @@ function mlEventBadge(){
   const b=document.getElementById('ml-event-badge'); if(!b) return;
   const r=mlResolveEvent();
   const _esA=document.getElementById('ml-event')?.dataset.auto==='1';   // v1.26
-  const srcTxt={manual:_esA?'混在クラス・自動選択':'手動',player:'赤選手の種目列',players:'選手データの種目列',class:'クラス名',none:''}[r.src]||'';
+  const _esC=document.getElementById('ml-event')?.dataset.auto==='2';   // v1.28b クラス一覧で種目を指定
+  const srcTxt={manual:_esA?'混在クラス・自動選択':(_esC?'クラス一覧で選択':'手動'),player:'赤選手の種目列',players:'選手データの種目列',class:'クラス名',none:''}[r.src]||'';
   if(r.src==='none'){ b.className=''; b.textContent='—'; b.title='クラスを選ぶと種目を判定します'; return; }
   b.className=r.kata?'kata':'kumite';
   b.textContent=(r.kata?'形':'組手')+(srcTxt?'（'+srcTxt+'）':'');
@@ -5012,7 +5026,7 @@ function mlEventBadge(){
 function mlOnEventChange(){
   {const es=document.getElementById('ml-event'); if(es)es.dataset.auto='';}   // v1.26 ユーザーが変えたら自動選択フラグを解除
   // v1.26 種目を切り替えたら一覧を絞り直す。絞り込みで消えた選手が赤・青に残らないようにする
-  if(document.getElementById('ml-class')?.value){
+  if(mlClsName()){
     mlApplyFilter();
     if(_mlRed&&!_mlVisible.some(p=>mlIsSame(p,_mlRed))){_mlRed=null;mlUpdateSlot('red',null);}
     if(_mlBlue&&!_mlVisible.some(p=>mlIsSame(p,_mlBlue))){_mlBlue=null;mlUpdateSlot('blue',null);}
@@ -5128,7 +5142,7 @@ function mlCheckReady(){
   btn.innerHTML=(kata&&_mlBlue&&!_mlRed)?'形は「赤」に割り当ててください':(kata&&_mlRed&&!_mlBlue)?'▶ タイマー起動（形・1名）':'▶ タイマー起動';
 }
 function mlLaunch(){
-  const cls=document.getElementById('ml-class').value;
+  const cls=mlClsName();
   if(!_mlRed)return;
   const _kataSel=mlResolveEvent().kata;   // v1.24
   if(!_kataSel&&!_mlBlue)return;
@@ -5269,7 +5283,7 @@ function toast(msg,cls){
     fitPlayerName();
   }
   fit169();
-  window.KW_VER='1.28';   // v1.28 (2026-11-11): 選手選択画面でコートを選ぶと、そのコートに選手がいるクラスだけがクラス一覧に出るように（各クラスの人数も併記）。選択中のクラスがそのコートに無い場合はクラスをクリアして案内。絞り込み表示に「コート N：」を追加 / v1.27 (2026-11-10): 時間切れ(0.0)でタイマー直下に「▶ 試合再開」ボタンを表示。押すとロックが解除され、得点・ペナルティ・±1秒を試合中と同様に操作できる（一時停止扱い、再度 0.0 で終了ブザー）。終了後に得点を押したときの確認ダイアログを「試合再開」「キャンセル」の2ボタンに変更（勝敗確定後は従来どおり「勝利取消」案内） / v1.26 (2026-11-10): 選手選択画面で、同じクラス名に形と組手の選手が混在していると一覧が混在表示され、「種目」欄で形／組手を選んでも絞り込まれなかったのを修正。混在クラスは多数派の種目を自動選択して案内を表示、種目欄の切替で一覧を絞り直す（種目列が空欄の選手は残す） / v1.25 (2026-10-31): 試合結果の速報送信 — 勝敗が確定するたび（勝ちボタン・時間切れ・強制終了）に kw_live_results へ即時送信（オフライン・未ログイン時は端末に送信待ちとして保持し、オンライン復帰・ログイン後に自動送信）。勝利取消で取り消し。設定画面に ON/OFF・ログイン・送信待ち件数。観戦アプリ v59 の「速報」画面に大会・クラスごとにリアルタイム表示 / v1.24 (2026-10-31): 種目（形／組手）の判定を画面に表示・手動切替を追加（選手選択画面の「種目」欄、トップバーの「形」バッジ、取込時の種目集計）。テンプレート列名を「種目（形／組手）」に。形の判定勝ちは判定ポップアップの旗本数（副審4＋主審1）を記録し、操作画面・モニターの勝利表示に「赤◯本 青◯本」、試合結果の得点欄・動画メタの得点に旗本数を入れる / v1.23 (2026-10-28): 選手テンプレートに「保護者携帯」列を追加。取り込み時に携帯／固定電話／誤りを確認し、携帯は番号・固定電話は印だけを出場選手と一緒にサーバーへ送る（観戦アプリの本人確認用。端末・名簿出力には残さない） / v1.22 (2026-10-21): 選手テンプレート・名簿出力の列を変更（身長・体重を削除、戦歴（ベスト８以上）を追加）。記入例を京都市武道館・河原町道場／京都北道場・コート1／2に。名簿出力で学年が空になっていたのを修正。取り込み時に戦歴を読み、端末の選手データに保持（サーバーには送らない） / v1.21 (2026-10-17): 生年月日の読み取り・送信をやめる（会員の承認制に変更）。テンプレート・名簿出力の生年月日列を削除。大会事務局のアカウントからも出場選手を送れる / v1.20 (2026-10-14): 選手データの「生年月日」を読み取り、出場選手と一緒にサーバーへ送信（観戦アプリの会員確認用。端末には保存しない） / v1.19: 選手データ取り込み時に出場選手をサーバーへ送信
+  window.KW_VER='1.28b';   // v1.28b (2026-11-11): 選手選択のクラス一覧で、形と組手が混在するクラスを「クラス名（形N名）」「クラス名（組手N名）」の2行に分けて表示。選ぶとその種目で一覧を絞り込み、種目欄にも反映 / v1.28 (2026-11-11): 選手選択画面でコートを選ぶと、そのコートに選手がいるクラスだけがクラス一覧に出るように（各クラスの人数も併記）。選択中のクラスがそのコートに無い場合はクラスをクリアして案内。絞り込み表示に「コート N：」を追加 / v1.27 (2026-11-10): 時間切れ(0.0)でタイマー直下に「▶ 試合再開」ボタンを表示。押すとロックが解除され、得点・ペナルティ・±1秒を試合中と同様に操作できる（一時停止扱い、再度 0.0 で終了ブザー）。終了後に得点を押したときの確認ダイアログを「試合再開」「キャンセル」の2ボタンに変更（勝敗確定後は従来どおり「勝利取消」案内） / v1.26 (2026-11-10): 選手選択画面で、同じクラス名に形と組手の選手が混在していると一覧が混在表示され、「種目」欄で形／組手を選んでも絞り込まれなかったのを修正。混在クラスは多数派の種目を自動選択して案内を表示、種目欄の切替で一覧を絞り直す（種目列が空欄の選手は残す） / v1.25 (2026-10-31): 試合結果の速報送信 — 勝敗が確定するたび（勝ちボタン・時間切れ・強制終了）に kw_live_results へ即時送信（オフライン・未ログイン時は端末に送信待ちとして保持し、オンライン復帰・ログイン後に自動送信）。勝利取消で取り消し。設定画面に ON/OFF・ログイン・送信待ち件数。観戦アプリ v59 の「速報」画面に大会・クラスごとにリアルタイム表示 / v1.24 (2026-10-31): 種目（形／組手）の判定を画面に表示・手動切替を追加（選手選択画面の「種目」欄、トップバーの「形」バッジ、取込時の種目集計）。テンプレート列名を「種目（形／組手）」に。形の判定勝ちは判定ポップアップの旗本数（副審4＋主審1）を記録し、操作画面・モニターの勝利表示に「赤◯本 青◯本」、試合結果の得点欄・動画メタの得点に旗本数を入れる / v1.23 (2026-10-28): 選手テンプレートに「保護者携帯」列を追加。取り込み時に携帯／固定電話／誤りを確認し、携帯は番号・固定電話は印だけを出場選手と一緒にサーバーへ送る（観戦アプリの本人確認用。端末・名簿出力には残さない） / v1.22 (2026-10-21): 選手テンプレート・名簿出力の列を変更（身長・体重を削除、戦歴（ベスト８以上）を追加）。記入例を京都市武道館・河原町道場／京都北道場・コート1／2に。名簿出力で学年が空になっていたのを修正。取り込み時に戦歴を読み、端末の選手データに保持（サーバーには送らない） / v1.21 (2026-10-17): 生年月日の読み取り・送信をやめる（会員の承認制に変更）。テンプレート・名簿出力の生年月日列を削除。大会事務局のアカウントからも出場選手を送れる / v1.20 (2026-10-14): 選手データの「生年月日」を読み取り、出場選手と一緒にサーバーへ送信（観戦アプリの会員確認用。端末には保存しない） / v1.19: 選手データ取り込み時に出場選手をサーバーへ送信
   try{console.log('[Karate Win] version', KW_VER);}catch(e){}
 
   // ══ オンライン更新チェック機能 ══
