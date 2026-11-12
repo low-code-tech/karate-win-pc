@@ -1,6 +1,6 @@
 {
-  "version": "1.28c",
-  "message": "更新機能のテストです。",
+  "version": "1.28e",
+  "message": "空手 Win アプリ更新プログラム",
   "installerUrl": "https://karate-win-pc.vercel.app/KarateWinSetup.exe",
-  "sha256": "6C3EF473C53B7CD15834CDFB02588763E78DA34971DDAF8AE12DC57BC2C1B8F7"
+  "sha256": "76D294E98559C14AA07ACCCE80E2DE05DDE48075D8184E9CBBF8AEC4CD57587B"
 }
