@@ -10,7 +10,8 @@ html,body{
   width:100%;height:100%;overflow:hidden;
   background:#000;color:#e8eaf0;
   font-family:'Helvetica Neue',Arial,'Hiragino Kaku Gothic ProN','Noto Sans JP',sans-serif;
-  user-select:none}
+  user-select:none;
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}   /* v12d */
 
 /* ブラウザズーム・TV HDMI表示でも16:9を崩さない */
 #root{
@@ -114,7 +115,7 @@ html,body{
   font-size:5.5rem;font-weight:900;letter-spacing:2px;
   line-height:1.1;text-align:center;white-space:nowrap;
   display:inline-block}
-.p-name.r,.p-name.b{color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.6)}   /* v9 ②: 発光(ぼかし)なし */
+.p-name.r,.p-name.b{color:#fff;text-shadow:none}   /* v12d: 影も廃止（文字がぼやけて見える・貼り付けたように見えるため） */
 .p-club{font-size:2.8rem;font-weight:700;color:#d8dce8;flex-shrink:0;line-height:1.15;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:90%}
 /* 勝利バー（上/中の境界） */
@@ -197,7 +198,7 @@ html,body{
   border-radius:14px;
   padding:3% 6% 5%;
   display:flex;flex-direction:column;align-items:center;
-  box-shadow:0 0 50px rgba(0,50,150,.35),inset 0 0 30px rgba(0,20,60,.5)}
+  box-shadow:none}   /* v12d: にじみ(内側ぼかし)を廃止 */
 
 /* v11: タイマー文字色で状態を表す = 止まっているとき白 / 動いているとき黄 / 残り15秒を切ったら赤 */
 #timer-display{
@@ -208,7 +209,7 @@ html,body{
 #timer-wrap.st-running #timer-display{color:#ffd400}
 #timer-display.warning,#timer-wrap.st-running #timer-display.warning{color:#ff2a3c;animation:mwpls .5s infinite alternate}
 #timer-display.finished,#timer-wrap.st-running #timer-display.finished{color:#ff2a3c;animation:none}
-@keyframes mwpls{from{text-shadow:0 0 0 rgba(255,42,60,0)}to{text-shadow:0 0 .6rem rgba(255,42,60,.9)}}
+@keyframes mwpls{from{opacity:1}to{opacity:.55}}   /* v12d: 発光ではなく明滅で警告（にじみを出さない） */
 
 /* v11: タイマー下の状態文字（準備中／計時中 等）は廃止。状態はタイマーの文字色で表す */
 #status-label{display:none}
@@ -272,9 +273,9 @@ html.kiosk,html.kiosk body{cursor:none}
 #m-iv-display{
   font-size:min(32rem,25.875rem);font-weight:700;line-height:1;
   letter-spacing:-6px;color:#e8f0ff;font-variant-numeric:tabular-nums;
-  text-shadow:0 0 80px rgba(100,150,255,.3);
+  text-shadow:none;
 }
-#m-iv-display.warn{color:#ffaa22;text-shadow:0 0 60px rgba(255,160,30,.8);}
+#m-iv-display.warn{color:#ffaa22;text-shadow:none;}
 #m-iv-display.paused{opacity:.4;}
 
 /* ════ 告知オーバーレイ（モニター） ════ */
@@ -293,7 +294,7 @@ html.kiosk,html.kiosk body{cursor:none}
 #m-annc-main{
   font-size:min(20rem,18.0rem);font-weight:900;line-height:1;
   letter-spacing:2px;color:#e8f0ff;text-align:center;
-  text-shadow:0 0 80px rgba(100,150,255,.3);
+  text-shadow:none;
 }
 /* ════ 全画面案内オーバーレイ ════ */
 #fs-hint{
@@ -308,7 +309,7 @@ html.kiosk,html.kiosk body{cursor:none}
 #fs-hint-icon{font-size:6rem;filter:drop-shadow(0 0 20px rgba(100,150,255,.4));}
 #fs-hint-main{
   font-size:2.6rem;font-weight:900;letter-spacing:2px;color:#c8d8f8;text-align:center;
-  text-shadow:0 0 30px rgba(100,150,255,.3);
+  text-shadow:none;
 }
 #fs-hint-sub{
   font-size:1.4rem;font-weight:400;letter-spacing:1px;color:#6888b8;text-align:center;line-height:1.6;
@@ -340,12 +341,12 @@ html.kiosk,html.kiosk body{cursor:none}
 .kp-furi{font-size:2.6rem;color:#fff;opacity:.85;letter-spacing:.2rem;text-align:center;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:96%}
 .kp-name{font-size:9rem;font-weight:900;letter-spacing:.2rem;color:#fff;text-align:center;line-height:1.1;
-  max-width:96%;overflow:hidden;text-shadow:0 0 3rem rgba(255,255,255,.35)}
+  max-width:96%;overflow:hidden;text-shadow:none}   /* v12d: 発光なし */
 #kata-root.solo .kp-name{font-size:11.5rem}
 .kp-club{margin-top:0.5625rem;font-size:2.6rem;color:#fff;opacity:.8;text-align:center;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:96%}
 .kwinner{display:none;margin-top:1.6875rem;font-size:6rem;font-weight:900;letter-spacing:.5rem;color:#ffd700;
-  text-shadow:0 0 2rem rgba(255,215,0,.9),0 0 6rem rgba(255,215,0,.5);
+  text-shadow:none;
   animation:kwglow 1s ease-in-out infinite alternate}
 .kwinner.on{display:block}
 @keyframes kwglow{from{transform:scale(1)}to{transform:scale(1.06)}}
@@ -538,7 +539,7 @@ html.kiosk,html.kiosk body{cursor:none}
 
 <script>
 // ══ BroadcastChannel ══
-const MON_VER='v12c';   // v12c: 形ビューのヘッダーも3列固定幅＋自動縮小にし、長い大会名がクラス名に重ならないように / v12b: ヘッダーを3列化し、長い大会名・クラス名が重ならないように（クラス名も自動縮小） / v12a: 形ビューの基本の並びを組手と同じ 左＝赤／右＝青 に統一 / v12: 形の判定勝ちで旗本数「赤◯本 青◯本」を勝利表示の下に表示、形ビューのヘッダーに「形」バッジ
+const MON_VER='v12d';   // v12d: 氏名・数字などの文字から影・発光・ぼかしをすべて廃止し、くっきり表示に（タイマー枠の内側ぼかしも廃止） / v12c: 形ビューのヘッダーも3列固定幅＋自動縮小にし、長い大会名がクラス名に重ならないように / v12b: ヘッダーを3列化し、長い大会名・クラス名が重ならないように（クラス名も自動縮小） / v12a: 形ビューの基本の並びを組手と同じ 左＝赤／右＝青 に統一 / v12: 形の判定勝ちで旗本数「赤◯本 青◯本」を勝利表示の下に表示、形ビューのヘッダーに「形」バッジ
 // v10: ?kiosk=1 … 起動ランチャー(KarateWin-Start)がブラウザ自体を全画面で開くモード。
 //   ブラウザレベルの全画面は操作画面のダイアログや Esc では解除されない。クリックで全画面にする案内・処理は不要なので無効化する。
 const KIOSK=/[?&]kiosk=1/.test(location.search);
