@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex" />
 <title>Karate Win｜大会設定</title>
 <!--
-  Karate Win 大会設定画面 admin-tournaments.html  v1.6 (2026-11-24)
+  Karate Win 大会設定画面 admin-tournaments.html  v1.8 (2026-11-24)
   運営と、その大会の主催道場の管理者が使う。ログインは申込管理画面（admin-entries）と同じ。
 
   できること
@@ -2679,8 +2679,8 @@ function renderClasses() {
       <td><input type="checkbox" data-k="open" ${c.is_open !== false ? 'checked' : ''} /></td>
       <td class="num">${c._saved ? cnt(c.id) : '<span class="muted">未保存</span>'}</td>
       <td><button class="btn danger" data-del="${i}" style="padding:6px 10px">削除</button></td></tr>`).join('') : '<tr><td colspan="10" class="muted">クラスがまだありません。下のボタンから追加してください。</td></tr>'}</tbody></table></div>
-    <div id="cls-msg" style="margin-top:12px">${CLS.some((c) => c._saved && c.is_open && !c.split_from && !c.assign_only) ? '' : '<div class="notice err">保存済みの申込用クラスがありません。このままでは、父兄が申込アプリで種目を選べません。クラスを作成して「クラスを保存」を押してください。</div>'}${CLS.some((c) => !c._saved) ? '<div class="notice warn">まだ保存していない行があります。「クラスを保存」を押すと確定します。</div>' : ''}${(() => { const n = CLS.filter((c) => !c.split_from && !c.assign_only && c.grade_from == null && c.grade_to == null).length; return n ? `<div class="notice warn">学年が「指定なし」の申込用クラスが ${n}件あります。指定なしのクラスは、すべての学年の選手に表示されます。「クラス名から学年・性別を設定」を押すと、名前から自動で入ります。</div>` : ''; })()}</div>
-    <div class="bar"><button class="btn ghost" id="cls-add">＋ 1行追加</button><button class="btn ghost" id="cls-tpl">学年別のひな形から作る</button><button class="btn ghost" id="cls-paste">クラス名を貼り付けて取り込む</button><button class="btn ghost" id="cls-guess">クラス名から学年・性別を設定</button>
+    <div id="cls-msg" style="margin-top:12px">${CLS.some((c) => c._saved && c.is_open && !c.split_from && !c.assign_only) ? '' : '<div class="notice err">保存済みの申込用クラスがありません。このままでは、父兄が申込アプリで種目を選べません。クラスを作成して「クラスを保存」を押してください。</div>'}${CLS.some((c) => !c._saved) ? '<div class="notice warn">まだ保存していない行があります。「クラスを保存」を押すと確定します。</div>' : ''}${(() => { const n = CLS.filter((c) => !c.split_from && !c.assign_only && c.grade_from == null && c.grade_to == null).length; return n ? `<div class="notice warn">学年が「指定なし」の申込用クラスが ${n}件あります（${CLS.filter((c) => !c.split_from && !c.assign_only && c.grade_from == null && c.grade_to == null).map((c) => esc(c.name)).join('、')}）。指定なしのクラスは、すべての学年の選手に表示されます。「クラス名と学年・性別を点検」を押すと、名前から自動で入ります。</div>` : ''; })()}</div>
+    <div class="bar"><button class="btn ghost" id="cls-add">＋ 1行追加</button><button class="btn ghost" id="cls-tpl">学年別のひな形から作る</button><button class="btn ghost" id="cls-paste">クラス名を貼り付けて取り込む</button><button class="btn ghost" id="cls-guess">クラス名と学年・性別を点検</button>
       ${others.length ? `<select id="cls-from" style="width:auto;max-width:240px"><option value="">他の大会からコピー…</option>${others.map((t) => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('')}</select>` : ''}
       <div class="sp"></div><button class="btn primary" id="cls-save">クラスを保存</button></div>`;
   $('cls-add').onclick = () => { readClasses(); CLS.push({ id: crypto.randomUUID(), tournament_id: cur, name: '', event: 'kumite', grade_from: null, grade_to: null, gender: '男子', sort_order: (CLS.length + 1) * 10, is_open: true }); renderClasses(); };
@@ -2688,16 +2688,48 @@ function renderClasses() {
   $('cls-paste').onclick = pasteBox;
   // クラス名を入れたとき、学年が「指定なし」なら名前から学年と性別を入れる
   document.querySelectorAll('#cls-body [data-k=name]').forEach((inp) => { inp.onchange = () => { readClasses(); const c = CLS[+inp.closest('tr').dataset.i]; if (c && applyGuess(c)) { renderClasses(); toast(`「${c.name}」の学年と性別を、名前から設定しました`); } }; });
-  $('cls-guess').onclick = () => {
-    readClasses(); let n = 0; CLS.forEach((c) => { n += applyGuess(c); });
-    renderClasses();
-    if (n) $('cls-msg').insertAdjacentHTML('afterbegin', `<div class="notice info">${n}件のクラスに、名前から学年と性別を設定しました。表で確かめてから「クラスを保存」を押してください。</div>`);
-    else toast('設定できるクラスはありませんでした（学年が「指定なし」で、名前から学年が分かるクラスが対象です）', true);
-  };
+  $('cls-guess').onclick = checkClasses;
   $('cls-save').onclick = saveClasses;
   if ($('cls-from')) $('cls-from').onchange = copyClasses;
   document.querySelectorAll('[data-del]').forEach((b) => { b.onclick = () => deleteClass(+b.dataset.del); });
 }
+// クラス名と、学年・性別の設定を見比べる。
+//   ・学年が両方「指定なし」のクラスには、名前から学年と性別を入れる
+//   ・名前と設定が食い違うクラス（片方だけ指定なし、性別が違う など）は一覧にして、まとめて直せるようにする
+function classMismatches() {
+  const rg = (a, b) => (a == null && b == null) ? '指定なし' : `${a == null ? '指定なし' : gradeName(a)}〜${b == null ? '指定なし' : gradeName(b)}`;
+  return CLS.filter((c) => !c.split_from).map((c) => {
+    const [gf, gt] = guessGrade(c.name); if (gf == null) return null;
+    const named = /男|女|混合/.test(c.name), g = named ? guessGender(c.name) : c.gender;   // 名前に性別が無ければ性別は比べない
+    if (c.grade_from === gf && c.grade_to === gt && c.gender === g) return null;
+    return { c, gf, gt, g, now: rg(c.grade_from, c.grade_to) + '・' + c.gender, want: rg(gf, gt) + '・' + g };
+  }).filter(Boolean);
+}
+function checkClasses() {
+  readClasses();
+  let n = 0; CLS.forEach((c) => { n += applyGuess(c); });
+  const mis = classMismatches();
+  renderClasses();
+  const box = $('cls-msg'); let html = '';
+  if (n) html += `<div class="notice info">学年が「指定なし」だった ${n}件のクラスに、名前から学年と性別を設定しました。「クラスを保存」を押すと確定します。</div>`;
+  if (mis.length) {
+    html += `<div class="notice warn">クラス名と設定が食い違っているクラスが ${mis.length}件あります。このままだと、対象ではない学年・性別の選手にも表示されます。
+      <div class="scroll" style="margin:10px 0"><table style="min-width:0;background:#fff"><thead><tr><th>クラス</th><th>今の設定</th><th>名前からの設定</th></tr></thead><tbody>
+      ${mis.map((m) => `<tr><td>${esc(m.c.name)}（${EVENT[m.c.event]}）</td><td>${esc(m.now)}</td><td><b>${esc(m.want)}</b></td></tr>`).join('')}</tbody></table></div>
+      <button class="btn primary" id="cls-fix">名前からの設定に直す（${mis.length}件）</button></div>`;
+  }
+  const rest = CLS.filter((c) => !c.split_from && c.grade_from == null && c.grade_to == null);
+  if (rest.length) html += `<div class="notice warn">次のクラスは、名前から学年が分かりませんでした。表の学年欄を手で選んでください: ${rest.map((c) => esc(c.name)).join('、')}</div>`;
+  if (!html) { toast('点検しました。クラス名と学年・性別の設定は、すべて合っています'); return; }
+  box.innerHTML = html;
+  if ($('cls-fix')) $('cls-fix').onclick = () => {
+    readClasses(); const m2 = classMismatches();
+    m2.forEach((m) => { m.c.grade_from = m.gf; m.c.grade_to = m.gt; m.c.gender = m.g; });
+    renderClasses();
+    $('cls-msg').innerHTML = `<div class="notice info">${m2.length}件を直しました。<b>「クラスを保存」を押すと確定します。</b>保存後、スマホの申込ページを読み込み直してください。</div>`;
+  };
+}
+
 async function saveClasses() {
   readClasses();
   const rows = CLS.filter((c) => !c.split_from), m = (t) => { $('cls-msg').innerHTML = t ? `<div class="notice err">${esc(t)}</div>` : ''; };
