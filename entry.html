@@ -432,10 +432,10 @@ function viewForm(fieldErr) {
     <h2>${d.id ? '申込内容の修正' : '選手の登録'}</h2>
     <div id="form-err"></div>
     <div class="field" id="f-name"><span class="lbl">選手名<span class="req">必須</span></span>
-      <div class="row2"><input type="text" id="sei" placeholder="姓（例: 山田）" autocomplete="off" value="${esc(d.sei)}" /><input type="text" id="mei" placeholder="名（例: 太郎）" autocomplete="off" value="${esc(d.mei)}" /></div>
+      <div class="row2"><input type="text" id="sei" placeholder="姓（山田）" autocomplete="off" value="${esc(d.sei)}" /><input type="text" id="mei" placeholder="名（太郎）" autocomplete="off" value="${esc(d.mei)}" /></div>
       <div class="errmsg">選手名を入力してください</div></div>
     <div class="field" id="f-kana"><span class="lbl">よみがな<span class="req">必須</span></span>
-      <div class="row2"><input type="text" id="seiK" placeholder="せい（例: やまだ）" autocomplete="off" value="${esc(d.seiK)}" /><input type="text" id="meiK" placeholder="めい（例: たろう）" autocomplete="off" value="${esc(d.meiK)}" /></div>
+      <div class="row2"><input type="text" id="seiK" placeholder="せい（やまだ）" autocomplete="off" value="${esc(d.seiK)}" /><input type="text" id="meiK" placeholder="めい（たろう）" autocomplete="off" value="${esc(d.meiK)}" /></div>
       <div class="errmsg">よみがなは、ひらがなで入力してください</div></div>
     <div class="field" id="f-grade"><label for="grade">学年<span class="req">必須</span></label>
       <select id="grade"><option value="0">選んでください</option>${gradeOptions().map(([n, l]) => `<option value="${n}" ${d.gno === n ? 'selected' : ''}>${l}</option>`).join('')}</select>
