@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex" />
 <title>Karate Win｜大会申込</title>
 <!--
-  Karate Win 大会申込アプリ entry.html  v1.1 (2026-11-24)
+  Karate Win 大会申込アプリ entry.html  v1.4 (2026-11-24)
   父兄がスマホで使う申込画面。QR の URL は  entry.html?t=<申込コード>
 
   画面の流れ: 大会案内 → 携帯番号と同意 → 認証コード → 申込一覧 → 選手登録（入力 → 確認）
@@ -119,6 +119,7 @@
 <main id="app"><div class="spin"></div><p class="center">読み込んでいます…</p></main>
 <div id="modal"><div class="box" id="modal-box"></div></div>
 <div id="toast"></div>
+<p id="ver" style="text-align:center;font-size:13px;color:#56607a;padding:0 0 24px">申込アプリ v1.4</p>
 
 <script>
 'use strict';
@@ -135,8 +136,10 @@ const $ = (id) => document.getElementById(id);
 const app = () => $('app');
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-const GRADES = [[1,'小学1年生'],[2,'小学2年生'],[3,'小学3年生'],[4,'小学4年生'],[5,'小学5年生'],[6,'小学6年生'],
-                [7,'中学1年生'],[8,'中学2年生'],[9,'中学3年生'],[10,'高校1年生'],[11,'高校2年生'],[12,'高校3年生']];
+// 学年の番号は kw_grade_no と同じ（年少 -2 〜 年長 0、小学 1〜6、中学 7〜9、高校 10〜12、一般 13）
+const NOGRADE = -99;   // 未選択
+const GRADES = [[-2,'年少'],[-1,'年中'],[0,'年長'],[1,'小学1年生'],[2,'小学2年生'],[3,'小学3年生'],[4,'小学4年生'],[5,'小学5年生'],[6,'小学6年生'],
+                [7,'中学1年生'],[8,'中学2年生'],[9,'中学3年生'],[10,'高校1年生'],[11,'高校2年生'],[12,'高校3年生'],[13,'一般']];
 const EVENT_NAME = { kata: '形', kumite: '組手' };
 
 const MSG = {
@@ -251,6 +254,9 @@ function viewInfo() {
   } else if (st === 'closed') {
     body = `<div class="notice info">申込は締め切りました。申込内容の確認だけができます。変更は大会事務局へご連絡ください。</div>
       <button class="btn ghost" id="go">申込内容を確認する</button>`;
+  } else if (!(S.info.classes || []).length) {
+    // クラスが1つも登録されていない大会では、申込を始めさせない
+    body = `<div class="notice err">この大会は、出場クラスの準備がまだ整っていないため、申込を始められません。しばらくしてから、もう一度お試しください。${S.info.entry.office_contact ? '<br>お問い合わせ: ' + esc(S.info.entry.office_contact) : ''}</div>`;
   } else {
     body = `<div class="card"><h2>お申し込みの流れ</h2>
       <p>1. 保護者の方の携帯電話番号を、SMSで確認します<br>2. 出場する選手を登録します（ご兄弟は1人ずつ）<br>3. 締切までは、同じ携帯番号で内容を修正できます</p></div>
@@ -354,7 +360,7 @@ async function loadList(msg) {
   viewList(); if (msg) toast(msg);
 }
 function viewList() {
-  const L = S.list, canEdit = L.can_edit;
+  const L = S.list, noCls = !(S.info.classes || []).length, canEdit = L.can_edit;
   const applied = L.entries.filter((e) => e.status === 'applied'), others = L.entries.filter((e) => e.status !== 'applied');
   const card = (e) => {
     const off = e.status !== 'applied';
@@ -376,7 +382,8 @@ function viewList() {
     (!canEdit ? '<div class="notice info">申込は締め切りました。内容の確認だけができます。変更は大会事務局へご連絡ください。</div>' : '') +
     `<div class="card"><h2>申込済みの選手（${applied.length}名 ／ ${L.max_players}名まで）</h2>
       ${applied.length ? applied.map(card).join('') : '<p>まだ選手が登録されていません。</p>'}
-      ${canEdit ? `<button class="btn primary" id="add" ${applied.length >= L.max_players ? 'disabled' : ''}>${applied.length ? 'ご兄弟など、選手を追加する' : '選手を登録する'}</button>` : ''}
+      ${canEdit && noCls ? '<div class="notice err">この大会は、出場クラスの準備がまだ整っていないため、選手を登録できません。</div>' : ''}
+      ${canEdit ? `<button class="btn primary" id="add" ${applied.length >= L.max_players || noCls ? 'disabled' : ''}>${applied.length ? 'ご兄弟など、選手を追加する' : '選手を登録する'}</button>` : ''}
       ${canEdit && applied.length >= L.max_players ? `<p class="hint">1つの携帯番号で登録できるのは${L.max_players}名までです。</p>` : ''}
     </div>` +
     (L.payment_mode === 'card' && L.due_total > 0 ? `<div class="card"><h2>お支払い</h2><p>未払いの参加費: <b style="color:var(--red);font-size:22px">${esc(yen(L.due_total))}</b></p>
@@ -408,13 +415,13 @@ function askCancel(e) {
 function newDraft() {
   // 2人目以降は、直前の選手の所属を引き継ぐ
   const last = (S.list && S.list.entries.filter((e) => e.status === 'applied').slice(-1)[0]) || null;
-  return { id: null, sei: '', mei: '', seiK: '', meiK: '', gno: 0, gender: '', dojo: last ? last.affiliation || '' : '', dojo_id: last ? last.dojo_id || '' : '',
+  return { id: null, sei: '', mei: '', seiK: '', meiK: '', gno: NOGRADE, gender: '', dojo: last ? last.affiliation || '' : '', dojo_id: last ? last.dojo_id || '' : '',
            ev: { kata: '', kumite: '' }, on: { kata: false, kumite: false }, keep: {}, hist: [] };
 }
 function draftFrom(e) {
   const sp = (s) => { const a = String(s || '').trim().split(/\s+/); return [a[0] || '', a.slice(1).join(' ')]; };
   const [sei, mei] = sp(e.player_name), [seiK, meiK] = sp(e.player_kana);
-  const d = { id: e.id, sei, mei, seiK, meiK, gno: (GRADES.find((g) => g[1] === e.grade) || [0])[0], gender: e.gender,
+  const d = { id: e.id, sei, mei, seiK, meiK, gno: (GRADES.find((g) => g[1] === e.grade) || [NOGRADE])[0], gender: e.gender,
               dojo: e.affiliation || '', dojo_id: e.dojo_id || '', ev: { kata: '', kumite: '' }, on: { kata: false, kumite: false }, keep: {},
               hist: (e.history || []).map((h) => ({ tournament: h.tournament || '', rank: h.rank || '' })) };
   e.events.forEach((x) => { d.on[x.event] = true; d.ev[x.event] = x.class_id; d.keep[x.event] = { id: x.class_id, name: x.class_name }; });
@@ -437,7 +444,7 @@ function viewForm(fieldErr) {
       <div class="row2"><input type="text" id="seiK" placeholder="せい（やまだ）" autocomplete="off" value="${esc(d.seiK)}" /><input type="text" id="meiK" placeholder="めい（たろう）" autocomplete="off" value="${esc(d.meiK)}" /></div>
       <div class="errmsg">よみがなは、ひらがなで入力してください</div></div>
     <div class="field" id="f-grade"><label for="grade">学年<span class="req">必須</span></label>
-      <select id="grade"><option value="0">選んでください</option>${gradeOptions().map(([n, l]) => `<option value="${n}" ${d.gno === n ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      <select id="grade"><option value="${NOGRADE}">選んでください</option>${gradeOptions().map(([n, l]) => `<option value="${n}" ${d.gno === n ? 'selected' : ''}>${l}</option>`).join('')}</select>
       <div class="errmsg">学年を選んでください</div></div>
     <div class="field" id="f-gender"><span class="lbl">性別<span class="req">必須</span></span>
       <div class="seg"><input type="radio" name="gender" id="g-m" value="男子" ${d.gender === '男子' ? 'checked' : ''} /><label for="g-m">男子</label>
@@ -464,7 +471,7 @@ function viewForm(fieldErr) {
   };
   // 種目とクラス: 学年と性別に合うクラスだけを出す
   const drawEvents = () => {
-    const ready = d.gno > 0 && !!d.gender;
+    const ready = d.gno !== NOGRADE && !!d.gender;
     $('ev-area').innerHTML = !ready ? '<p class="hint">学年と性別を選ぶと、出場できるクラスが表示されます。</p>' :
       ['kumite', 'kata'].map((ev) => {
         const keepId = d.keep[ev] ? d.keep[ev].id : '';
@@ -505,7 +512,7 @@ function viewForm(fieldErr) {
     const bad = {};
     if (!d.sei || !d.mei) bad['f-name'] = 1;
     if (!d.seiK || !d.meiK || !/^[ぁ-ゖァ-ヶー\s　]+$/.test(d.seiK + d.meiK)) bad['f-kana'] = 1;
-    if (!d.gno) bad['f-grade'] = 1;
+    if (d.gno === NOGRADE) bad['f-grade'] = 1;
     if (!d.gender) bad['f-gender'] = 1;
     if (!d.dojo) bad['f-dojo'] = 1;
     const chosen = ['kumite', 'kata'].filter((ev) => d.on[ev]);
