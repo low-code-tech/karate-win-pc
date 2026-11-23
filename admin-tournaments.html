@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex" />
 <title>Karate Win｜大会設定</title>
 <!--
-  Karate Win 大会設定画面 admin-tournaments.html  v1.1 (2026-11-24)
+  Karate Win 大会設定画面 admin-tournaments.html  v1.5 (2026-11-24)
   運営と、その大会の主催道場の管理者が使う。ログインは申込管理画面（admin-entries）と同じ。
 
   できること
@@ -2438,13 +2438,18 @@ var qrcode = function() {
 'use strict';
 const CFG = {
   SUPABASE_URL: 'https://ocxyycuasswuztjkbwuf.supabase.co',
-  SUPABASE_KEY: 'sb_publishable_fmCxA2UUUZtWdxwBhvhS5w_Z29KVTNp'
+  SUPABASE_KEY: 'sb_publishable_fmCxA2UUUZtWdxwBhvhS5w_Z29KVTNp',
+  // カード払い（申込アプリのお支払い画面）は未完成。完成したら true にすると「カード払いあり」を選べるようになる
+  CARD_READY: false
 };
 let sb = null, user = null;
 let T = [], SET = {}, DOJOS = [], CLS = [], SUM = null, cur = null;   // cur: 大会ID / 'new' / null
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const GRADES = ['', '小学1年', '小学2年', '小学3年', '小学4年', '小学5年', '小学6年', '中学1年', '中学2年', '中学3年', '高校1年', '高校2年', '高校3年'];
+// 学年の番号は kw_grade_no と同じ（年少 -2 〜 年長 0、小学 1〜6、中学 7〜9、高校 10〜12、一般 13）
+const GRADE_OPTS = [[-2, '年少'], [-1, '年中'], [0, '年長'], [1, '小学1年'], [2, '小学2年'], [3, '小学3年'], [4, '小学4年'], [5, '小学5年'], [6, '小学6年'],
+  [7, '中学1年'], [8, '中学2年'], [9, '中学3年'], [10, '高校1年'], [11, '高校2年'], [12, '高校3年'], [13, '一般']];
+const gradeName = (n) => (GRADE_OPTS.find((g) => g[0] === n) || [0, ''])[1];
 const STATUS = { draft: '下書き', open: '受付中', closed: '締切', finished: '終了' };
 const EVENT = { kumite: '組手', kata: '形' };
 const yen = (n) => '¥' + Number(n || 0).toLocaleString('ja-JP');
@@ -2567,7 +2572,8 @@ function renderDetail() {
     <div class="grid">
       <div class="field full"><span class="lbl">支払い方法</span>
         <div class="radio"><label><input type="radio" name="pay" value="none" ${s.payment_mode !== 'card' ? 'checked' : ''} /> カード払いなし（従来どおり別途集金）</label>
-          <label><input type="radio" name="pay" value="card" ${s.payment_mode === 'card' ? 'checked' : ''} /> カード払いあり</label></div></div>
+          <label style="${CFG.CARD_READY || s.payment_mode === 'card' ? '' : 'color:var(--txt3)'}"><input type="radio" name="pay" value="card" ${s.payment_mode === 'card' ? 'checked' : ''} ${CFG.CARD_READY || s.payment_mode === 'card' ? '' : 'disabled'} /> カード払いあり${CFG.CARD_READY ? '' : '（準備中）'}</label></div>
+        ${CFG.CARD_READY ? '' : `<p class="note">カード払いは準備中のため、まだ選べません。${s.payment_mode === 'card' ? '<b style="color:var(--red)">この大会は「カード払いあり」になっています。父兄の画面に支払い待ちと表示されますが、支払う手段がまだありません。「カード払いなし」に変えて保存してください。</b>' : ''}</p>`}</div>
       <div class="field full" id="fee-area"></div>
     </div>
     <div id="save-msg" style="margin-top:14px"></div>
@@ -2613,7 +2619,7 @@ async function saveTournament() {
   if (pay === 'card' && feeMode === 'by_count' && (fee2 == null || fee2 < 0 || Number.isNaN(fee2))) return msg('2種目の金額を入力してください');
   if (status === 'open') {
     if (!closeAt) return msg('受付中にするには、申込締切日時を入力してください');
-    if (!CLS.some((c) => c._saved && c.is_open && !c.split_from)) return msg('受付中にするには、先にクラスを1つ以上登録して保存してください（いったん下書きで保存 → クラスを登録）');
+    if (!CLS.some((c) => c._saved && c.is_open && !c.split_from && !c.assign_only)) return msg('受付中にするには、先にクラスを1つ以上登録して保存してください（いったん下書きで保存 → クラスを登録）');
     const was = SET[cur] ? SET[cur].entry_status : 'draft';
     if (was !== 'open' && !(await confirmBox('受付を開始します', '受付中にすると、申込アプリで父兄の携帯に実際のSMSが送られます。QRを配布する準備ができていれば進めてください。', '受付中にする'))) return;
   }
@@ -2653,31 +2659,33 @@ function readClasses() {
     const c = CLS[+tr.dataset.i]; if (!c || c.split_from) return;
     const v = (k) => tr.querySelector(`[data-k=${k}]`);
     c.name = v('name').value.trim(); c.event = v('event').value; c.gender = v('gender').value;
-    c.grade_from = v('gf').value ? +v('gf').value : null; c.grade_to = v('gt').value ? +v('gt').value : null;
-    c.sort_order = +v('ord').value || 0; c.is_open = v('open').checked;
+    c.grade_from = v('gf').value !== '' ? +v('gf').value : null; c.grade_to = v('gt').value !== '' ? +v('gt').value : null;
+    c.sort_order = +v('ord').value || 0; c.is_open = v('open').checked; c.assign_only = v('kind').value === 'assign';
   });
 }
 function renderClasses() {
-  const gsel = (k, val) => `<select data-k="${k}">${GRADES.map((g, i) => `<option value="${i || ''}" ${(val || 0) === i ? 'selected' : ''}>${i ? g : '指定なし'}</option>`).join('')}</select>`;
+  const gsel = (k, val) => `<select data-k="${k}"><option value="">指定なし</option>${GRADE_OPTS.map(([n, l]) => `<option value="${n}" ${val === n ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
   const others = T.filter((t) => t.id !== cur);
   const cnt = (id) => { const x = SUM && SUM.classes.find((c) => c.id === id); return x ? x.count : ''; };
-  $('c-classes').innerHTML = `<h2>クラス<span class="muted" style="font-size:14px;font-weight:600">父兄が申込時に選ぶ区分です。A・B などへの分割は、締切後に編成画面で行います。</span></h2>
-    <div class="scroll"><table><thead><tr><th style="min-width:170px">クラス名</th><th>種目</th><th>学年（から）</th><th>学年（まで）</th><th>性別</th><th>表示順</th><th>受付</th><th class="num">申込</th><th></th></tr></thead>
-    <tbody id="cls-body">${CLS.length ? CLS.map((c, i) => c.split_from ? `<tr><td>${esc(c.name)} <span class="badge b-none">分割</span></td><td>${EVENT[c.event]}</td><td colspan="5" class="muted">編成で作られたクラス</td><td class="num">${cnt(c.id)}</td><td></td></tr>` : `<tr data-i="${i}">
+  $('c-classes').innerHTML = `<h2>クラス<span class="muted" style="font-size:14px;font-weight:600">「申込用」は父兄が申込時に選ぶクラス、「編成用」は運営が締切後に選手を振り分ける先（一部・二部など）で、申込アプリには出ません。</span></h2>
+    <div class="scroll"><table><thead><tr><th style="min-width:200px">クラス名</th><th>区分</th><th>種目</th><th>学年（から）</th><th>学年（まで）</th><th>性別</th><th>表示順</th><th>受付</th><th class="num">申込</th><th></th></tr></thead>
+    <tbody id="cls-body">${CLS.length ? CLS.map((c, i) => c.split_from ? `<tr><td>${esc(c.name)} <span class="badge b-none">分割</span></td><td>編成用</td><td>${EVENT[c.event]}</td><td colspan="5" class="muted">編成で作られたクラス</td><td class="num">${cnt(c.id)}</td><td></td></tr>` : `<tr data-i="${i}">
       <td><input type="text" data-k="name" maxlength="40" value="${esc(c.name)}" /></td>
+      <td><select data-k="kind"><option value="entry" ${c.assign_only ? '' : 'selected'}>申込用</option><option value="assign" ${c.assign_only ? 'selected' : ''}>編成用</option></select></td>
       <td><select data-k="event"><option value="kumite" ${c.event === 'kumite' ? 'selected' : ''}>組手</option><option value="kata" ${c.event === 'kata' ? 'selected' : ''}>形</option></select></td>
       <td>${gsel('gf', c.grade_from)}</td><td>${gsel('gt', c.grade_to)}</td>
       <td><select data-k="gender">${['男子', '女子', '混合'].map((g) => `<option ${c.gender === g ? 'selected' : ''}>${g}</option>`).join('')}</select></td>
       <td><input type="number" data-k="ord" style="width:70px" value="${esc(c.sort_order ?? 0)}" /></td>
       <td><input type="checkbox" data-k="open" ${c.is_open !== false ? 'checked' : ''} /></td>
       <td class="num">${c._saved ? cnt(c.id) : '<span class="muted">未保存</span>'}</td>
-      <td><button class="btn danger" data-del="${i}" style="padding:6px 10px">削除</button></td></tr>`).join('') : '<tr><td colspan="9" class="muted">クラスがまだありません。下のボタンから追加してください。</td></tr>'}</tbody></table></div>
-    <div id="cls-msg" style="margin-top:12px"></div>
-    <div class="bar"><button class="btn ghost" id="cls-add">＋ 1行追加</button><button class="btn ghost" id="cls-tpl">学年別のひな形から作る</button>
+      <td><button class="btn danger" data-del="${i}" style="padding:6px 10px">削除</button></td></tr>`).join('') : '<tr><td colspan="10" class="muted">クラスがまだありません。下のボタンから追加してください。</td></tr>'}</tbody></table></div>
+    <div id="cls-msg" style="margin-top:12px">${CLS.some((c) => c._saved && c.is_open && !c.split_from && !c.assign_only) ? '' : '<div class="notice err">保存済みの申込用クラスがありません。このままでは、父兄が申込アプリで種目を選べません。クラスを作成して「クラスを保存」を押してください。</div>'}${CLS.some((c) => !c._saved) ? '<div class="notice warn">まだ保存していない行があります。「クラスを保存」を押すと確定します。</div>' : ''}</div>
+    <div class="bar"><button class="btn ghost" id="cls-add">＋ 1行追加</button><button class="btn ghost" id="cls-tpl">学年別のひな形から作る</button><button class="btn ghost" id="cls-paste">クラス名を貼り付けて取り込む</button>
       ${others.length ? `<select id="cls-from" style="width:auto;max-width:240px"><option value="">他の大会からコピー…</option>${others.map((t) => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('')}</select>` : ''}
       <div class="sp"></div><button class="btn primary" id="cls-save">クラスを保存</button></div>`;
   $('cls-add').onclick = () => { readClasses(); CLS.push({ id: crypto.randomUUID(), tournament_id: cur, name: '', event: 'kumite', grade_from: null, grade_to: null, gender: '男子', sort_order: (CLS.length + 1) * 10, is_open: true }); renderClasses(); };
   $('cls-tpl').onclick = templateBox;
+  $('cls-paste').onclick = pasteBox;
   $('cls-save').onclick = saveClasses;
   if ($('cls-from')) $('cls-from').onchange = copyClasses;
   document.querySelectorAll('[data-del]').forEach((b) => { b.onclick = () => deleteClass(+b.dataset.del); });
@@ -2687,12 +2695,12 @@ async function saveClasses() {
   const rows = CLS.filter((c) => !c.split_from), m = (t) => { $('cls-msg').innerHTML = t ? `<div class="notice err">${esc(t)}</div>` : ''; };
   m('');
   if (rows.some((c) => !c.name)) return m('クラス名が空の行があります');
-  if (rows.some((c) => c.grade_from && c.grade_to && c.grade_from > c.grade_to)) return m('学年の「から」が「まで」より後になっている行があります');
+  if (rows.some((c) => c.grade_from != null && c.grade_to != null && c.grade_from > c.grade_to)) return m('学年の「から」が「まで」より後になっている行があります');
   const keys = rows.map((c) => c.event + '|' + c.name);
   if (new Set(keys).size !== keys.length) return m('同じ種目・同じ名前のクラスが重なっています');
   if (!rows.length) return toast('保存するクラスがありません', true);
   $('cls-save').disabled = true;
-  const r = await sb.from('kw_classes').upsert(rows.map((c) => ({ id: c.id, tournament_id: cur, name: c.name, event: c.event, grade_from: c.grade_from, grade_to: c.grade_to, gender: c.gender, sort_order: c.sort_order, is_open: c.is_open })));
+  const r = await sb.from('kw_classes').upsert(rows.map((c) => ({ id: c.id, tournament_id: cur, name: c.name, event: c.event, grade_from: c.grade_from, grade_to: c.grade_to, gender: c.gender, sort_order: c.sort_order, is_open: c.is_open, assign_only: !!c.assign_only })));
   if (r.error) { $('cls-save').disabled = false; return m('保存できませんでした: ' + errText(r.error)); }
   await select(cur); toast('クラスを保存しました');
 }
@@ -2708,11 +2716,15 @@ async function copyClasses() {
   const from = $('cls-from').value; if (!from) return;
   const r = await sb.rpc('kw_entry_copy_classes', { p_from: from, p_to: cur });
   if (r.error || !r.data?.ok) { toast('コピーできませんでした: ' + (r.error ? errText(r.error) : r.data?.code), true); return; }
-  await select(cur); toast(`${r.data.copied}件のクラスをコピーしました`);
+  const n = r.data.copied, name = (T.find((t) => t.id === from) || {}).name || '';
+  await select(cur);
+  if (n > 0) { toast(`${n}件のクラスをコピーしました`); return; }
+  // 0件のときは、見落とさないようにクラス欄に理由を出す
+  $('cls-msg').innerHTML = `<div class="notice err">「${esc(name)}」からコピーできるクラスがありませんでした。コピーできるのは、この画面でクラスを登録した大会だけです（これまでの大会は、クラスがこの画面に登録されていません）。「学年別のひな形から作る」か「＋ 1行追加」で作成し、「クラスを保存」を押してください。</div>`;
 }
 function templateBox() {
   readClasses();
-  const g = (id, def) => `<select id="${id}">${GRADES.slice(1).map((x, i) => `<option value="${i + 1}" ${i + 1 === def ? 'selected' : ''}>${x}</option>`).join('')}</select>`;
+  const g = (id, def) => `<select id="${id}">${GRADE_OPTS.map(([n, l]) => `<option value="${n}" ${n === def ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
   showModal(`<h2>学年別のひな形から作る</h2><p class="note" style="margin-bottom:14px">学年ごとのクラスをまとめて作ります。作ったあと、名前や学年は表で直せます。</p>
     <div class="grid"><div class="field"><label>学年（から）</label>${g('tp-from', 1)}</div><div class="field"><label>学年（まで）</label>${g('tp-to', 6)}</div>
       <div class="field"><span class="lbl">性別</span><div class="radio"><label><input type="radio" name="tp-g" value="split" checked /> 男女別</label><label><input type="radio" name="tp-g" value="mix" /> 混合</label></div></div>
@@ -2724,12 +2736,87 @@ function templateBox() {
     const evs = [$('tp-kumite').checked && 'kumite', $('tp-kata').checked && 'kata'].filter(Boolean);
     let ord = CLS.reduce((m, c) => Math.max(m, c.sort_order || 0), 0), added = 0;
     for (let n = Math.min(a, b); n <= Math.max(a, b); n++) for (const gen of (split ? ['男子', '女子'] : ['混合'])) for (const ev of evs) {
-      const name = GRADES[n] + (split ? gen : '');
+      const name = gradeName(n) + (split ? gen : '');
       if (CLS.some((c) => c.event === ev && c.name === name)) continue;
       ord += 10; added++;
       CLS.push({ id: crypto.randomUUID(), tournament_id: cur, name, event: ev, grade_from: n, grade_to: n, gender: gen, sort_order: ord, is_open: true });
     }
     hideModal(); renderClasses(); toast(added ? `${added}件を表に追加しました。「クラスを保存」で確定します` : '追加するクラスはありませんでした');
+  };
+}
+
+// ── クラス名の貼り付け取り込み ──
+// 過去の大会のクラス名（1行に1つ。同じ名前が何行あってもよい）から、種目・学年・性別を読み取る。
+//   読める形:「組手 小学1年女子」「形 小学3・4年男女」「小学3年生女子一部・組手」「組手・形一般の部」（両方の種目になる）
+//   名前の末尾が「一部」「二部」のクラスは編成用にし、その学年・性別ごとの申込用クラス（例: 小学3年生女子）を自動で作る
+function parseClassText(text) {
+  const half = (s) => s.replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+  const grade = (s) => {
+    let m;
+    if (/年少/.test(s)) return [-2, -2];
+    if (/年中/.test(s)) return [-1, -1];
+    if (/年長/.test(s)) return [0, 0];
+    if (/幼児|幼年|園児/.test(s)) return [-2, 0];
+    if (/一般|成年|マスターズ|大人|社会人|大学/.test(s)) return [13, 13];
+    if ((m = /(小学|中学|高校)生?(\d)(?:[・･,、~〜\-](\d))?年/.exec(s))) { const b = m[1] === '小学' ? 0 : m[1] === '中学' ? 6 : 9; return [b + +m[2], b + +(m[3] || m[2])]; }
+    if (/高校|高等/.test(s)) return [10, 12];
+    if (/中学/.test(s)) return [7, 9];
+    if (/小学/.test(s)) return [1, 6];
+    return [null, null];
+  };
+  const map = new Map(); let unknown = 0, lines = 0;
+  for (const raw of String(text || '').split(/\r?\n/)) {
+    let s = half(raw).replace(/[\s　]+/g, ' ').trim(), ev = [], m;
+    if (!s || /^クラス名?$/.test(s)) continue;
+    lines++;
+    if ((m = /^(?:組手・形|形・組手)\s*(.+)$/.exec(s))) { ev = ['kumite', 'kata']; s = m[1]; }
+    else if ((m = /^(組手|形)\s+(.+)$/.exec(s))) { ev = [m[1] === '形' ? 'kata' : 'kumite']; s = m[2]; }
+    else if ((m = /^(.+?)\s*[・･]\s*(組手|形)$/.exec(s))) { ev = [m[2] === '形' ? 'kata' : 'kumite']; s = m[1]; }
+    else if ((m = /^(.+?)\s+(組手|形)$/.exec(s))) { ev = [m[2] === '形' ? 'kata' : 'kumite']; s = m[1]; }
+    const noEvent = !ev.length; if (noEvent) { ev = ['kumite']; }
+    s = s.trim(); if (!s) continue;
+    const [gf, gt] = grade(s);
+    const gender = /男女|混合/.test(s) ? '混合' : (/女/.test(s) && !/男/.test(s)) ? '女子' : /男/.test(s) ? '男子' : '混合';
+    const part = /(一部|二部|1部|2部)$/.test(s);   // 運営が振り分ける区分
+    for (const e of ev) {
+      const k = e + '|' + s, x = map.get(k);
+      if (x) x.count++; else { map.set(k, { name: s.slice(0, 40), event: e, grade_from: gf, grade_to: gt, gender, count: 1, noEvent, noGrade: gf == null, assign_only: part }); if (noEvent) unknown++; }
+      // 一部・二部のクラスからは、学年ごとの申込用クラスを作る
+      if (part && gf != null) for (let n = gf; n <= gt; n++) {
+        const base = (n <= 0 ? gradeName(n) : n <= 12 ? gradeName(n) + '生' : gradeName(n)) + (gender === '混合' ? '男女' : gender), bk = e + '|' + base;
+        if (!map.has(bk)) map.set(bk, { name: base, event: e, grade_from: n, grade_to: n, gender, count: 0, noEvent: false, noGrade: false, assign_only: false, auto: true });
+      }
+    }
+  }
+  // 申込用を先に、編成用を後に並べる
+  const rows = [...map.values()].sort((a, b) => (a.assign_only - b.assign_only));
+  return { rows, lines, unknown };
+}
+window.parseClassText = parseClassText;
+function pasteBox() {
+  readClasses();
+  showModal(`<h2>クラス名を貼り付けて取り込む</h2>
+    <p class="note" style="margin-bottom:10px">過去の大会のクラス名を、1行に1つずつ貼り付けてください。同じ名前が何行あっても1つにまとめます。<br>例:「組手 小学1年女子」「小学3年生女子一部・組手」「形 小学3・4年男女」</p>
+    <textarea id="ps-text" style="width:100%;height:220px;padding:10px;font-size:15px;border:2px solid var(--line2);border-radius:8px" placeholder="ここに貼り付け"></textarea>
+    <div id="ps-msg" style="margin-top:10px"></div>
+    <div class="bar"><button class="btn primary" id="ps-ok">読み取って表に追加する</button><button class="btn ghost" id="ps-no">やめる</button></div>`);
+  $('ps-no').onclick = hideModal;
+  $('ps-ok').onclick = () => {
+    const r = parseClassText($('ps-text').value);
+    if (!r.rows.length) { $('ps-msg').innerHTML = '<div class="notice err">クラス名を読み取れませんでした。1行に1つずつ貼り付けてください。</div>'; return; }
+    let ord = CLS.reduce((m, c) => Math.max(m, c.sort_order || 0), 0), added = 0, dup = 0;
+    for (const x of r.rows) {
+      if (CLS.some((c) => c.event === x.event && c.name === x.name)) { dup++; continue; }
+      ord += 10; added++;
+      CLS.push({ id: crypto.randomUUID(), tournament_id: cur, name: x.name, event: x.event, grade_from: x.grade_from, grade_to: x.grade_to, gender: x.gender, sort_order: ord, is_open: true, assign_only: !!x.assign_only });
+    }
+    const nAssign = r.rows.filter((x) => x.assign_only).length, nAuto = r.rows.filter((x) => x.auto).length;
+    const noGrade = r.rows.filter((x) => x.noGrade).length;
+    hideModal(); renderClasses();
+    $('cls-msg').innerHTML = `<div class="notice info">${r.lines}行を読み取り、${added}件を表に追加しました${dup ? `（${dup}件はすでに表にあるため飛ばしました）` : ''}。学年と性別は名前から推定しています。表で確かめてから「クラスを保存」を押してください。</div>`
+      + (nAssign ? `<div class="notice info">名前の末尾が「一部」「二部」の ${nAssign}件は「編成用」にしました（申込アプリには出ません）。父兄が選ぶ学年・性別ごとの「申込用」クラスを ${nAuto}件、自動で作っています。</div>` : '')
+      + (r.unknown ? `<div class="notice warn">種目（形／組手）が名前から分からなかったクラスが ${r.unknown}件あります。「組手」にしてあるので、表で直してください。</div>` : '')
+      + (noGrade ? `<div class="notice warn">学年が名前から分からなかったクラスが ${noGrade}件あります。「指定なし」のままだと、すべての学年の選手が選べます。</div>` : '');
   };
 }
 
@@ -2741,6 +2828,7 @@ function renderQr() {
   if (!s) { $('c-qr').innerHTML = '<h2>申込QR</h2><p class="note">大会と申込設定を保存すると、申込QRが発行されます。</p>'; return; }
   const url = entryBase() + (entryBase().includes('?') ? '&' : '?') + 't=' + encodeURIComponent(s.entry_code);
   $('c-qr').innerHTML = `<h2>申込QR<span class="badge b-${s.entry_status}">${STATUS[s.entry_status]}</span></h2>
+    ${CLS.some((c) => c._saved && c.is_open && !c.split_from && !c.assign_only) ? '' : '<div class="notice err">クラスがまだ登録されていません。このQRを配っても、父兄は申込を始められません。</div>'}
     ${s.entry_status === 'draft' ? '<div class="notice warn">いまは「下書き」です。このQRで開くと動作確認モードになり、SMSは送られません。</div>' : ''}
     <div class="qr"><canvas id="qr" width="600" height="600"></canvas>
       <div style="flex:1;min-width:260px">

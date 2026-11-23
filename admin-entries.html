@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Karate Win｜大会申込 運営者管理</title>
+<!-- admin-entries.html v2.0 (2026-11-24): 白地・大きい文字に変更。状態（申込済み／取消・除外）の絞り込みと表示を追加。身長・体重の列は一覧から外し、詳細とCSVに残した。 -->
+<style>
+  :root{
+    --bg:#f2f4f8; --bg2:#ffffff; --line:#d3d9e3; --line2:#7d8798;
+    --txt:#141a26; --txt2:#2c3545; --txt3:#56607a;
+    --gold:#8a4f00; --blue:#0b57d0; --red:#c01f2f; --green:#176b3a; --navy:#0f1f3d;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--txt);min-height:100vh;line-height:1.6;font-size:16px;
+    font-family:"Hiragino Sans","Yu Gothic UI","Yu Gothic","Meiryo",-apple-system,BlinkMacSystemFont,system-ui,sans-serif}
+  button,input,select,textarea{font:inherit;color:inherit}
+  a{color:inherit}
+  header{padding:14px 24px;background:var(--navy);color:#fff;position:sticky;top:0;z-index:100}
+  .header-inner{max-width:1400px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .brand-wrap{display:flex;align-items:center;gap:14px}
+  .brand{font-size:19px;font-weight:900;letter-spacing:2px;color:#f3cf6b}
+  .header-title{font-size:14px;font-weight:700;padding:3px 12px;border-radius:100px;background:#fff;color:var(--navy)}
+  .user-info{display:flex;align-items:center;gap:12px;font-size:14px;color:#d5dcea}
+  .btn-logout{padding:8px 16px;border-radius:8px;background:transparent;border:2px solid #fff;color:#fff;font-size:14px;font-weight:800;cursor:pointer}
+
+  .login-view{min-height:calc(100vh - 60px);display:flex;align-items:center;justify-content:center;padding:40px 24px}
+  .login-card{width:100%;max-width:440px;background:#fff;border:1px solid var(--line);border-radius:16px;padding:36px;box-shadow:0 1px 3px rgba(15,31,61,.08)}
+  .login-card h1{font-size:24px;font-weight:900;margin-bottom:8px;text-align:center}
+  .login-card h1 .grad{color:var(--navy)}
+  .login-sub{text-align:center;color:var(--txt2);font-size:15px;margin-bottom:28px}
+  .field{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
+  .field label{font-size:15px;font-weight:800;color:var(--txt)}
+  .field input,.field select,.field textarea{width:100%;height:48px;padding:0 14px;background:#fff;border:2px solid var(--line2);border-radius:8px;color:var(--txt);font-size:16px;font-weight:600}
+  .field textarea{padding:12px 14px;min-height:100px;height:auto;resize:vertical;line-height:1.6;font-weight:400}
+  .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 4px rgba(11,87,208,.2)}
+  .btn{padding:12px 22px;border-radius:9px;font-weight:800;font-size:15px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;justify-content:center;border:2px solid transparent;white-space:nowrap}
+  .btn-primary{background:var(--navy);color:#fff}
+  .btn-primary:disabled{opacity:.5;cursor:not-allowed}
+  .btn-secondary{background:#fff;border-color:var(--line2);color:var(--txt)}
+  .btn-danger{background:#fff;border-color:var(--red);color:var(--red)}
+  .btn-full{width:100%}
+  .login-msg{margin-top:16px;padding:12px 14px;border-radius:8px;font-size:15px;font-weight:600;line-height:1.6;display:none}
+  .login-msg.error{background:#ffe6e8;border:2px solid #d9485a;color:#9a1020;display:block}
+  .login-msg.ok{background:#dff3e6;border:2px solid #4caf73;color:#0f5a2e;display:block}
+
+  .main-view{max-width:1400px;margin:0 auto;padding:24px}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px}
+  .stat-card{padding:18px 22px;border-radius:14px;background:#fff;border:1px solid var(--line);box-shadow:0 1px 3px rgba(15,31,61,.08)}
+  .stat-label{font-size:15px;color:var(--txt3);font-weight:800;margin-bottom:6px}
+  .stat-value{font-size:32px;font-weight:900;line-height:1.1;color:var(--txt)}
+  .stat-value.gold{color:var(--navy)}
+  .stat-value.blue{color:var(--blue)}
+  .stat-value.red{color:var(--red)}
+
+  .filter-bar{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:24px;box-shadow:0 1px 3px rgba(15,31,61,.08)}
+  .filter-h{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+  .filter-h h2{font-size:19px;font-weight:800;display:flex;align-items:center;gap:10px}
+  .filter-actions{display:flex;gap:8px;flex-wrap:wrap}
+  .btn-sm{padding:10px 16px;font-size:15px}
+  .filter-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px}
+  .filter-field{display:flex;flex-direction:column;gap:6px}
+  .filter-field label{font-size:15px;color:var(--txt);font-weight:800}
+  .filter-field select,.filter-field input{height:46px;padding:0 12px;background:#fff;border:2px solid var(--line2);border-radius:8px;color:var(--txt);font-size:16px;font-weight:600}
+  .filter-field select:focus,.filter-field input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 4px rgba(11,87,208,.2)}
+
+  .table-wrap{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(15,31,61,.08)}
+  .table-head{padding:16px 20px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);flex-wrap:wrap;gap:12px}
+  .table-head h3{font-size:18px;font-weight:800}
+  .count-badge{padding:3px 12px;border-radius:100px;background:#e6eeff;border:1px solid #7aa7e8;color:#0a3a8a;font-size:14px;font-weight:800;margin-left:8px}
+  .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  table{width:100%;border-collapse:collapse;min-width:1000px}
+  th,td{padding:12px 14px;text-align:left;border-bottom:1px solid var(--line);font-size:15px;vertical-align:middle}
+  th{background:#eef1f6;color:var(--txt2);font-size:14px;font-weight:800;white-space:nowrap}
+  tbody tr:hover{background:#f6f8fc}
+  tr.off td{color:var(--txt3);background:#f6f7f9}
+  td.center,th.center{text-align:center}
+  .player{font-weight:800;font-size:16px}
+  .kana{color:var(--txt3);font-size:13px;font-weight:600}
+  .badge{display:inline-block;padding:2px 10px;border-radius:100px;font-size:13px;font-weight:800;white-space:nowrap}
+  .badge.male{background:#e6eeff;color:#0a3a8a;border:1px solid #7aa7e8}
+  .badge.female{background:#ffe9ee;color:#a0143a;border:1px solid #e58aa0}
+  .badge.ok{background:#dff3e6;color:#0f5a2e;border:1px solid #4caf73}
+  .badge.off{background:#e6e9ef;color:#3f4960;border:1px solid #9aa3b5}
+  .row-actions{display:flex;gap:6px;justify-content:flex-end}
+  .btn-icon{padding:7px 14px;border-radius:7px;font-size:14px;font-weight:800;cursor:pointer;background:#fff;border:2px solid var(--line2);color:var(--txt)}
+  .btn-icon.edit:hover{border-color:var(--blue);color:var(--blue)}
+  .empty-row{padding:40px;text-align:center;color:var(--txt3);font-size:16px}
+
+  .modal-bg{position:fixed;inset:0;background:rgba(10,20,40,.6);z-index:1000;display:none;align-items:center;justify-content:center;padding:20px}
+  .modal-bg.on{display:flex}
+  .modal{width:100%;max-width:600px;max-height:90vh;overflow-y:auto;background:#fff;border-radius:14px}
+  .modal-h{padding:18px 24px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+  .modal-h h3{font-size:19px;font-weight:800}
+  .modal-close{background:none;border:none;color:var(--txt2);font-size:26px;cursor:pointer;width:36px;height:36px;border-radius:8px}
+  .modal-close:hover{background:#eef1f6}
+  .modal-body{padding:22px 24px}
+  .modal-foot{padding:16px 24px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+  .grid{display:grid;gap:12px}
+  .grid-2{grid-template-columns:repeat(2,1fr)}
+  @media (max-width:640px){.grid-2{grid-template-columns:1fr}}
+  .detail-item{padding:10px 0;border-bottom:1px solid var(--line)}
+  .detail-item:last-child{border-bottom:none}
+  .detail-label{font-size:14px;color:var(--txt3);font-weight:800;margin-bottom:2px}
+  .detail-value{font-size:17px;color:var(--txt);font-weight:600}
+  .history-list{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+  .history-entry{padding:10px 12px;border-radius:8px;background:#f4f6fa;border:1px solid var(--line);font-size:15px}
+  .history-entry strong{color:var(--navy);margin-right:8px}
+
+  #toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:12px 24px;border-radius:100px;font-size:15px;font-weight:700;z-index:9500;opacity:0;pointer-events:none;transition:opacity .3s;max-width:90vw;text-align:center}
+  #toast.on{opacity:1}
+  #toast.ok{background:#0f3d22}
+  #toast.ng{background:#8a1020}
+  #toast.warn{background:#6b4300}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="brand-wrap">
+      <div class="brand">KARATE WIN</div>
+      <span class="header-title">運営者管理</span>
+    </div>
+    <div class="user-info" id="user-info" style="display:none">
+      <span id="user-email">-</span>
+      <button class="btn-logout" id="btn-logout">ログアウト</button>
+    </div>
+  </div>
+</header>
+
+<!-- ═══════ ログイン画面 ═══════ -->
+<div class="login-view" id="login-view">
+  <div class="login-card">
+    <h1>運営者<span class="grad">ログイン</span></h1>
+    <p class="login-sub">大会申込一覧を管理するには<br>ログインが必要です</p>
+    <div class="field">
+      <label>メールアドレス</label>
+      <input type="email" id="login-email" placeholder="admin@example.com" autocomplete="email" />
+    </div>
+    <div class="field">
+      <label>パスワード</label>
+      <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password" />
+    </div>
+    <button class="btn btn-primary btn-full" id="btn-login">ログイン</button>
+    <div class="login-msg" id="login-msg"></div>
+  </div>
+</div>
+
+<!-- ═══════ メイン画面 ═══════ -->
+<div class="main-view" id="main-view" style="display:none">
+
+  <!-- 統計 -->
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-label">📅 大会数</div>
+      <div class="stat-value gold" id="stat-tournaments">-</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">👥 申込済み</div>
+      <div class="stat-value blue" id="stat-total">-</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">♂ 男子</div>
+      <div class="stat-value blue" id="stat-male">-</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">♀ 女子</div>
+      <div class="stat-value red" id="stat-female">-</div>
+    </div>
+  </div>
+
+  <!-- フィルタ -->
+  <div class="filter-bar">
+    <div class="filter-h">
+      <h2>🔎 絞り込み</h2>
+      <div class="filter-actions">
+        <button class="btn btn-secondary btn-sm" id="btn-refresh">🔄 更新</button>
+        <button class="btn btn-primary btn-sm" id="btn-csv">📥 CSVダウンロード</button>
+      </div>
+    </div>
+    <div class="filter-grid">
+      <div class="filter-field">
+        <label>🏆 大会</label>
+        <select id="f-tournament">
+          <option value="">-- すべての大会 --</option>
+        </select>
+      </div>
+      <div class="filter-field">
+        <label>🎓 学年</label>
+        <select id="f-grade">
+          <option value="">すべて</option>
+          <option>小学1年生</option><option>小学2年生</option><option>小学3年生</option>
+          <option>小学4年生</option><option>小学5年生</option><option>小学6年生</option>
+          <option>中学1年生</option><option>中学2年生</option><option>中学3年生</option>
+          <option>高校1年生</option><option>高校2年生</option><option>高校3年生</option>
+        </select>
+      </div>
+      <div class="filter-field">
+        <label>♂♀ 性別</label>
+        <select id="f-gender">
+          <option value="">すべて</option>
+          <option>男子</option><option>女子</option>
+        </select>
+      </div>
+      <div class="filter-field">
+        <label>📌 状態</label>
+        <select id="f-status">
+          <option value="applied">申込済み</option>
+          <option value="off">取消・除外</option>
+          <option value="">すべて</option>
+        </select>
+      </div>
+      <div class="filter-field">
+        <label>🔍 選手検索</label>
+        <input type="text" id="f-search" placeholder="氏名・よみがな・所属" />
+      </div>
+    </div>
+  </div>
+
+  <!-- 一覧テーブル -->
+  <div class="table-wrap">
+    <div class="table-head">
+      <h3>📋 申込一覧 <span class="count-badge" id="filter-count">0件</span></h3>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>大会名</th>
+            <th>開催日</th>
+            <th>氏名</th>
+            <th>所属</th>
+            <th>学年</th>
+            <th>性別</th>
+            <th>状態</th>
+            <th>経路</th>
+            <th class="center">戦歴</th>
+            <th>申込日時</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="entries-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ 詳細/編集モーダル ═══════ -->
+<div class="modal-bg" id="modal-detail">
+  <div class="modal">
+    <div class="modal-h">
+      <h3 id="modal-title">選手詳細</h3>
+      <button class="modal-close" onclick="closeModal('modal-detail')">×</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-foot">
+      <button class="btn btn-danger" id="btn-delete">🗑 削除</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-detail')">閉じる</button>
+      <button class="btn btn-primary" id="btn-save-edit" style="display:none">💾 保存</button>
+      <button class="btn btn-primary" id="btn-edit">✏ 編集</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+'use strict';
+
+// ══════════════════════════════════════════════
+//  Supabase 設定
+// ══════════════════════════════════════════════
+const CFG = {
+  SUPABASE_URL: 'https://ocxyycuasswuztjkbwuf.supabase.co',
+  SUPABASE_KEY: 'sb_publishable_fmCxA2UUUZtWdxwBhvhS5w_Z29KVTNp'
+};
+
+let sb = null;
+let currentUser = null;
+let allEntries = [];         // 全件データ
+let filteredEntries = [];    // フィルタ後
+let currentEditId = null;    // 編集中のID
+
+// ══════════════════════════════════════════════
+//  ユーティリティ
+// ══════════════════════════════════════════════
+const $ = id => document.getElementById(id);
+
+function toast(msg, kind=''){
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'on ' + kind;
+  clearTimeout(t._h);
+  t._h = setTimeout(() => t.className = '', 3200);
+}
+
+function escapeHtml(s){
+  return String(s ?? '').replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// 状態と経路（列が無い古いデータは「申込済み」として扱う）
+const SOURCE_LABEL = { parent: '父兄', dojo_bulk: '道場一括', legacy: '旧フォーム' };
+const isApplied = e => !e.status || e.status === 'applied';
+function statusBadge(e){
+  if (e.status === 'cancelled') return '<span class="badge off">取消</span>';
+  if (e.status === 'excluded') return '<span class="badge off">除外</span>';
+  return '<span class="badge ok">申込済み</span>';
+}
+
+function fmtDate(iso){
+  if (!iso) return '-';
+  try{
+    const d = new Date(iso);
+    return d.toLocaleString('ja-JP', {
+      year:'numeric', month:'2-digit', day:'2-digit',
+      hour:'2-digit', minute:'2-digit'
+    });
+  }catch{ return iso }
+}
+
+// ══════════════════════════════════════════════
+//  初期化 + セッション確認
+// ══════════════════════════════════════════════
+async function init(){
+  try{
+    sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_KEY);
+    const { data: { session } } = await sb.auth.getSession();
+    if (session){
+      currentUser = session.user;
+      showMainView();
+    } else {
+      showLoginView();
+    }
+
+    // セッション変化を監視
+    sb.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session){
+        currentUser = session.user;
+        showMainView();
+      } else if (event === 'SIGNED_OUT'){
+        currentUser = null;
+        showLoginView();
+      }
+    });
+  }catch(err){
+    console.error('init error:', err);
+    toast('初期化エラー: ' + err.message, 'ng');
+  }
+}
+
+function showLoginView(){
+  $('login-view').style.display = '';
+  $('main-view').style.display = 'none';
+  $('user-info').style.display = 'none';
+}
+
+async function showMainView(){
+  $('login-view').style.display = 'none';
+  $('main-view').style.display = '';
+  $('user-info').style.display = 'flex';
+  $('user-email').textContent = currentUser?.email || '';
+  await loadEntries();
+}
+
+// ══════════════════════════════════════════════
+//  ログイン
+// ══════════════════════════════════════════════
+$('btn-login').addEventListener('click', doLogin);
+$('login-password').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+
+async function doLogin(){
+  const email = $('login-email').value.trim();
+  const password = $('login-password').value;
+  const msgEl = $('login-msg');
+  msgEl.className = 'login-msg';
+
+  if (!email || !password){
+    msgEl.textContent = 'メールアドレスとパスワードを入力してください';
+    msgEl.className = 'login-msg error';
+    return;
+  }
+
+  const btn = $('btn-login');
+  btn.disabled = true;
+  btn.textContent = 'ログイン中...';
+
+  try{
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    msgEl.textContent = 'ログイン成功';
+    msgEl.className = 'login-msg ok';
+  }catch(err){
+    let msg = err.message || String(err);
+    if (msg.includes('Invalid login credentials')){
+      msg = 'メールアドレスまたはパスワードが違います';
+    }
+    msgEl.textContent = msg;
+    msgEl.className = 'login-msg error';
+  }finally{
+    btn.disabled = false;
+    btn.textContent = 'ログイン';
+  }
+}
+
+// ══════════════════════════════════════════════
+//  ログアウト
+// ══════════════════════════════════════════════
+$('btn-logout').addEventListener('click', async () => {
+  if (!confirm('ログアウトしますか？')) return;
+  await sb.auth.signOut();
+  toast('ログアウトしました', 'ok');
+});
+
+// ══════════════════════════════════════════════
+//  データ読み込み
+// ══════════════════════════════════════════════
+async function loadEntries(){
+  try{
+    const { data, error } = await sb
+      .from('tournament_entries')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    allEntries = data || [];
+    console.log('[load] entries:', allEntries.length);
+    buildTournamentFilter();
+    applyFilters();
+    updateStats();
+  }catch(err){
+    console.error('load error:', err);
+    toast('読み込み失敗: ' + err.message, 'ng');
+  }
+}
+
+// 大会フィルタのドロップダウン構築
+function buildTournamentFilter(){
+  const names = [...new Set(allEntries.map(e => e.tournament_name).filter(Boolean))].sort();
+  const sel = $('f-tournament');
+  const currentVal = sel.value;
+  sel.innerHTML = '<option value="">-- すべての大会 --</option>' +
+    names.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
+  sel.value = currentVal;
+}
+
+// ══════════════════════════════════════════════
+//  フィルタ適用
+// ══════════════════════════════════════════════
+function applyFilters(){
+  const t = $('f-tournament').value;
+  const g = $('f-grade').value;
+  const s = $('f-gender').value;
+  const st = $('f-status').value;
+  const q = $('f-search').value.trim().toLowerCase();
+
+  filteredEntries = allEntries.filter(e => {
+    if (t && e.tournament_name !== t) return false;
+    if (g && e.grade !== g) return false;
+    if (s && e.gender !== s) return false;
+    if (st === 'applied' && !isApplied(e)) return false;
+    if (st === 'off' && isApplied(e)) return false;
+    if (q){
+      const hit =
+        (e.player_name || '').toLowerCase().includes(q) ||
+        (e.player_kana || '').toLowerCase().includes(q) ||
+        (e.affiliation || '').toLowerCase().includes(q);
+      if (!hit) return false;
+    }
+    return true;
+  });
+
+  renderTable();
+}
+
+['f-tournament','f-grade','f-gender','f-status'].forEach(id => $(id).addEventListener('change', applyFilters));
+$('f-search').addEventListener('input', applyFilters);
+$('btn-refresh').addEventListener('click', loadEntries);
+
+// ══════════════════════════════════════════════
+//  テーブル描画
+// ══════════════════════════════════════════════
+function renderTable(){
+  $('filter-count').textContent = `${filteredEntries.length}件 / 全${allEntries.length}件`;
+  const tbody = $('entries-tbody');
+
+  if (filteredEntries.length === 0){
+    tbody.innerHTML = '<tr><td colspan="12" class="empty-row">該当する申込がありません</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filteredEntries.map((e, i) => {
+    const historyCount = Array.isArray(e.history) ? e.history.length : 0;
+    const genderClass = e.gender === '男子' ? 'male' : 'female';
+    return `
+      <tr class="${isApplied(e) ? '' : 'off'}">
+        <td>${i+1}</td>
+        <td>${escapeHtml(e.tournament_name || '-')}</td>
+        <td>${escapeHtml(e.tournament_date || '-')}</td>
+        <td>
+          <div class="player">${escapeHtml(e.player_name || '-')}</div>
+          <div class="kana">${escapeHtml(e.player_kana || '')}</div>
+        </td>
+        <td>${escapeHtml(e.affiliation || '-')}</td>
+        <td>${escapeHtml(e.grade || '-')}</td>
+        <td><span class="badge ${genderClass}">${escapeHtml(e.gender || '-')}</span></td>
+        <td>${statusBadge(e)}</td>
+        <td>${escapeHtml(SOURCE_LABEL[e.source] || '-')}</td>
+        <td class="center">${historyCount}件</td>
+        <td>${fmtDate(e.created_at)}</td>
+        <td>
+          <div class="row-actions">
+            <button class="btn-icon edit" onclick="openDetail('${e.id}')">詳細</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════
+//  統計
+// ══════════════════════════════════════════════
+function updateStats(){
+  // 取消・除外は数えない
+  const live = allEntries.filter(isApplied);
+  const tournaments = new Set(live.map(e => e.tournament_name).filter(Boolean)).size;
+  const total = live.length;
+  const male = live.filter(e => e.gender === '男子').length;
+  const female = live.filter(e => e.gender === '女子').length;
+  $('stat-tournaments').textContent = tournaments;
+  $('stat-total').textContent = total;
+  $('stat-male').textContent = male;
+  $('stat-female').textContent = female;
+}
+
+// ══════════════════════════════════════════════
+//  詳細モーダル
+// ══════════════════════════════════════════════
+let isEditMode = false;
+
+function openDetail(id){
+  const e = allEntries.find(x => x.id === id);
+  if (!e) return;
+  currentEditId = id;
+  isEditMode = false;
+  renderDetail(e);
+  $('modal-detail').classList.add('on');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal(id){
+  $(id).classList.remove('on');
+  document.body.style.overflow = '';
+  isEditMode = false;
+  currentEditId = null;
+}
+
+function renderDetail(e){
+  const historyItems = Array.isArray(e.history) ? e.history : [];
+  $('modal-title').textContent = `${e.player_name} さんの申込`;
+  $('modal-body').innerHTML = `
+    <div class="detail-item">
+      <div class="detail-label">🏆 大会名</div>
+      <div class="detail-value">${escapeHtml(e.tournament_name || '-')}</div>
+    </div>
+    <div class="detail-item">
+      <div class="detail-label">📅 開催日 / 場所</div>
+      <div class="detail-value">${escapeHtml(e.tournament_date || '-')} / ${escapeHtml(e.tournament_venue || '-')}</div>
+    </div>
+    <div class="detail-item">
+      <div class="detail-label">👤 選手</div>
+      <div class="detail-value">${escapeHtml(e.player_name || '-')} <span style="color:var(--txt3);font-size:14px">（${escapeHtml(e.player_kana || '')}）</span></div>
+    </div>
+    <div class="detail-item">
+      <div class="detail-label">🏯 所属（所属道場）</div>
+      <div class="detail-value">${escapeHtml(e.affiliation || '-')}</div>
+    </div>
+    <div class="detail-item">
+      <div class="detail-label">🎓 学年 / 性別</div>
+      <div class="detail-value">${escapeHtml(e.grade || '-')} / ${escapeHtml(e.gender || '-')}</div>
+    </div>
+    <div class="detail-item">
+      <div class="detail-label">📏 身長 / 体重</div>
+      <div class="detail-value">${e.height ? escapeHtml(e.height)+'cm' : '-'} / ${e.weight ? escapeHtml(e.weight)+'kg' : '-'}</div>
+    </div>
+    <div class="detail-item">
+      <div class="detail-label">🥋 戦歴 (${historyItems.length}件)</div>
+      <div class="history-list">
+        ${historyItems.length === 0 ? '<div style="color:var(--txt3);font-size:15px">戦歴なし</div>' :
+          historyItems.map((h, i) => `
+            <div class="history-entry">
+              <strong>戦歴${i+1}</strong>
+              ${h.result ? '['+escapeHtml(h.result)+'] ' : ''}
+              ${h.score ? escapeHtml(h.score)+' ' : ''}
+              ${h.opponent ? 'vs '+escapeHtml(h.opponent) : ''}
+              ${h.tournament ? '<br><span style="color:var(--txt3)">'+escapeHtml(h.tournament)+'</span>' : ''}
+              ${h.rank ? ' <b>('+escapeHtml(h.rank)+')</b>' : ''}
+            </div>
+          `).join('')}
+      </div>
+    </div>
+    <div class="detail-item">
+      <div class="detail-label">📌 状態 / 経路</div>
+      <div class="detail-value">${statusBadge(e)} ${escapeHtml(SOURCE_LABEL[e.source] || '')}</div>
+    </div>
+    <div class="detail-item">
+      <div class="detail-label">🕐 申込日時</div>
+      <div class="detail-value">${fmtDate(e.created_at)}</div>
+    </div>
+  `;
+  $('btn-edit').style.display = '';
+  $('btn-save-edit').style.display = 'none';
+}
+
+function renderEditForm(e){
+  const historyItems = Array.isArray(e.history) ? e.history : [];
+  $('modal-body').innerHTML = `
+    <div class="grid grid-2">
+      <div class="field">
+        <label>大会名</label>
+        <input type="text" id="ed-tname" value="${escapeHtml(e.tournament_name || '')}" />
+      </div>
+      <div class="field">
+        <label>開催日</label>
+        <input type="text" id="ed-tdate" value="${escapeHtml(e.tournament_date || '')}" />
+      </div>
+    </div>
+    <div class="field" style="margin-top:12px">
+      <label>大会場所</label>
+      <input type="text" id="ed-tvenue" value="${escapeHtml(e.tournament_venue || '')}" />
+    </div>
+    <div class="grid grid-2" style="margin-top:12px">
+      <div class="field">
+        <label>氏名</label>
+        <input type="text" id="ed-name" value="${escapeHtml(e.player_name || '')}" />
+      </div>
+      <div class="field">
+        <label>よみがな</label>
+        <input type="text" id="ed-kana" value="${escapeHtml(e.player_kana || '')}" />
+      </div>
+    </div>
+    <div class="field" style="margin-top:12px">
+      <label>所属（所属道場）</label>
+      <input type="text" id="ed-affiliation" value="${escapeHtml(e.affiliation || '')}" />
+    </div>
+    <div class="grid grid-2" style="margin-top:12px">
+      <div class="field">
+        <label>学年</label>
+        <select id="ed-grade">
+          ${[...new Set(['小学1年生','小学2年生','小学3年生','小学4年生','小学5年生','小学6年生',
+             '中学1年生','中学2年生','中学3年生','高校1年生','高校2年生','高校3年生', e.grade].filter(Boolean))].map(g =>
+            `<option ${g === e.grade ? 'selected' : ''}>${g}</option>`
+          ).join('')}
+        </select>
+      </div>
+      <div class="field">
+        <label>性別</label>
+        <select id="ed-gender">
+          <option ${e.gender === '男子' ? 'selected' : ''}>男子</option>
+          <option ${e.gender === '女子' ? 'selected' : ''}>女子</option>
+        </select>
+      </div>
+    </div>
+    <div class="grid grid-2" style="margin-top:12px">
+      <div class="field">
+        <label>身長 (cm)</label>
+        <input type="number" id="ed-height" value="${e.height || ''}" step="0.1" />
+      </div>
+      <div class="field">
+        <label>体重 (kg)</label>
+        <input type="number" id="ed-weight" value="${e.weight || ''}" step="0.1" />
+      </div>
+    </div>
+    <div class="field" style="margin-top:12px">
+      <label>戦歴 (JSON形式・詳細編集は非対応)</label>
+      <textarea id="ed-history" readonly style="background:#f4f6fa;color:var(--txt3);cursor:not-allowed">${escapeHtml(JSON.stringify(historyItems, null, 2))}</textarea>
+    </div>
+  `;
+  $('btn-edit').style.display = 'none';
+  $('btn-save-edit').style.display = '';
+}
+
+$('btn-edit').addEventListener('click', () => {
+  const e = allEntries.find(x => x.id === currentEditId);
+  if (!e) return;
+  isEditMode = true;
+  renderEditForm(e);
+});
+
+$('btn-save-edit').addEventListener('click', async () => {
+  if (!currentEditId) return;
+  const payload = {
+    tournament_name:  $('ed-tname').value.trim(),
+    tournament_date:  $('ed-tdate').value.trim() || null,
+    tournament_venue: $('ed-tvenue').value.trim() || null,
+    player_name:      $('ed-name').value.trim(),
+    player_kana:      $('ed-kana').value.trim(),
+    affiliation:      $('ed-affiliation').value.trim() || null,
+    grade:            $('ed-grade').value,
+    gender:           $('ed-gender').value,
+    height:           $('ed-height').value ? Number($('ed-height').value) : null,
+    weight:           $('ed-weight').value ? Number($('ed-weight').value) : null
+  };
+
+  const btn = $('btn-save-edit');
+  btn.disabled = true;
+  btn.textContent = '保存中...';
+
+  try{
+    const { error } = await sb
+      .from('tournament_entries')
+      .update(payload)
+      .eq('id', currentEditId);
+    if (error) throw error;
+    toast('✓ 更新しました', 'ok');
+    closeModal('modal-detail');
+    await loadEntries();
+  }catch(err){
+    console.error('update error:', err);
+    toast('更新失敗: ' + err.message, 'ng');
+  }finally{
+    btn.disabled = false;
+    btn.textContent = '💾 保存';
+  }
+});
+
+$('btn-delete').addEventListener('click', async () => {
+  if (!currentEditId) return;
+  const e = allEntries.find(x => x.id === currentEditId);
+  if (!e) return;
+  if (!confirm(`${e.player_name} の申込を削除しますか?\nこの操作は取り消せません。`)) return;
+
+  try{
+    const { error } = await sb
+      .from('tournament_entries')
+      .delete()
+      .eq('id', currentEditId);
+    if (error) throw error;
+    toast(`✓ ${e.player_name} を削除しました`, 'ok');
+    closeModal('modal-detail');
+    await loadEntries();
+  }catch(err){
+    console.error('delete error:', err);
+    toast('削除失敗: ' + err.message, 'ng');
+  }
+});
+
+// 背景クリック・Escで閉じる
+$('modal-detail').addEventListener('click', e => {
+  if (e.target === $('modal-detail')) closeModal('modal-detail');
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && $('modal-detail').classList.contains('on')){
+    closeModal('modal-detail');
+  }
+});
+
+// ══════════════════════════════════════════════
+//  CSV ダウンロード
+// ══════════════════════════════════════════════
+function toCsvCell(v){
+  const s = String(v ?? '');
+  if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+
+function sanitizeFileName(s){
+  return String(s ?? '').replace(/[\\/:*?"<>|]/g, '_').replace(/\s+/g, '_').trim() || 'unset';
+}
+
+$('btn-csv').addEventListener('click', () => {
+  if (filteredEntries.length === 0){
+    toast('ダウンロード対象の申込がありません', 'warn');
+    return;
+  }
+
+  const MAX_HISTORY = 5;
+  const headers = [
+    '申込ID','申込日時',
+    '開催日時','大会場所','大会名',
+    'No','氏名','よみがな','所属(所属道場)','学年','性別','身長(cm)','体重(kg)','状態','経路'
+  ];
+  for (let i = 1; i <= MAX_HISTORY; i++){
+    headers.push(`戦歴${i}_勝敗`,`戦歴${i}_点数`,`戦歴${i}_対戦相手`,`戦歴${i}_大会名`,`戦歴${i}_順位`);
+  }
+
+  const rows = [headers];
+  filteredEntries.forEach((e, idx) => {
+    const historyItems = Array.isArray(e.history) ? e.history : [];
+    const row = [
+      e.id, fmtDate(e.created_at),
+      e.tournament_date || '', e.tournament_venue || '', e.tournament_name || '',
+      idx + 1, e.player_name || '', e.player_kana || '', e.affiliation || '',
+      e.grade || '', e.gender || '',
+      e.height || '', e.weight || '',
+      e.status === 'cancelled' ? '取消' : e.status === 'excluded' ? '除外' : '申込済み', SOURCE_LABEL[e.source] || ''
+    ];
+    for (let i = 0; i < MAX_HISTORY; i++){
+      const h = historyItems[i] || {};
+      row.push(h.result || '', h.score || '', h.opponent || '', h.tournament || '', h.rank || '');
+    }
+    rows.push(row);
+  });
+
+  const csv = rows.map(r => r.map(toCsvCell).join(',')).join('\r\n');
+  const bom = '\uFEFF';
+  const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8' });
+
+  const t = $('f-tournament').value;
+  const now = new Date();
+  const stamp = now.getFullYear() + String(now.getMonth()+1).padStart(2,'0') + String(now.getDate()).padStart(2,'0')
+    + '_' + String(now.getHours()).padStart(2,'0') + String(now.getMinutes()).padStart(2,'0');
+  const filename = `申込一覧_${sanitizeFileName(t || 'すべて')}_${stamp}.csv`;
+
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+
+  toast(`✓ ${filename}`, 'ok');
+});
+
+// ══════════════════════════════════════════════
+//  起動
+// ══════════════════════════════════════════════
+init();
+</script>
+
+</body>
+</html>
