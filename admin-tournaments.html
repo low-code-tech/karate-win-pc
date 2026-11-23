@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex" />
 <title>Karate Win｜大会設定</title>
 <!--
-  Karate Win 大会設定画面 admin-tournaments.html  v1.5 (2026-11-24)
+  Karate Win 大会設定画面 admin-tournaments.html  v1.6 (2026-11-24)
   運営と、その大会の主催道場の管理者が使う。ログインは申込管理画面（admin-entries）と同じ。
 
   できること
@@ -2679,13 +2679,21 @@ function renderClasses() {
       <td><input type="checkbox" data-k="open" ${c.is_open !== false ? 'checked' : ''} /></td>
       <td class="num">${c._saved ? cnt(c.id) : '<span class="muted">未保存</span>'}</td>
       <td><button class="btn danger" data-del="${i}" style="padding:6px 10px">削除</button></td></tr>`).join('') : '<tr><td colspan="10" class="muted">クラスがまだありません。下のボタンから追加してください。</td></tr>'}</tbody></table></div>
-    <div id="cls-msg" style="margin-top:12px">${CLS.some((c) => c._saved && c.is_open && !c.split_from && !c.assign_only) ? '' : '<div class="notice err">保存済みの申込用クラスがありません。このままでは、父兄が申込アプリで種目を選べません。クラスを作成して「クラスを保存」を押してください。</div>'}${CLS.some((c) => !c._saved) ? '<div class="notice warn">まだ保存していない行があります。「クラスを保存」を押すと確定します。</div>' : ''}</div>
-    <div class="bar"><button class="btn ghost" id="cls-add">＋ 1行追加</button><button class="btn ghost" id="cls-tpl">学年別のひな形から作る</button><button class="btn ghost" id="cls-paste">クラス名を貼り付けて取り込む</button>
+    <div id="cls-msg" style="margin-top:12px">${CLS.some((c) => c._saved && c.is_open && !c.split_from && !c.assign_only) ? '' : '<div class="notice err">保存済みの申込用クラスがありません。このままでは、父兄が申込アプリで種目を選べません。クラスを作成して「クラスを保存」を押してください。</div>'}${CLS.some((c) => !c._saved) ? '<div class="notice warn">まだ保存していない行があります。「クラスを保存」を押すと確定します。</div>' : ''}${(() => { const n = CLS.filter((c) => !c.split_from && !c.assign_only && c.grade_from == null && c.grade_to == null).length; return n ? `<div class="notice warn">学年が「指定なし」の申込用クラスが ${n}件あります。指定なしのクラスは、すべての学年の選手に表示されます。「クラス名から学年・性別を設定」を押すと、名前から自動で入ります。</div>` : ''; })()}</div>
+    <div class="bar"><button class="btn ghost" id="cls-add">＋ 1行追加</button><button class="btn ghost" id="cls-tpl">学年別のひな形から作る</button><button class="btn ghost" id="cls-paste">クラス名を貼り付けて取り込む</button><button class="btn ghost" id="cls-guess">クラス名から学年・性別を設定</button>
       ${others.length ? `<select id="cls-from" style="width:auto;max-width:240px"><option value="">他の大会からコピー…</option>${others.map((t) => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('')}</select>` : ''}
       <div class="sp"></div><button class="btn primary" id="cls-save">クラスを保存</button></div>`;
   $('cls-add').onclick = () => { readClasses(); CLS.push({ id: crypto.randomUUID(), tournament_id: cur, name: '', event: 'kumite', grade_from: null, grade_to: null, gender: '男子', sort_order: (CLS.length + 1) * 10, is_open: true }); renderClasses(); };
   $('cls-tpl').onclick = templateBox;
   $('cls-paste').onclick = pasteBox;
+  // クラス名を入れたとき、学年が「指定なし」なら名前から学年と性別を入れる
+  document.querySelectorAll('#cls-body [data-k=name]').forEach((inp) => { inp.onchange = () => { readClasses(); const c = CLS[+inp.closest('tr').dataset.i]; if (c && applyGuess(c)) { renderClasses(); toast(`「${c.name}」の学年と性別を、名前から設定しました`); } }; });
+  $('cls-guess').onclick = () => {
+    readClasses(); let n = 0; CLS.forEach((c) => { n += applyGuess(c); });
+    renderClasses();
+    if (n) $('cls-msg').insertAdjacentHTML('afterbegin', `<div class="notice info">${n}件のクラスに、名前から学年と性別を設定しました。表で確かめてから「クラスを保存」を押してください。</div>`);
+    else toast('設定できるクラスはありませんでした（学年が「指定なし」で、名前から学年が分かるクラスが対象です）', true);
+  };
   $('cls-save').onclick = saveClasses;
   if ($('cls-from')) $('cls-from').onchange = copyClasses;
   document.querySelectorAll('[data-del]').forEach((b) => { b.onclick = () => deleteClass(+b.dataset.del); });
@@ -2749,21 +2757,31 @@ function templateBox() {
 // 過去の大会のクラス名（1行に1つ。同じ名前が何行あってもよい）から、種目・学年・性別を読み取る。
 //   読める形:「組手 小学1年女子」「形 小学3・4年男女」「小学3年生女子一部・組手」「組手・形一般の部」（両方の種目になる）
 //   名前の末尾が「一部」「二部」のクラスは編成用にし、その学年・性別ごとの申込用クラス（例: 小学3年生女子）を自動で作る
+// クラス名から学年の範囲と性別を推定する（取り込みと、表での入力の両方で使う）
+const kwHalf = (s) => String(s || '').replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+function guessGrade(s) {
+  s = kwHalf(s); let m;
+  if (/年少/.test(s)) return [-2, -2];
+  if (/年中/.test(s)) return [-1, -1];
+  if (/年長/.test(s)) return [0, 0];
+  if (/幼児|幼年|園児/.test(s)) return [-2, 0];
+  if (/一般|成年|マスターズ|大人|社会人|大学/.test(s)) return [13, 13];
+  if ((m = /(小学|中学|高校)生?(\d)(?:[・･,、~〜\-](\d))?年/.exec(s))) { const b = m[1] === '小学' ? 0 : m[1] === '中学' ? 6 : 9; return [b + +m[2], b + +(m[3] || m[2])]; }
+  if (/高校|高等/.test(s)) return [10, 12];
+  if (/中学/.test(s)) return [7, 9];
+  if (/小学/.test(s)) return [1, 6];
+  return [null, null];
+}
+const guessGender = (s) => /男女|混合/.test(s) ? '混合' : (/女/.test(s) && !/男/.test(s)) ? '女子' : /男/.test(s) ? '男子' : '混合';
+// 学年が「指定なし」の行に、クラス名から推定した学年と性別を入れる。入れた行数を返す
+function applyGuess(c) {
+  if (c.split_from || c.grade_from != null || c.grade_to != null) return 0;
+  const [gf, gt] = guessGrade(c.name); if (gf == null) return 0;
+  c.grade_from = gf; c.grade_to = gt; c.gender = guessGender(c.name); return 1;
+}
+
 function parseClassText(text) {
-  const half = (s) => s.replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
-  const grade = (s) => {
-    let m;
-    if (/年少/.test(s)) return [-2, -2];
-    if (/年中/.test(s)) return [-1, -1];
-    if (/年長/.test(s)) return [0, 0];
-    if (/幼児|幼年|園児/.test(s)) return [-2, 0];
-    if (/一般|成年|マスターズ|大人|社会人|大学/.test(s)) return [13, 13];
-    if ((m = /(小学|中学|高校)生?(\d)(?:[・･,、~〜\-](\d))?年/.exec(s))) { const b = m[1] === '小学' ? 0 : m[1] === '中学' ? 6 : 9; return [b + +m[2], b + +(m[3] || m[2])]; }
-    if (/高校|高等/.test(s)) return [10, 12];
-    if (/中学/.test(s)) return [7, 9];
-    if (/小学/.test(s)) return [1, 6];
-    return [null, null];
-  };
+  const half = kwHalf, grade = guessGrade;
   const map = new Map(); let unknown = 0, lines = 0;
   for (const raw of String(text || '').split(/\r?\n/)) {
     let s = half(raw).replace(/[\s　]+/g, ' ').trim(), ev = [], m;
@@ -2776,7 +2794,7 @@ function parseClassText(text) {
     const noEvent = !ev.length; if (noEvent) { ev = ['kumite']; }
     s = s.trim(); if (!s) continue;
     const [gf, gt] = grade(s);
-    const gender = /男女|混合/.test(s) ? '混合' : (/女/.test(s) && !/男/.test(s)) ? '女子' : /男/.test(s) ? '男子' : '混合';
+    const gender = guessGender(s);
     const part = /(一部|二部|1部|2部)$/.test(s);   // 運営が振り分ける区分
     for (const e of ev) {
       const k = e + '|' + s, x = map.get(k);
