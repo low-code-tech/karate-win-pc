@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Karate Win｜大会申込 運営者管理</title>
-<!-- admin-entries.html v2.0 (2026-11-24): 白地・大きい文字に変更。状態（申込済み／取消・除外）の絞り込みと表示を追加。身長・体重の列は一覧から外し、詳細とCSVに残した。 -->
+<!-- admin-entries.html v2.1 (2026-11-24): 白地・大きい文字に変更。状態（申込済み／取消・除外）の絞り込みと表示を追加。身長・体重の列は一覧から外し、詳細とCSVに残した。 -->
 <style>
   :root{
     --bg:#f2f4f8; --bg2:#ffffff; --line:#d3d9e3; --line2:#7d8798;
@@ -190,10 +190,12 @@
         <label>🎓 学年</label>
         <select id="f-grade">
           <option value="">すべて</option>
+          <option>年少</option><option>年中</option><option>年長</option>
           <option>小学1年生</option><option>小学2年生</option><option>小学3年生</option>
           <option>小学4年生</option><option>小学5年生</option><option>小学6年生</option>
           <option>中学1年生</option><option>中学2年生</option><option>中学3年生</option>
           <option>高校1年生</option><option>高校2年生</option><option>高校3年生</option>
+          <option>一般</option>
         </select>
       </div>
       <div class="filter-field">
@@ -654,8 +656,8 @@ function renderEditForm(e){
       <div class="field">
         <label>学年</label>
         <select id="ed-grade">
-          ${[...new Set(['小学1年生','小学2年生','小学3年生','小学4年生','小学5年生','小学6年生',
-             '中学1年生','中学2年生','中学3年生','高校1年生','高校2年生','高校3年生', e.grade].filter(Boolean))].map(g =>
+          ${[...new Set(['年少','年中','年長','小学1年生','小学2年生','小学3年生','小学4年生','小学5年生','小学6年生',
+             '中学1年生','中学2年生','中学3年生','高校1年生','高校2年生','高校3年生','一般', e.grade].filter(Boolean))].map(g =>
             `<option ${g === e.grade ? 'selected' : ''}>${g}</option>`
           ).join('')}
         </select>
