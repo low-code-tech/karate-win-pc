@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="robots" content="noindex" />
+<title>Karate Win｜大会申込</title>
+<!--
+  Karate Win 大会申込アプリ entry.html  v1.0 (2026-11-24)
+  父兄がスマホで使う申込画面。QR の URL は  entry.html?t=<申込コード>
+
+  画面の流れ: 大会案内 → 携帯番号と同意 → 認証コード → 申込一覧 → 選手登録（入力 → 確認）
+  呼び出す Edge Function: entry-info / entry-sms / entry-list / entry-save（ログイン不要）
+  認証の合言葉は、このタブを閉じると消える（sessionStorage）。有効時間は24時間。
+
+  未対応（今後）: カード払い（お支払い画面）。支払い待ちの金額の表示だけを行う。
+-->
+<style>
+  :root{
+    --bg:#0a0e1a; --bg2:#0e1424; --panel:#141d33; --line:#2a3550; --line2:#3a4868;
+    --txt:#e8ecf5; --txt2:#a8b5cc; --txt3:#7a88a6;
+    --gold:#e8c060; --gold2:#c9a340; --blue:#6aa4f0; --red:#ff8090; --green:#58d08c;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{
+    color:var(--txt);min-height:100vh;line-height:1.7;
+    font-family:"Hiragino Sans","Yu Gothic",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+    background:linear-gradient(180deg,var(--bg) 0%,var(--bg2) 100%) fixed;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  button,input,select{font:inherit;color:inherit}
+  header{
+    padding:14px 18px;background:rgba(10,14,26,.9);border-bottom:1px solid rgba(255,255,255,.08);
+    display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:10;
+  }
+  .brand{font-size:16px;font-weight:900;letter-spacing:2px;color:var(--gold)}
+  .tag{font-size:11px;padding:3px 10px;border-radius:100px;border:1px solid rgba(106,164,240,.4);color:var(--blue)}
+  main{max-width:560px;margin:0 auto;padding:18px 16px 60px}
+  h1{font-size:20px;font-weight:800;line-height:1.4;margin-bottom:6px}
+  h2{font-size:16px;font-weight:800;margin:0 0 12px}
+  p{font-size:14px;color:var(--txt2)}
+  .card{
+    background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.1);
+    border-radius:14px;padding:18px;margin-bottom:14px;
+  }
+  .kv{display:grid;grid-template-columns:5.5em 1fr;gap:6px 10px;font-size:14px;margin-top:10px}
+  .kv dt{color:var(--txt3);font-size:12px;padding-top:2px}
+  .kv dd{color:var(--txt)}
+  .notice{border-radius:10px;padding:12px 14px;font-size:13px;margin-bottom:14px;line-height:1.6}
+  .notice.info{background:rgba(106,164,240,.1);border:1px solid rgba(106,164,240,.35);color:#bcd6fb}
+  .notice.warn{background:rgba(232,192,96,.1);border:1px solid rgba(232,192,96,.4);color:var(--gold)}
+  .notice.err{background:rgba(255,128,144,.1);border:1px solid rgba(255,128,144,.4);color:var(--red)}
+  .field{margin-bottom:16px}
+  .field > label,.lbl{display:block;font-size:13px;font-weight:700;color:var(--txt2);margin-bottom:6px}
+  .req{color:var(--red);font-size:11px;margin-left:6px}
+  .opt{color:var(--txt3);font-size:11px;margin-left:6px;font-weight:400}
+  input[type=text],input[type=tel],select{
+    width:100%;height:50px;padding:0 14px;font-size:16px;
+    background:#0a1020;border:1px solid var(--line2);border-radius:10px;
+  }
+  input:focus,select:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(232,192,96,.2)}
+  .field.bad input,.field.bad select{border-color:var(--red)}
+  .errmsg{color:var(--red);font-size:12px;margin-top:5px;display:none}
+  .field.bad .errmsg{display:block}
+  .hint{font-size:12px;color:var(--txt3);margin-top:5px}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .btn{
+    display:flex;align-items:center;justify-content:center;width:100%;min-height:52px;padding:12px 16px;
+    border-radius:12px;font-weight:800;font-size:15px;border:none;cursor:pointer;text-align:center;
+  }
+  .btn + .btn{margin-top:10px}
+  .btn.primary{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#1a1208}
+  .btn.ghost{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.18)}
+  .btn.danger{background:rgba(255,128,144,.12);border:1px solid rgba(255,128,144,.4);color:var(--red)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn.small{min-height:40px;font-size:13px;padding:8px 12px;width:auto;flex:1}
+  .link{background:none;border:none;color:var(--blue);text-decoration:underline;font-size:13px;cursor:pointer;padding:8px 0}
+  .check{display:flex;gap:12px;align-items:flex-start;padding:14px;border:1px solid var(--line2);border-radius:10px;margin-bottom:10px;cursor:pointer}
+  .check input{width:22px;height:22px;flex:none;margin-top:2px;accent-color:var(--gold)}
+  .check span{font-size:13px;color:var(--txt);line-height:1.6}
+  .check small{display:block;color:var(--txt3);font-size:12px;margin-top:4px}
+  .seg{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .seg label{
+    display:flex;align-items:center;justify-content:center;height:50px;border:1px solid var(--line2);
+    border-radius:10px;font-weight:700;cursor:pointer;background:#0a1020;
+  }
+  .seg input{position:absolute;opacity:0;pointer-events:none}
+  .seg input:checked + label{border-color:var(--gold);background:rgba(232,192,96,.15);color:var(--gold)}
+  .seg input:disabled + label{opacity:.4;cursor:not-allowed}
+  .sug{border:1px solid var(--line2);border-radius:10px;margin-top:6px;overflow:hidden;display:none}
+  .sug.on{display:block}
+  .sug button{display:block;width:100%;text-align:left;padding:12px 14px;background:#0a1020;border:none;border-bottom:1px solid var(--line);font-size:15px;cursor:pointer}
+  .sug button:last-child{border-bottom:none}
+  .entry{border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:14px;margin-bottom:12px;background:rgba(255,255,255,.02)}
+  .entry.off{opacity:.55}
+  .entry .nm{font-size:17px;font-weight:800}
+  .entry .kn{font-size:12px;color:var(--txt3)}
+  .entry .meta{font-size:13px;color:var(--txt2);margin-top:6px}
+  .entry .acts{display:flex;gap:8px;margin-top:12px}
+  .entry .acts .btn{margin-top:0}
+  .badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:100px;margin-left:8px;vertical-align:middle}
+  .badge.ok{background:rgba(88,208,140,.15);color:var(--green);border:1px solid rgba(88,208,140,.4)}
+  .badge.wait{background:rgba(232,192,96,.15);color:var(--gold);border:1px solid rgba(232,192,96,.4)}
+  .badge.off{background:rgba(255,255,255,.08);color:var(--txt3);border:1px solid rgba(255,255,255,.2)}
+  .hist{display:grid;grid-template-columns:1fr 6em;gap:8px;margin-bottom:8px}
+  .code-in{letter-spacing:.4em;text-align:center;font-size:24px !important;font-weight:800}
+  .center{text-align:center}
+  .spin{width:36px;height:36px;border:4px solid rgba(255,255,255,.15);border-top-color:var(--gold);border-radius:50%;animation:sp 1s linear infinite;margin:60px auto 16px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  #modal{position:fixed;inset:0;background:rgba(0,0,0,.75);display:none;align-items:center;justify-content:center;padding:20px;z-index:100}
+  #modal.on{display:flex}
+  #modal .box{width:100%;max-width:420px;background:var(--bg2);border:1px solid var(--line2);border-radius:14px;padding:22px}
+  #toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:rgba(20,40,70,.97);border:1px solid var(--green);color:#b8f5d0;
+    padding:12px 22px;border-radius:100px;font-size:14px;font-weight:700;opacity:0;pointer-events:none;transition:opacity .3s;z-index:200;max-width:90vw;text-align:center}
+  #toast.on{opacity:1}
+</style>
+</head>
+<body>
+<header><div class="brand">KARATE WIN</div><span class="tag">大会申込</span></header>
+<main id="app"><div class="spin"></div><p class="center">読み込んでいます…</p></main>
+<div id="modal"><div class="box" id="modal-box"></div></div>
+<div id="toast"></div>
+
+<script>
+'use strict';
+// ══════════════════════════════════════════════
+//  設定
+// ══════════════════════════════════════════════
+const CFG = {
+  FN: 'https://ocxyycuasswuztjkbwuf.supabase.co/functions/v1',
+  PRIVACY_URL: 'privacy.html'   // 「個人情報の取り扱いについて」のページ（公開前に用意する）
+};
+
+const S = { code: '', info: null, token: '', last4: '', phone: '', list: null, draft: null, testCode: '' };
+const $ = (id) => document.getElementById(id);
+const app = () => $('app');
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+const GRADES = [[1,'小学1年生'],[2,'小学2年生'],[3,'小学3年生'],[4,'小学4年生'],[5,'小学5年生'],[6,'小学6年生'],
+                [7,'中学1年生'],[8,'中学2年生'],[9,'中学3年生'],[10,'高校1年生'],[11,'高校2年生'],[12,'高校3年生']];
+const EVENT_NAME = { kata: '形', kumite: '組手' };
+
+const MSG = {
+  network: '通信できませんでした。電波の状態を確かめて、もう一度お試しください。',
+  server_error: 'エラーが発生しました。少し時間をおいて、もう一度お試しください。',
+  not_found: '申込ページが見つかりません。QRコードを読み直してください。',
+  not_accepting: 'ただいま申込を受け付けていません。',
+  bad_phone: '携帯電話番号を正しく入力してください。',
+  not_mobile: '携帯電話の番号を入力してください（固定電話は使えません）。',
+  rate_limited: '送信回数が多すぎます。しばらく時間をおいてお試しください。',
+  send_failed: 'SMSを送信できませんでした。番号を確かめて、もう一度お試しください。',
+  sms_not_configured: 'SMSを送信できません。お手数ですが大会事務局へご連絡ください。',
+  consent_required: '「個人情報の取り扱い」への同意が必要です。',
+  wrong: '認証コードが違います。',
+  too_many: '入力の誤りが続いたため、このコードは使えなくなりました。コードを送り直してください。',
+  expired: '認証コードの有効時間が切れました。コードを送り直してください。',
+  session_expired: '認証の有効時間が切れました。もう一度、携帯番号の確認からお願いします。',
+  closed: '申込は締め切られたため、変更できません。',
+  limit: '1つの携帯番号で登録できるのは5名までです。',
+  duplicate: 'この選手はすでに申し込まれています。',
+  bad_input: '入力内容を確かめてください。'
+};
+const FIELD_MSG = {
+  player_name: ['f-name', '選手名を入力してください'],
+  player_kana: ['f-kana', 'よみがなは、ひらがなで入力してください'],
+  grade: ['f-grade', '学年を選んでください'],
+  gender: ['f-gender', '性別を選んでください'],
+  dojo_id: ['f-dojo', '所属道場を選び直してください'],
+  affiliation: ['f-dojo', '所属道場を入力してください'],
+  history: ['f-hist', '戦歴は5件までです'],
+  events: ['f-events', '種目を1つ以上選んでください'],
+  class: ['f-events', 'クラスを選び直してください'],
+  class_grade: ['f-events', '学年に合うクラスを選んでください'],
+  class_gender: ['f-events', '性別に合うクラスを選んでください']
+};
+
+// ══════════════════════════════════════════════
+//  共通
+// ══════════════════════════════════════════════
+async function api(fn, body) {
+  try {
+    const res = await fetch(CFG.FN + '/' + fn, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    });
+    const j = await res.json().catch(() => null);
+    return j || { ok: false, code: 'server_error' };
+  } catch (e) {
+    return { ok: false, code: 'network' };
+  }
+}
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.className = 'on'; clearTimeout(t._h); t._h = setTimeout(() => { t.className = ''; }, 3000); }
+function showModal(html) { $('modal-box').innerHTML = html; $('modal').classList.add('on'); }
+function hideModal() { $('modal').classList.remove('on'); }
+function setBusy(btn, on, label) { if (!btn) return; if (on) { btn._t = btn.textContent; btn.disabled = true; btn.textContent = label || '送信中…'; } else { btn.disabled = false; btn.textContent = btn._t || btn.textContent; } }
+function toTop() { try { window.scrollTo(0, 0); } catch (e) {} }
+
+const SKEY = () => 'kw_entry_' + S.code;
+function saveSession() { try { sessionStorage.setItem(SKEY(), JSON.stringify({ token: S.token, last4: S.last4 })); } catch (e) {} }
+function loadSession() { try { const v = JSON.parse(sessionStorage.getItem(SKEY()) || 'null'); if (v && v.token) { S.token = v.token; S.last4 = v.last4 || ''; } } catch (e) {} }
+function clearSession() { S.token = ''; S.last4 = ''; S.list = null; try { sessionStorage.removeItem(SKEY()); } catch (e) {} }
+
+function fmtDate(d) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(d || '')); if (!m) return '';
+  const w = '日月火水木金土'[new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])).getUTCDay()];
+  return `${+m[1]}年${+m[2]}月${+m[3]}日（${w}）`;
+}
+function fmtDateTime(iso) {
+  if (!iso) return '';
+  try { return new Date(iso).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', year: 'numeric', month: 'numeric', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit' }); }
+  catch (e) { return String(iso); }
+}
+const yen = (n) => '¥' + Number(n || 0).toLocaleString('ja-JP');
+const nkey = (s) => String(s || '').normalize('NFKC').replace(/\s+/g, '').toLowerCase();
+function feeFor(n) {
+  const e = S.info.entry; if (e.payment_mode !== 'card' || n <= 0) return 0;
+  return (e.fee_mode === 'flat' || n === 1) ? e.fee_single : e.fee_double;
+}
+function classesFor(event, gno, gender, keepId) {
+  return (S.info.classes || []).filter((c) => c.event === event &&
+    (c.id === keepId || ((c.grade_from == null || gno >= c.grade_from) && (c.grade_to == null || gno <= c.grade_to) &&
+      (c.gender === '混合' || c.gender === gender))));
+}
+
+// ══════════════════════════════════════════════
+//  大会案内
+// ══════════════════════════════════════════════
+function tournamentCard() {
+  const t = S.info.tournament, e = S.info.entry;
+  let date = fmtDate(t.date_start);
+  if (t.date_end && t.date_end !== t.date_start) date += ' 〜 ' + fmtDate(t.date_end);
+  if (t.start_time) date += ' ' + String(t.start_time).slice(0, 5) + ' 開始';
+  let fee = '';
+  if (e.payment_mode === 'card') {
+    fee = e.fee_mode === 'flat' ? `${yen(e.fee_single)}（1名・税込）` : `1種目 ${yen(e.fee_single)} ／ 2種目 ${yen(e.fee_double)}（税込）`;
+  }
+  return `<div class="card"><h1>${esc(t.name)}</h1><dl class="kv">
+    ${date ? `<dt>開催日</dt><dd>${esc(date)}</dd>` : ''}
+    ${t.venue ? `<dt>会場</dt><dd>${esc(t.venue)}</dd>` : ''}
+    ${e.close_at ? `<dt>申込締切</dt><dd>${esc(fmtDateTime(e.close_at))}</dd>` : ''}
+    ${fee ? `<dt>参加費</dt><dd>${esc(fee)}<br><span class="hint">クレジットカードでお支払いいただきます</span></dd>` : ''}
+    ${e.office_contact ? `<dt>お問い合わせ</dt><dd>${esc(e.office_contact)}</dd>` : ''}
+  </dl></div>`;
+}
+const testBanner = () => S.info.state === 'test' ? '<div class="notice warn">動作確認モードです（大会設定が「下書き」）。SMSは送信されません。</div>' : '';
+
+function viewInfo() {
+  const st = S.info.state; let body = '';
+  if (st === 'before') {
+    body = `<div class="notice info">申込の受付は ${esc(fmtDateTime(S.info.entry.open_at))} からです。</div>`;
+  } else if (st === 'finished') {
+    body = '<div class="notice info">この大会の申込は終了しました。</div>';
+  } else if (st === 'closed') {
+    body = `<div class="notice info">申込は締め切りました。申込内容の確認だけができます。変更は大会事務局へご連絡ください。</div>
+      <button class="btn ghost" id="go">申込内容を確認する</button>`;
+  } else {
+    body = `<div class="card"><h2>お申し込みの流れ</h2>
+      <p>1. 保護者の方の携帯電話番号を、SMSで確認します<br>2. 出場する選手を登録します（ご兄弟は1人ずつ）<br>3. 締切までは、同じ携帯番号で内容を修正できます</p></div>
+      <button class="btn primary" id="go">申込をはじめる</button>`;
+  }
+  app().innerHTML = testBanner() + tournamentCard() + body;
+  if ($('go')) $('go').onclick = viewPhone;
+  toTop();
+}
+
+// ══════════════════════════════════════════════
+//  携帯番号と同意
+// ══════════════════════════════════════════════
+function viewPhone(err) {
+  const closed = S.info.state === 'closed';
+  app().innerHTML = testBanner() + `<div class="card">
+    <h2>携帯電話番号の確認</h2>
+    <p style="margin-bottom:14px">この申込は、出場する選手の保護者の方が行ってください。入力いただいた番号に、本人確認のための認証コードをSMSでお送りします。</p>
+    ${typeof err === 'string' ? `<div class="notice err">${esc(err)}</div>` : ''}
+    <div class="field" id="w-phone"><label for="phone">保護者の携帯電話番号<span class="req">必須</span></label>
+      <input type="tel" id="phone" inputmode="numeric" autocomplete="tel" placeholder="09012345678" value="${esc(S.phone)}" />
+      <div class="errmsg">携帯電話番号を正しく入力してください</div></div>
+    <label class="check"><input type="checkbox" id="c1" /><span>私は出場する選手の保護者（親権者などの法定代理人）です。<a href="${esc(CFG.PRIVACY_URL)}" target="_blank" rel="noopener" style="color:var(--blue)">個人情報の取り扱いについて</a>を読み、選手と私の情報が、大会の運営・連絡・試合動画の提供のために使われること、および大会の主催者に提供されることに同意します。<small>必須</small></span></label>
+    ${closed ? '' : `<label class="check"><input type="checkbox" id="c2" /><span>試合動画の公開のお知らせや、Karate Win の会員サービスのご案内を、この番号へのSMSで受け取ることに同意します。<small>任意。同意しなくても申込はできます。配信はいつでも停止できます。</small></span></label>`}
+    <button class="btn primary" id="send" style="margin-top:8px">認証コードを送る</button>
+    <button class="btn ghost" id="back">戻る</button>
+  </div>`;
+  $('back').onclick = viewInfo;
+  $('send').onclick = async () => {
+    const digits = $('phone').value.normalize('NFKC').replace(/[^0-9]/g, '');
+    $('w-phone').classList.toggle('bad', !/^0[789]0\d{8}$/.test(digits));
+    if (!/^0[789]0\d{8}$/.test(digits)) return;
+    S.promo = !!($('c2') && $('c2').checked);
+    if (!$('c1').checked) { viewPhoneKeep(digits, MSG.consent_required, false); return; }
+    S.phone = digits;
+    setBusy($('send'), true);
+    const r = await api('entry-sms', { action: 'start', code: S.code, phone: digits });
+    if (!r.ok) {
+      let m = MSG[r.code] || MSG.server_error;
+      if (r.code === 'rate_limited' && r.wait) m = `${r.wait}秒ほど待ってから、もう一度お試しください。`;
+      viewPhoneKeep(digits, m, true); return;
+    }
+    S.testCode = r.test_code || ''; S.last4 = r.last4 || '';
+    viewCode();
+  };
+  toTop();
+}
+// エラー表示のあとも、入力した番号とチェックの状態を保つ（同意のチェックを勝手に入れない）
+function viewPhoneKeep(digits, msg, c1) { S.phone = digits; viewPhone(msg); if ($('c1')) $('c1').checked = !!c1; if ($('c2')) $('c2').checked = !!S.promo; }
+
+// ══════════════════════════════════════════════
+//  認証コード
+// ══════════════════════════════════════════════
+let _resendTimer = null;
+function viewCode(err) {
+  app().innerHTML = testBanner() + `<div class="card">
+    <h2>認証コードの入力</h2>
+    <p style="margin-bottom:14px">末尾 ${esc(S.last4)} の番号に届いた6桁の数字を入力してください。有効時間は10分です。</p>
+    ${S.testCode ? `<div class="notice warn">動作確認モード: 認証コードは ${esc(S.testCode)} です。</div>` : ''}
+    ${typeof err === 'string' ? `<div class="notice err">${esc(err)}</div>` : ''}
+    <div class="field"><input type="text" id="code" class="code-in" inputmode="numeric" autocomplete="one-time-code" maxlength="6" value="${esc(S.testCode)}" /></div>
+    <button class="btn primary" id="ok">確認する</button>
+    <button class="btn ghost" id="resend" disabled>コードを送り直す</button>
+    <button class="link" id="back">番号を入力し直す</button>
+  </div>`;
+  $('back').onclick = () => { clearInterval(_resendTimer); viewPhone(); };
+  let left = 60; clearInterval(_resendTimer);
+  const tick = () => { const b = $('resend'); if (!b) { clearInterval(_resendTimer); return; } if (left <= 0) { b.disabled = false; b.textContent = 'コードを送り直す'; clearInterval(_resendTimer); } else { b.textContent = `コードを送り直す（${left}秒後）`; left--; } };
+  tick(); _resendTimer = setInterval(tick, 1000);
+  $('resend').onclick = async () => {
+    setBusy($('resend'), true);
+    const r = await api('entry-sms', { action: 'start', code: S.code, phone: S.phone });
+    if (!r.ok) { viewCode(MSG[r.code] || MSG.server_error); return; }
+    S.testCode = r.test_code || ''; viewCode(); toast('コードを送り直しました');
+  };
+  $('ok').onclick = async () => {
+    const c = $('code').value.normalize('NFKC').replace(/[^0-9]/g, '');
+    if (c.length !== 6) { viewCode('6桁の数字を入力してください。'); return; }
+    setBusy($('ok'), true, '確認中…');
+    const r = await api('entry-sms', { action: 'check', code: S.code, phone: S.phone, sms_code: c, consent_privacy: true, consent_promo: !!S.promo });
+    if (!r.ok) { viewCode(MSG[r.code] || MSG.server_error); return; }
+    clearInterval(_resendTimer);
+    S.token = r.token; S.last4 = r.last4 || S.last4; S.testCode = ''; saveSession();
+    await loadList();
+  };
+  toTop();
+}
+
+// ══════════════════════════════════════════════
+//  申込一覧
+// ══════════════════════════════════════════════
+async function loadList(msg) {
+  app().innerHTML = '<div class="spin"></div><p class="center">読み込んでいます…</p>';
+  const r = await api('entry-list', { code: S.code, token: S.token });
+  if (!r.ok) {
+    if (r.code === 'session_expired') { clearSession(); viewPhone(MSG.session_expired); return; }
+    app().innerHTML = `<div class="notice err">${esc(MSG[r.code] || MSG.server_error)}</div><button class="btn ghost" id="retry">もう一度読み込む</button>`;
+    $('retry').onclick = () => loadList(); return;
+  }
+  S.list = r; S.info.state = r.state;
+  viewList(); if (msg) toast(msg);
+}
+function viewList() {
+  const L = S.list, canEdit = L.can_edit;
+  const applied = L.entries.filter((e) => e.status === 'applied'), others = L.entries.filter((e) => e.status !== 'applied');
+  const card = (e) => {
+    const off = e.status !== 'applied';
+    const ev = e.events.map((x) => `${EVENT_NAME[x.event] || x.event}（${x.class_name}）`).join('・');
+    let badge = '';
+    if (e.status === 'cancelled') badge = '<span class="badge off">取消済み</span>';
+    else if (e.status === 'excluded') badge = '<span class="badge off">受付できませんでした</span>';
+    else if (e.payment_status === 'pending') badge = '<span class="badge wait">支払い待ち</span>';
+    else if (e.payment_status === 'paid') badge = '<span class="badge ok">支払い済み</span>';
+    else badge = '<span class="badge ok">申込済み</span>';
+    return `<div class="entry${off ? ' off' : ''}">
+      <div class="kn">${esc(e.player_kana)}</div><div class="nm">${esc(e.player_name)}${badge}</div>
+      <div class="meta">${esc(e.grade)}・${esc(e.gender)}・${esc(e.affiliation || '')}${ev ? '<br>' + esc(ev) : ''}
+        ${!off && e.fee > 0 ? `<br>参加費 ${esc(yen(e.fee))}${e.fee > e.paid_amount ? `（未払い ${esc(yen(e.fee - e.paid_amount))}）` : ''}` : ''}</div>
+      ${!off && canEdit ? `<div class="acts"><button class="btn ghost small" data-edit="${esc(e.id)}">修正する</button><button class="btn danger small" data-cancel="${esc(e.id)}">取り消す</button></div>` : ''}
+    </div>`;
+  };
+  app().innerHTML = testBanner() + tournamentCard() +
+    (!canEdit ? '<div class="notice info">申込は締め切りました。内容の確認だけができます。変更は大会事務局へご連絡ください。</div>' : '') +
+    `<div class="card"><h2>申込済みの選手（${applied.length}名 ／ ${L.max_players}名まで）</h2>
+      ${applied.length ? applied.map(card).join('') : '<p>まだ選手が登録されていません。</p>'}
+      ${canEdit ? `<button class="btn primary" id="add" ${applied.length >= L.max_players ? 'disabled' : ''}>${applied.length ? 'ご兄弟など、選手を追加する' : '選手を登録する'}</button>` : ''}
+      ${canEdit && applied.length >= L.max_players ? `<p class="hint">1つの携帯番号で登録できるのは${L.max_players}名までです。</p>` : ''}
+    </div>` +
+    (L.payment_mode === 'card' && L.due_total > 0 ? `<div class="card"><h2>お支払い</h2><p>未払いの参加費: <b style="color:var(--gold);font-size:18px">${esc(yen(L.due_total))}</b></p>
+      <button class="btn ghost" disabled style="margin-top:10px">お支払いへ進む（準備中）</button></div>` : '') +
+    (others.length ? `<div class="card"><h2>取消などの記録</h2>${others.map(card).join('')}</div>` : '') +
+    `<p class="center hint">認証した番号: 末尾 ${esc(S.last4)}</p><p class="center"><button class="link" id="logout">別の携帯番号でやり直す</button></p>`;
+  if ($('add')) $('add').onclick = () => { S.draft = newDraft(); viewForm(); };
+  $('logout').onclick = () => { clearSession(); S.phone = ''; viewInfo(); };
+  app().querySelectorAll('[data-edit]').forEach((b) => { b.onclick = () => { S.draft = draftFrom(L.entries.find((e) => e.id === b.dataset.edit)); viewForm(); }; });
+  app().querySelectorAll('[data-cancel]').forEach((b) => { b.onclick = () => askCancel(L.entries.find((e) => e.id === b.dataset.cancel)); });
+  toTop();
+}
+function askCancel(e) {
+  showModal(`<h2>申込の取消</h2><p style="margin-bottom:16px">${esc(e.player_name)} さんの申込を取り消します。よろしいですか。${e.paid_amount > 0 ? '<br><br>お支払い済みの参加費の返金は、大会事務局へお問い合わせください。' : ''}</p>
+    <button class="btn danger" id="m-ok">取り消す</button><button class="btn ghost" id="m-no">やめる</button>`);
+  $('m-no').onclick = hideModal;
+  $('m-ok').onclick = async () => {
+    setBusy($('m-ok'), true, '処理中…');
+    const r = await api('entry-save', { code: S.code, token: S.token, action: 'cancel', entry: { id: e.id } });
+    hideModal();
+    if (!r.ok && r.code === 'session_expired') { clearSession(); viewPhone(MSG.session_expired); return; }
+    await loadList(r.ok ? '申込を取り消しました' : (MSG[r.code] || MSG.server_error));
+  };
+}
+
+// ══════════════════════════════════════════════
+//  選手登録（入力）
+// ══════════════════════════════════════════════
+function newDraft() {
+  // 2人目以降は、直前の選手の所属を引き継ぐ
+  const last = (S.list && S.list.entries.filter((e) => e.status === 'applied').slice(-1)[0]) || null;
+  return { id: null, sei: '', mei: '', seiK: '', meiK: '', gno: 0, gender: '', dojo: last ? last.affiliation || '' : '', dojo_id: last ? last.dojo_id || '' : '',
+           ev: { kata: '', kumite: '' }, on: { kata: false, kumite: false }, keep: {}, hist: [] };
+}
+function draftFrom(e) {
+  const sp = (s) => { const a = String(s || '').trim().split(/\s+/); return [a[0] || '', a.slice(1).join(' ')]; };
+  const [sei, mei] = sp(e.player_name), [seiK, meiK] = sp(e.player_kana);
+  const d = { id: e.id, sei, mei, seiK, meiK, gno: (GRADES.find((g) => g[1] === e.grade) || [0])[0], gender: e.gender,
+              dojo: e.affiliation || '', dojo_id: e.dojo_id || '', ev: { kata: '', kumite: '' }, on: { kata: false, kumite: false }, keep: {},
+              hist: (e.history || []).map((h) => ({ tournament: h.tournament || '', rank: h.rank || '' })) };
+  e.events.forEach((x) => { d.on[x.event] = true; d.ev[x.event] = x.class_id; d.keep[x.event] = { id: x.class_id, name: x.class_name }; });
+  return d;
+}
+function gradeOptions() {
+  const cs = S.info.classes || [];
+  const ok = GRADES.filter(([n]) => cs.some((c) => (c.grade_from == null || n >= c.grade_from) && (c.grade_to == null || n <= c.grade_to)));
+  return ok.length ? ok : GRADES;
+}
+function viewForm(fieldErr) {
+  const d = S.draft;
+  app().innerHTML = testBanner() + `<div class="card">
+    <h2>${d.id ? '申込内容の修正' : '選手の登録'}</h2>
+    <div id="form-err"></div>
+    <div class="field" id="f-name"><span class="lbl">選手名<span class="req">必須</span></span>
+      <div class="row2"><input type="text" id="sei" placeholder="姓（例: 山田）" autocomplete="off" value="${esc(d.sei)}" /><input type="text" id="mei" placeholder="名（例: 太郎）" autocomplete="off" value="${esc(d.mei)}" /></div>
+      <div class="errmsg">選手名を入力してください</div></div>
+    <div class="field" id="f-kana"><span class="lbl">よみがな<span class="req">必須</span></span>
+      <div class="row2"><input type="text" id="seiK" placeholder="せい（例: やまだ）" autocomplete="off" value="${esc(d.seiK)}" /><input type="text" id="meiK" placeholder="めい（例: たろう）" autocomplete="off" value="${esc(d.meiK)}" /></div>
+      <div class="errmsg">よみがなは、ひらがなで入力してください</div></div>
+    <div class="field" id="f-grade"><label for="grade">学年<span class="req">必須</span></label>
+      <select id="grade"><option value="0">選んでください</option>${gradeOptions().map(([n, l]) => `<option value="${n}" ${d.gno === n ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      <div class="errmsg">学年を選んでください</div></div>
+    <div class="field" id="f-gender"><span class="lbl">性別<span class="req">必須</span></span>
+      <div class="seg"><input type="radio" name="gender" id="g-m" value="男子" ${d.gender === '男子' ? 'checked' : ''} /><label for="g-m">男子</label>
+        <input type="radio" name="gender" id="g-f" value="女子" ${d.gender === '女子' ? 'checked' : ''} /><label for="g-f">女子</label></div>
+      <div class="errmsg">性別を選んでください</div></div>
+    <div class="field" id="f-dojo"><label for="dojo">所属道場<span class="req">必須</span></label>
+      <input type="text" id="dojo" placeholder="道場名を入力すると候補が出ます" autocomplete="off" value="${esc(d.dojo)}" />
+      <div class="sug" id="dojo-sug"></div>
+      <div class="hint">候補にない場合は、そのまま入力してください。</div>
+      <div class="errmsg">所属道場を入力してください</div></div>
+    <div class="field" id="f-events"><span class="lbl">出場する種目とクラス<span class="req">必須</span></span>
+      <div id="ev-area"></div><div class="errmsg">種目を1つ以上選び、クラスを選んでください</div></div>
+    <div class="field" id="f-hist"><span class="lbl">戦歴（ベスト8以上）<span class="opt">任意・5件まで</span></span>
+      <div id="hist-area"></div><button class="link" id="hist-add">＋ 戦歴を追加する</button><div class="errmsg">戦歴は5件までです</div></div>
+    <button class="btn primary" id="next">確認へ進む</button>
+    <button class="btn ghost" id="back">一覧へ戻る</button>
+  </div>`;
+
+  const read = () => {
+    d.sei = $('sei').value.trim(); d.mei = $('mei').value.trim(); d.seiK = $('seiK').value.trim(); d.meiK = $('meiK').value.trim();
+    d.gno = +$('grade').value; d.gender = ($('g-m').checked && '男子') || ($('g-f').checked && '女子') || '';
+    d.dojo = $('dojo').value.trim();
+    document.querySelectorAll('#hist-area .hist').forEach((row, i) => { d.hist[i] = { tournament: row.children[0].value.trim(), rank: row.children[1].value.trim() }; });
+  };
+  // 種目とクラス: 学年と性別に合うクラスだけを出す
+  const drawEvents = () => {
+    const ready = d.gno > 0 && !!d.gender;
+    $('ev-area').innerHTML = !ready ? '<p class="hint">学年と性別を選ぶと、出場できるクラスが表示されます。</p>' :
+      ['kumite', 'kata'].map((ev) => {
+        const keepId = d.keep[ev] ? d.keep[ev].id : '';
+        let opts = classesFor(ev, d.gno, d.gender, keepId);
+        if (keepId && !opts.some((c) => c.id === keepId)) opts = [{ id: keepId, name: d.keep[ev].name }].concat(opts);
+        if (!opts.length) { d.on[ev] = false; d.ev[ev] = ''; return `<label class="check" style="opacity:.5"><input type="checkbox" disabled /><span>${EVENT_NAME[ev]}<small>この学年・性別で出場できるクラスがありません</small></span></label>`; }
+        if (!opts.some((c) => c.id === d.ev[ev])) d.ev[ev] = opts.length === 1 ? opts[0].id : '';
+        return `<label class="check"><input type="checkbox" data-ev="${ev}" ${d.on[ev] ? 'checked' : ''} /><span>${EVENT_NAME[ev]}に出場する</span></label>
+          ${d.on[ev] ? `<select data-cls="${ev}" style="margin:-4px 0 12px"><option value="">クラスを選んでください</option>${opts.map((c) => `<option value="${esc(c.id)}" ${c.id === d.ev[ev] ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>` : ''}`;
+      }).join('');
+    $('ev-area').querySelectorAll('[data-ev]').forEach((c) => { c.onchange = () => { d.on[c.dataset.ev] = c.checked; drawEvents(); }; });
+    $('ev-area').querySelectorAll('[data-cls]').forEach((s) => { s.onchange = () => { d.ev[s.dataset.cls] = s.value; }; });
+  };
+  const drawHist = () => {
+    $('hist-area').innerHTML = d.hist.map((h) => `<div class="hist"><input type="text" placeholder="大会名" maxlength="60" value="${esc(h.tournament)}" /><input type="text" placeholder="順位" maxlength="30" value="${esc(h.rank)}" /></div>`).join('');
+    $('hist-add').style.display = d.hist.length >= 5 ? 'none' : '';
+  };
+  // 所属道場の候補
+  const drawSug = () => {
+    const k = nkey($('dojo').value), box = $('dojo-sug');
+    const hit = k ? (S.info.dojos || []).filter((x) => nkey(x.name).includes(k)).slice(0, 8) : [];
+    const exact = (S.info.dojos || []).find((x) => nkey(x.name) === k);
+    d.dojo_id = exact ? exact.id : '';
+    if (!hit.length || (hit.length === 1 && exact)) { box.classList.remove('on'); box.innerHTML = ''; return; }
+    box.innerHTML = hit.map((x) => `<button type="button" data-id="${esc(x.id)}">${esc(x.name)}</button>`).join('');
+    box.classList.add('on');
+    box.querySelectorAll('button').forEach((b) => { b.onclick = () => { $('dojo').value = b.textContent; d.dojo_id = b.dataset.id; d.dojo = b.textContent; box.classList.remove('on'); }; });
+  };
+
+  drawEvents(); drawHist();
+  $('grade').onchange = () => { read(); drawEvents(); };
+  $('g-m').onchange = $('g-f').onchange = () => { read(); drawEvents(); };
+  $('dojo').oninput = drawSug;
+  $('hist-add').onclick = () => { read(); if (d.hist.length < 5) d.hist.push({ tournament: '', rank: '' }); drawHist(); };
+  $('back').onclick = () => { viewList(); };
+  $('next').onclick = () => {
+    read();
+    const bad = {};
+    if (!d.sei || !d.mei) bad['f-name'] = 1;
+    if (!d.seiK || !d.meiK || !/^[ぁ-ゖァ-ヶー\s　]+$/.test(d.seiK + d.meiK)) bad['f-kana'] = 1;
+    if (!d.gno) bad['f-grade'] = 1;
+    if (!d.gender) bad['f-gender'] = 1;
+    if (!d.dojo) bad['f-dojo'] = 1;
+    const chosen = ['kumite', 'kata'].filter((ev) => d.on[ev]);
+    if (!chosen.length || chosen.some((ev) => !d.ev[ev])) bad['f-events'] = 1;
+    ['f-name', 'f-kana', 'f-grade', 'f-gender', 'f-dojo', 'f-events', 'f-hist'].forEach((id) => $(id).classList.toggle('bad', !!bad[id]));
+    const first = Object.keys(bad)[0];
+    if (first) { try { $(first).scrollIntoView({ block: 'center' }); } catch (e) {} return; }
+    viewConfirm();
+  };
+  if (fieldErr) {
+    const [id, msg] = fieldErr; const w = $(id);
+    if (w) { w.classList.add('bad'); const m = w.querySelector('.errmsg'); if (m) m.textContent = msg; try { w.scrollIntoView({ block: 'center' }); } catch (e) {} }
+    else $('form-err').innerHTML = `<div class="notice err">${esc(msg)}</div>`;
+  } else toTop();
+}
+
+// ══════════════════════════════════════════════
+//  選手登録（確認 → 保存）
+// ══════════════════════════════════════════════
+function viewConfirm() {
+  const d = S.draft, chosen = ['kumite', 'kata'].filter((ev) => d.on[ev]);
+  const clsName = (ev) => { const c = (S.info.classes || []).find((x) => x.id === d.ev[ev]); return c ? c.name : (d.keep[ev] ? d.keep[ev].name : ''); };
+  const hist = d.hist.filter((h) => h.tournament);
+  const fee = feeFor(chosen.length);
+  app().innerHTML = testBanner() + `<div class="card"><h2>内容の確認</h2>
+    <p>次の内容で${d.id ? '修正' : '申込'}します。</p>
+    <dl class="kv">
+      <dt>選手名</dt><dd>${esc(d.sei + ' ' + d.mei)}</dd>
+      <dt>よみがな</dt><dd>${esc(d.seiK + ' ' + d.meiK)}</dd>
+      <dt>学年</dt><dd>${esc((GRADES.find((g) => g[0] === d.gno) || [0, ''])[1])}</dd>
+      <dt>性別</dt><dd>${esc(d.gender)}</dd>
+      <dt>所属道場</dt><dd>${esc(d.dojo)}</dd>
+      ${chosen.map((ev) => `<dt>${EVENT_NAME[ev]}</dt><dd>${esc(clsName(ev))}</dd>`).join('')}
+      ${hist.length ? `<dt>戦歴</dt><dd>${hist.map((h) => esc(h.tournament + (h.rank ? ' ' + h.rank : ''))).join('<br>')}</dd>` : ''}
+      ${S.info.entry.payment_mode === 'card' ? `<dt>参加費</dt><dd>${esc(yen(fee))}（税込）</dd>` : ''}
+    </dl></div>
+    <div id="cf-err"></div>
+    <button class="btn primary" id="save">${d.id ? 'この内容で修正する' : 'この内容で申し込む'}</button>
+    <button class="btn ghost" id="back">入力に戻る</button>`;
+  $('back').onclick = () => viewForm();
+  $('save').onclick = async () => {
+    setBusy($('save'), true);
+    const entry = { player_name: d.sei + ' ' + d.mei, player_kana: d.seiK + ' ' + d.meiK, grade: (GRADES.find((g) => g[0] === d.gno) || [0, ''])[1], gender: d.gender,
+                    history: hist, events: chosen.map((ev) => ({ event: ev, class_id: d.ev[ev] })) };
+    if (d.dojo_id) entry.dojo_id = d.dojo_id; else entry.affiliation = d.dojo;
+    if (d.id) entry.id = d.id;
+    const r = await api('entry-save', { code: S.code, token: S.token, action: d.id ? 'update' : 'create', entry });
+    if (r.ok) { S.draft = null; await loadList(d.id ? '修正しました' : '申込を受け付けました'); return; }
+    if (r.code === 'session_expired') { clearSession(); viewPhone(MSG.session_expired); return; }
+    if (r.code === 'invalid' && FIELD_MSG[r.field]) { viewForm(FIELD_MSG[r.field]); return; }
+    if (r.code === 'closed' || r.code === 'limit') { await loadList(MSG[r.code]); return; }
+    setBusy($('save'), false);
+    $('cf-err').innerHTML = `<div class="notice err">${esc(MSG[r.code] || MSG.server_error)}</div>`;
+  };
+  toTop();
+}
+
+// ══════════════════════════════════════════════
+//  起動
+// ══════════════════════════════════════════════
+async function init() {
+  const p = new URLSearchParams(location.search);
+  S.code = String(p.get('t') || p.get('code') || '').replace(/\s/g, '').toUpperCase();
+  if (!/^[A-Z0-9]{6,12}$/.test(S.code)) { app().innerHTML = `<div class="notice err">${esc(MSG.not_found)}</div>`; return; }
+  const r = await api('entry-info', { code: S.code });
+  if (!r.ok) {
+    app().innerHTML = `<div class="notice err">${esc(MSG[r.code] || MSG.server_error)}</div>` + (r.code === 'not_found' ? '' : '<button class="btn ghost" id="retry">もう一度読み込む</button>');
+    if ($('retry')) $('retry').onclick = init; return;
+  }
+  S.info = r;
+  loadSession();
+  if (S.token && r.state !== 'before' && r.state !== 'finished') await loadList(); else viewInfo();
+}
+$('modal').addEventListener('click', (e) => { if (e.target === $('modal')) hideModal(); });
+init();
+</script>
+</body>
+</html>
