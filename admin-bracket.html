@@ -4,7 +4,8 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Karate Win｜編成（トーナメント表）</title>
-<!-- admin-bracket.html v1.2 (2026-11-25): 準備の選手一覧を、道場別・クラス別に並べ替え、道場とクラスで絞り込めるようにした。
+<!-- admin-bracket.html v2.0 (2026-11-25): 第2段階 2-2。「3 配置と調整」を追加（自動配置、トーナメント表、マウスでの入れ替え、固定、元に戻す、注意の表示、保存、印刷）。
+     v1.2: 準備の選手一覧を、道場別・クラス別に並べ替え、道場とクラスで絞り込めるようにした。
      v1.1: 準備の選手一覧に「戦歴」の列と「戦歴のある選手だけ」の絞り込みを追加。
      v1.0: 第2段階 2-1。準備（除外・道場名の名寄せ・編成用クラスへの振り分け）と、ブロック分割・シード指定。 -->
 <style>
@@ -135,6 +136,59 @@
   select.cell{height:42px;padding:0 10px;border:2px solid var(--line2);border-radius:8px;background:#fff;font-size:16px;font-weight:700}
   input.num{width:90px;height:46px;padding:0 10px;border:2px solid var(--line2);border-radius:8px;font-size:17px;font-weight:800;text-align:center}
   input[type=checkbox]{width:22px;height:22px;vertical-align:middle}
+  .place{display:grid;grid-template-columns:290px minmax(0,1fr);gap:20px;align-items:start}
+  @media (max-width:1100px){.place{grid-template-columns:1fr}}
+  .tb{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px}
+  .tb .filter-field{min-width:0}
+  .tb .sp{flex:1}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .dirty{padding:8px 14px;border-radius:8px;background:#fff4d6;border:2px solid #d9a400;color:#5c4300;font-weight:800;font-size:15px}
+  .warns{margin-bottom:14px;display:flex;flex-direction:column;gap:6px}
+  .warns div{padding:8px 14px;border-radius:8px;font-size:15px;font-weight:700}
+  .warns .ng{background:#ffe6e8;border:2px solid #d9485a;color:#9a1020}
+  .warns .warn{background:#fff4d6;border:2px solid #d9a400;color:#5c4300}
+  .warns .ok{background:#dff3e6;border:2px solid #4caf73;color:#0f5a2e}
+  .tray{margin-bottom:14px;padding:12px 14px;border:2px dashed var(--line2);border-radius:10px}
+  .tray b{display:block;margin-bottom:8px}
+  .chip{display:inline-flex;gap:6px;align-items:center;margin:0 8px 8px 0;padding:6px 12px;border:2px solid var(--line2);border-radius:8px;background:#fff;font-weight:800;cursor:grab}
+  .chip.sel{outline:3px solid var(--blue)}
+  .sheet-wrap{overflow:auto;border:1px solid var(--line);border-radius:10px;padding:16px;background:#fff}
+  .sheet-title{font-size:20px;font-weight:900;text-align:center;margin-bottom:12px}
+  .sheet{display:flex;justify-content:center;align-items:stretch;width:max-content;margin:0 auto}
+  .col{display:flex;flex-direction:column;gap:22px}
+  .mid{width:104px;display:flex;flex-direction:column;justify-content:center;gap:26px;text-align:center;font-weight:900;font-size:15px}
+  .mid span{display:block;padding:8px 4px;border:2px solid var(--txt);border-radius:8px}
+  .blk-h{font-weight:900;font-size:16px;margin-bottom:6px}
+  .col.right .blk-h{text-align:right}
+  .blk-b{display:flex}
+  .col.right .blk-b{flex-direction:row-reverse}
+  .lines{width:278px}
+  .ln{height:46px;display:flex;align-items:center;gap:6px;padding:0 6px;border:1px solid var(--line2);margin-top:-1px;background:#fff;cursor:pointer;user-select:none}
+  .ln .no{width:42px;font-weight:900;font-size:16px;flex:none}
+  .ln .nm{flex:1;min-width:0;line-height:1.15;font-weight:800;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ln .nm small{display:block;font-size:11px;font-weight:600;color:var(--txt3)}
+  .ln .dj{max-width:76px;font-size:13px;font-weight:700;color:var(--txt2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none}
+  .ln .sd{flex:none;min-width:22px;height:22px;border-radius:11px;background:#fff0c2;border:1px solid #d9a400;color:#5c4300;font-size:13px;font-weight:900;text-align:center;line-height:20px}
+  .ln .lk{flex:none;width:30px;height:30px;border:1px solid var(--line2);border-radius:6px;background:#fff;font-size:13px;font-weight:800;cursor:pointer;padding:0}
+  .ln .lk.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+  .ln.empty{background:#f1f3f7;color:var(--txt3);cursor:default}
+  .ln.mate{background:#fff4d6}
+  .ln.bad{background:#ffe6e8}
+  .ln.over{background:#d6e4ff}
+  .ln.sel{outline:3px solid var(--blue);outline-offset:-3px}
+  .bk-svg{flex:none;display:block}
+  @media print{
+    @page{size:A4 portrait;margin:8mm}
+    header,.bar,#notice,.stats,.steps,.pl-left,.tb,.warns,.tray,.ver,#toast,.card-h,.ln .lk,.noprint{display:none!important}
+    body{background:#fff}
+    .main-view{padding:0;max-width:none}
+    .place{display:block}
+    .card{border:0;box-shadow:none;margin:0;overflow:visible}
+    .card-b{padding:0}
+    .sheet-wrap{border:0;padding:0;overflow:visible}
+    .ln.mate,.ln.bad,.ln.over{background:#fff}
+    .ln.sel{outline:0}
+  }
   .ver{text-align:center;color:var(--txt3);font-size:13px;padding:8px 0 30px}
   .empty{padding:28px;text-align:center;color:var(--txt3);font-size:16px}
 </style>
@@ -170,10 +224,9 @@
     <div class="steps">
       <button class="step on" data-step="prep">1 準備</button>
       <button class="step" data-step="seed">2 分割とシード</button>
-      <button class="step" disabled>3 初期配置<small>次の回で作ります</small></button>
-      <button class="step" disabled>4 調整<small>次の回で作ります</small></button>
-      <button class="step" disabled>5 ゼッケン<small>このあと作ります</small></button>
-      <button class="step" disabled>6 コートと進行<small>このあと作ります</small></button>
+      <button class="step" data-step="place">3 配置と調整</button>
+      <button class="step" disabled>4 ゼッケン<small>次の回で作ります</small></button>
+      <button class="step" disabled>5 コートと進行<small>次の回で作ります</small></button>
     </div>
 
     <!-- ═══ 1 準備 ═══ -->
@@ -245,8 +298,38 @@
         </div>
       </div>
     </div>
+
+    <!-- ═══ 3 配置と調整 ═══ -->
+    <div id="p-place" style="display:none">
+      <div class="place">
+        <div class="card pl-left">
+          <div class="card-h"><h3>クラス</h3><p>クラスを押すと、右にトーナメント表が出ます。</p></div>
+          <div class="card-b"><div class="scroll" style="max-height:760px"><table><thead><tr><th>クラス</th><th>人数</th><th>状態</th></tr></thead><tbody id="pc-body"></tbody></table></div></div>
+        </div>
+        <div class="card">
+          <div class="card-h"><h3 id="pk-title">トーナメント表</h3><p id="pk-sub">左の表でクラスを選んでください。</p></div>
+          <div class="card-b" id="pk-b" style="display:none">
+            <div class="tb">
+              <button class="btn btn-primary" id="pk-auto">自動で配置</button>
+              <div class="filter-field"><label for="pk-rows">1ブロックの行数</label><select class="cell" id="pk-rows"></select></div>
+              <button class="btn btn-secondary" id="pk-undo" disabled>元に戻す</button>
+              <button class="btn btn-secondary" id="pk-redo" disabled>やり直す</button>
+              <span class="sp"></span>
+              <span class="dirty" id="pk-dirty" style="display:none">保存していない変更があります</span>
+              <button class="btn btn-primary" id="pk-save" disabled>保存</button>
+              <button class="btn btn-secondary" id="pk-print">印刷</button>
+              <button class="btn btn-danger" id="pk-reset">配置を消す</button>
+            </div>
+            <div class="warns" id="pk-warns"></div>
+            <div class="tray" id="pk-tray" style="display:none"></div>
+            <div class="sheet-wrap"><div class="sheet-title" id="pk-sheet-title"></div><div class="sheet" id="pk-sheet"></div></div>
+            <p class="noprint" style="margin-top:12px;color:var(--txt2);font-size:15px">選手をつかんで別の行に落とすと、2人が入れ替わります。選手を押してから別の行を押しても同じです。「固」を押した選手は、自動配置をやり直しても動きません。</p>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
-  <div class="ver">編成画面 v1.2</div>
+  <div class="ver">編成画面 v2.0</div>
 </div>
 
 <div id="toast"></div>
@@ -258,6 +341,155 @@ const CFG = {
   SUPABASE_URL: 'https://ocxyycuasswuztjkbwuf.supabase.co',
   SUPABASE_KEY: 'sb_publishable_fmCxA2UUUZtWdxwBhvhS5w_Z29KVTNp'
 };
+// <core> ── トーナメント表の計算（画面とは切り離してある）──────────────
+// 枠の番号は 0 始まり。クラス全体を「ブロック数 × S 枠」の1本のトーナメントとして扱う。
+const KB = (() => {
+  const pow2 = (n) => { let s = 1; while (s < n) s *= 2; return s; };
+  // 枠 → 強さの順位（1 が最上段、2 が最下段、3 が下半分の上端、4 が上半分の下端 …）
+  function seedOrder(n) {
+    let a = [1];
+    while (a.length < n) { const m = a.length * 2, b = []; a.forEach((x, i) => { if (i % 2 === 0) b.push(x, m + 1 - x); else b.push(m + 1 - x, x); }); a = b; }
+    return a;
+  }
+  // 2つの枠が当たる回戦（1 = 1回戦）
+  const meet = (g1, g2) => 32 - Math.clz32(g1 ^ g2);
+  // 表の形。B ブロック、各ブロック R 行。行数が 2・4・8… でないときは、順位の高い枠から1回戦を免除する
+  function layout(B, R) {
+    const S = pow2(R), G = seedOrder(B * S), blocks = [];
+    for (let b = 0; b < B; b++) {
+      const base = b * S, order = []; for (let i = 0; i < S; i++) order.push(base + i);
+      order.sort((x, y) => G[x] - G[y]);
+      const gone = new Set(); order.slice(0, S - R).forEach((g) => gone.add(g ^ 1));
+      const slots = []; for (let i = 0; i < S; i++) if (!gone.has(base + i)) slots.push(base + i);
+      const lineOf = new Map(slots.map((g, i) => [g, i + 1]));
+      // 空き行を置く順番: 順位の高い枠の「最初の相手」になる行から
+      const empty = [], push = (g) => { const l = lineOf.get(g); if (l && !empty.includes(l)) empty.push(l); };
+      order.forEach((g) => {
+        if (!lineOf.has(g)) return;
+        if (lineOf.has(g ^ 1)) { push(g ^ 1); return; }
+        const pair = g >> 1, sib = pair ^ 1; push(sib > pair ? sib * 2 : sib * 2 + 1);
+      });
+      order.slice().reverse().forEach(push);
+      blocks.push({ slots, lineOf, empty });
+    }
+    const slotOfSeed = new Map(); G.forEach((rank, g) => slotOfSeed.set(rank, g));
+    return { B, R, S, G, blocks, slotOfSeed,
+      at: (b, l) => blocks[b].slots[l - 1],
+      where: (g) => { const b = Math.floor(g / S), l = blocks[b].lineOf.get(g); return l ? { b, l } : null; } };
+  }
+  // 各ブロックの人数（ほぼ同じにする。余りは A から）
+  function caps(n, B) { const base = Math.floor(n / B), ex = n % B, a = []; for (let b = 0; b < B; b++) a.push(base + (b < ex ? 1 : 0)); return a; }
+  const key = (b, l) => b + ':' + l;
+  // 1通りの並びを作る
+  function placeOnce(players, B, R, keep, rnd) {
+    const L = layout(B, R), out = new Map(), gOf = new Map(), ids = new Set(players.map((p) => p.id));
+    const put = (b, l, id) => { out.set(key(b, l), id); gOf.set(id, L.at(b, l)); };
+    (keep || new Map()).forEach((id, k) => { const [b, l] = k.split(':').map(Number); if (ids.has(id) && b < B && l <= R && !gOf.has(id)) put(b, l, id); });
+    // シードは決まった位置へ
+    players.filter((p) => p.seed && !gOf.has(p.id)).sort((a, b) => a.seed - b.seed).forEach((p) => {
+      const g = L.slotOfSeed.get(p.seed), w = g == null ? null : L.where(g);
+      if (w && !out.has(key(w.b, w.l))) put(w.b, w.l, p.id);
+    });
+    const cap = caps(players.length, B), used = cap.map(() => 0);
+    out.forEach((id, k) => { used[Number(k.split(':')[0])]++; });
+    for (let b = 0; b < B; b++) cap[b] = Math.max(cap[b], used[b]);
+    // 空けておく行
+    const hold = new Set();
+    for (let b = 0; b < B; b++) { let need = R - cap[b]; for (const l of L.blocks[b].empty) { if (need <= 0) break; if (!out.has(key(b, l))) { hold.add(key(b, l)); need--; } } }
+    // 残りの選手: 人数の多い道場から。道場の中は無作為
+    const size = new Map(); players.forEach((p) => size.set(p.dojo, (size.get(p.dojo) || 0) + 1));
+    const rest = players.filter((p) => !gOf.has(p.id)).map((p) => ({ p, r: rnd() }))
+      .sort((a, b) => (size.get(b.p.dojo) - size.get(a.p.dojo)) || String(a.p.dojo).localeCompare(String(b.p.dojo)) || a.r - b.r).map((x) => x.p);
+    const mates = new Map(); players.forEach((p) => { if (gOf.has(p.id)) { if (!mates.has(p.dojo)) mates.set(p.dojo, []); mates.get(p.dojo).push(gOf.get(p.id)); } });
+    for (const p of rest) {
+      let cands = [];
+      const collect = (strict) => { for (let b = 0; b < B; b++) { if (strict && used[b] >= cap[b]) continue; for (let l = 1; l <= R; l++) { const k = key(b, l); if (!out.has(k) && (!strict || !hold.has(k))) cands.push({ b, l, g: L.at(b, l) }); } } };
+      collect(true); if (!cands.length) collect(false);
+      if (!cands.length) break;   // 行が足りない（呼び出し側で未配置として扱う）
+      const ms = mates.get(p.dojo) || [];
+      let best = [], bs = -1;
+      for (const c of cands) {
+        const far = ms.length ? Math.min(...ms.map((g) => meet(g, c.g))) : 99;            // 同じ道場と当たる回戦（遅いほどよい）
+        const score = far * 1000 + Math.round(100 * (cap[c.b] - used[c.b]) / Math.max(cap[c.b], 1)); // 同点なら空きの多いブロック
+        if (score > bs) { bs = score; best = [c]; } else if (score === bs) best.push(c);
+      }
+      const c = best[Math.floor(rnd() * best.length)];
+      put(c.b, c.l, p.id); used[c.b]++;
+      if (!mates.has(p.dojo)) mates.set(p.dojo, []); mates.get(p.dojo).push(c.g);
+    }
+    return out;
+  }
+  // 並びの悪さ。同じ道場の2人が早い回戦で当たるほど大きい（1回戦で当たる組が最も重い）
+  function cost(L, map, dojoOf) {
+    const by = new Map();
+    map.forEach((id, k) => { const d = dojoOf.get(id); if (!d) return; const [b, l] = k.split(':').map(Number); if (!by.has(d)) by.set(d, []); by.get(d).push(L.at(b, l)); });
+    let c = 0;
+    by.forEach((gs) => { for (let i = 0; i < gs.length; i++) for (let j = i + 1; j < gs.length; j++) c += Math.pow(8, 10 - meet(gs[i], gs[j])); });
+    return c;
+  }
+  // 自動配置。何通りか並べて最もよいものを選び、さらに2人の入れ替えで良くなるところを直す
+  //   players: [{id, dojo, seed}]、keep: 固定した選手 Map("b:l" → id)。戻り値は Map("b:l" → id)
+  function autoPlace(players, B, R, keep, rnd, tries) {
+    rnd = rnd || Math.random;
+    const L = layout(B, R), dojoOf = new Map(players.map((p) => [p.id, p.dojo]));
+    let best = null, bc = Infinity;
+    for (let t = 0; t < (tries || 24); t++) { const m = placeOnce(players, B, R, keep, rnd), c = cost(L, m, dojoOf); if (c < bc) { bc = c; best = m; } if (c === 0) break; }
+    // 動かしてよいのは、固定していない選手と、シードの位置にいない選手
+    const fixed = new Set(); (keep || new Map()).forEach((id) => fixed.add(id));
+    players.forEach((p) => { if (!p.seed) return; const g = L.slotOfSeed.get(p.seed), w = g == null ? null : L.where(g); if (w && best.get(key(w.b, w.l)) === p.id) fixed.add(p.id); });
+    for (let pass = 0; pass < 60 && bc > 0; pass++) {
+      const ks = [...best.keys()].filter((k) => !fixed.has(best.get(k)));
+      let gain = 0, sw = null;
+      for (let i = 0; i < ks.length; i++) for (let j = i + 1; j < ks.length; j++) {
+        const a = best.get(ks[i]), b = best.get(ks[j]); if (dojoOf.get(a) === dojoOf.get(b)) continue;
+        best.set(ks[i], b); best.set(ks[j], a);
+        const c = cost(L, best, dojoOf); if (bc - c > gain) { gain = bc - c; sw = [ks[i], ks[j]]; }
+        best.set(ks[i], a); best.set(ks[j], b);
+      }
+      if (!sw) break;
+      const a = best.get(sw[0]), b = best.get(sw[1]); best.set(sw[0], b); best.set(sw[1], a); bc -= gain;
+    }
+    return best;
+  }
+  // ブロックの線を描くための木。戻り値: {root, matches:[{no, level, y, a, b}]}（y は行の番号で表す）
+  function tree(L, b) {
+    const blk = L.blocks[b], base = b * L.S, matches = [];
+    const build = (lo, size) => {
+      if (size === 1) { const l = blk.lineOf.get(base + lo); return l ? { level: 0, y: l, line: l } : null; }
+      const a = build(lo, size / 2), c = build(lo + size / 2, size / 2);
+      if (!a) return c; if (!c) return a;
+      const m = { level: Math.log2(size), y: (a.y + c.y) / 2, a, b: c }; matches.push(m); return m;
+    };
+    const root = build(0, L.S);
+    matches.sort((x, y) => x.level - y.level || x.y - y.y).forEach((m, i) => { m.no = i + 1; });
+    return { root, matches };
+  }
+  // 注意の一覧。slots: Map("b:l" → id)、info: Map(id → {dojo, seed, name})
+  function analyze(L, slots, info) {
+    const w = { sameDojo: [], emptyPair: [], seedEarly: [], counts: [] };
+    for (let b = 0; b < L.B; b++) {
+      let n = 0;
+      tree(L, b).matches.filter((m) => m.a.line && m.b.line).forEach((m) => {
+        const x = slots.get(key(b, m.a.line)), y = slots.get(key(b, m.b.line));
+        if (!x && !y) w.emptyPair.push({ b, lines: [m.a.line, m.b.line] });
+        else if (x && y && info.get(x) && info.get(y) && info.get(x).dojo && info.get(x).dojo === info.get(y).dojo) w.sameDojo.push({ b, lines: [m.a.line, m.b.line] });
+      });
+      for (let l = 1; l <= L.R; l++) if (slots.get(key(b, l))) n++;
+      w.counts.push(n);
+    }
+    // シード同士が、決まった位置に置いたときより早く当たる
+    const seeded = []; slots.forEach((id, k) => { const i = info.get(id); if (i && i.seed) { const [b, l] = k.split(':').map(Number); seeded.push({ id, seed: i.seed, g: L.at(b, l), b, l }); } });
+    for (let i = 0; i < seeded.length; i++) for (let j = i + 1; j < seeded.length; j++) {
+      const p = seeded[i], q = seeded[j], gp = L.slotOfSeed.get(p.seed), gq = L.slotOfSeed.get(q.seed);
+      if (gp == null || gq == null || p.seed === q.seed) continue;
+      if (meet(p.g, q.g) < meet(gp, gq)) w.seedEarly.push({ a: p, b: q });
+    }
+    return w;
+  }
+  return { pow2, seedOrder, meet, layout, caps, autoPlace, placeOnce, cost, tree, analyze, key };
+})();
+// </core>
+
 const EVENT = { kumite: '組手', kata: '形' };
 const STATUS = { draft: '下書き', open: '受付中', closed: '締切', finished: '終了' };
 const MSG = {
@@ -268,7 +500,10 @@ const MSG = {
   placed: 'このクラスは配置済みのため、ここではブロック数を変えられません。',
   event_mismatch: '形と組手をまたいで移すことはできません。',
   class_not_found: '移す先のクラスが見つかりません。',
-  duplicate: '同じ選手の申込が2つになるため、実行できません。先にどちらかを除外してください。'
+  duplicate: '同じ選手の申込が2つになるため、実行できません。先にどちらかを除外してください。',
+  conflict: 'ほかの人が先にこのクラスを保存しました。上書きを止めました。「読み込み直す」を押して、最新の表を確かめてください。',
+  stale: '除外した選手や、別のクラスへ移した選手が表に残っています。「読み込み直す」を押してください。',
+  invalid_slot: '表の中身に誤りがあります。「読み込み直す」を押してやり直してください。'
 };
 let sb = null, currentUser = null, T = '', D = null, step = 'prep', selClass = '', busy = false;
 const $ = (id) => document.getElementById(id);
@@ -344,8 +579,8 @@ async function loadTournaments() {
   if (!list.length) $('notice').innerHTML = '<div class="note info">申込の設定がある大会がありません。大会設定画面で大会を登録してください。</div>';
   if (list.some((t) => t.id === keep)) { $('tsel').value = keep; T = keep; await load(); }
 }
-$('tsel').addEventListener('change', async () => { T = $('tsel').value; selClass = ''; D = null; await load(); });
-$('reload').addEventListener('click', async () => { if (T) { await load(); toast('読み込み直しました', 'ok'); } });
+$('tsel').addEventListener('change', async () => { if (!leaveOk()) { $('tsel').value = T; return; } PL = null; T = $('tsel').value; selClass = ''; D = null; await load(); });
+$('reload').addEventListener('click', async () => { if (!T || !leaveOk()) return; const c = PL && PL.cls; PL = null; await load(); if (c && step === 'place') await openClass(c); toast('読み込み直しました', 'ok'); });
 
 async function load() {
   if (!T) { $('work').style.display = 'none'; $('notice').innerHTML = ''; return; }
@@ -370,9 +605,12 @@ function render() {
   document.querySelectorAll('.step[data-step]').forEach((b) => b.classList.toggle('on', b.dataset.step === step));
   $('p-prep').style.display = step === 'prep' ? '' : 'none';
   $('p-seed').style.display = step === 'seed' ? '' : 'none';
-  if (step === 'prep') { renderPlayers(); renderDojos(); renderAssign(); } else { renderConfig(); renderClasses(); renderSeeds(); }
+  $('p-place').style.display = step === 'place' ? '' : 'none';
+  if (step === 'prep') { renderPlayers(); renderDojos(); renderAssign(); }
+  else if (step === 'seed') { renderConfig(); renderClasses(); renderSeeds(); }
+  else renderPlace();
 }
-document.querySelectorAll('.step[data-step]').forEach((b) => b.addEventListener('click', () => { step = b.dataset.step; render(); }));
+document.querySelectorAll('.step[data-step]').forEach((b) => b.addEventListener('click', () => { if (b.dataset.step !== 'place' && !leaveOk()) return; step = b.dataset.step; render(); }));
 
 const className = (id) => { const c = D.cmap.get(id); return c ? c.name : '（不明なクラス）'; };
 const histText = (h) => (Array.isArray(h) ? h : []).map((x) => [x.tournament, x.rank].filter(Boolean).join(' ')).filter(Boolean).join(' ／ ');
@@ -594,6 +832,181 @@ $('sd-body').addEventListener('change', async (e) => {
   await load();
   if (d) toast(d.replaced ? `シード${d.seed}を付け替えました（前の選手のシードは外しました）` : (d.seed ? `シード${d.seed}を付けました` : 'シードを外しました'), 'ok');
 });
+
+// ── 3 配置と調整 ──────────────────────────────
+const H = 46, LW = 30, LETTER = 'ABCDEFGH';
+let PL = null;   // 開いているクラスの表 {cls, B, R, version, slots: Map("b:l" → 種目の行の id), locks: Set, dirty, undo, redo, sel}
+const leaveOk = () => !(PL && PL.dirty) || confirm('保存していない変更があります。保存せずに移りますか？');
+window.addEventListener('beforeunload', (e) => { if (PL && PL.dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+const plPlayers = () => D.rows.filter((r) => r.bracket_class_id === PL.cls);
+const plInfo = () => new Map(plPlayers().map((r) => [r.event_id, { id: r.event_id, dojo: r.dojo_key || '', seed: r.seed, row: r }]));
+const zek = (b, l) => (PL.B === 1 ? '' : LETTER[b]) + l;
+const snap = () => JSON.stringify({ s: [...PL.slots], k: [...PL.locks], R: PL.R });
+function restore(j) { const o = JSON.parse(j); PL.slots = new Map(o.s); PL.locks = new Set(o.k); PL.R = o.R; }
+function change(fn) { PL.undo.push(snap()); PL.redo = []; fn(); PL.dirty = true; PL.sel = null; renderPlace(); }
+
+async function openClass(id) {
+  const c = D.cmap.get(id); if (!c) return;
+  const d = await call('kw_bracket_get', { p_class: id }); if (!d) return;
+  const b = d.bracket, B = (b && b.block_count) || c.suggest, n = D.rows.filter((r) => r.bracket_class_id === id).length;
+  PL = { cls: id, B, R: (b && b.rows) || Math.max(1, Math.ceil(n / B)), version: (b && b.version) || 0,
+    slots: new Map(d.slots.map((s) => [KB.key(s.b, s.p), s.e])), locks: new Set(d.slots.filter((s) => s.l).map((s) => s.e)),
+    dirty: false, undo: [], redo: [], sel: null, saved: !!(b && b.state !== 'draft') };
+  renderPlace();
+}
+
+function renderPlace() {
+  const list = D.classes.filter((c) => c.count > 0);
+  $('pc-body').innerHTML = list.length ? list.map((c) => `<tr class="pick ${PL && PL.cls === c.id ? 'sel' : ''}" data-pc="${esc(c.id)}">
+    <td><span class="badge ${c.event}">${EVENT[c.event]}</span> <span class="player">${esc(c.name)}</span></td>
+    <td style="white-space:nowrap">${c.count}名<span class="sub">${blocksOf(c)}ブロック</span></td>
+    <td>${c.state === 'draft' ? '<span class="badge off">未配置</span>' : '<span class="badge ok">配置済み</span>'}</td></tr>`).join('')
+    : '<tr><td colspan="3" class="empty">選手のいるクラスがありません</td></tr>';
+  const c = PL && D.cmap.get(PL.cls);
+  if (!c) { PL = null; $('pk-b').style.display = 'none'; $('pk-title').textContent = 'トーナメント表'; $('pk-sub').textContent = '左の表でクラスを選んでください。'; return; }
+  const info = plInfo(), players = [...info.values()];
+  // 除外や振り分けでこのクラスにいなくなった選手は、表から外す
+  [...PL.slots].forEach(([k, id]) => { if (!info.has(id)) PL.slots.delete(k); });
+  const L = KB.layout(PL.B, PL.R), W = KB.analyze(L, PL.slots, info);
+  const placed = new Set(PL.slots.values()), tray = players.filter((p) => !placed.has(p.id));
+  $('pk-b').style.display = '';
+  $('pk-title').textContent = `${EVENT[c.event]} ${c.name}`;
+  $('pk-sub').textContent = `${players.length}名・${PL.B}ブロック・1ブロック ${PL.R}行（${L.R === L.S ? '' : L.S + '枠のうち、端の ' + (L.S - L.R) + '行は1回戦なし。'}ブロックごとに ${Math.max(PL.R - 1, 0)}試合）。ブロック数は「2 分割とシード」で変えます。`;
+  $('pk-sheet-title').textContent = `${EVENT[c.event]} ${c.name}`;
+  $('pk-auto').textContent = PL.slots.size ? '配置し直す' : '自動で配置';
+  const minR = Math.max(1, ...KB.caps(players.length, PL.B)), opts = [];
+  for (let r = minR; r <= Math.min(64, Math.max(minR + 6, PL.R)); r++) opts.push(r);
+  $('pk-rows').innerHTML = opts.map((r) => `<option value="${r}" ${r === PL.R ? 'selected' : ''}>${r}行</option>`).join('');
+  $('pk-undo').disabled = !PL.undo.length; $('pk-redo').disabled = !PL.redo.length;
+  $('pk-save').disabled = !PL.dirty; $('pk-dirty').style.display = PL.dirty ? '' : 'none';
+  $('pk-reset').disabled = !PL.saved && !PL.slots.size;
+
+  // 注意
+  const ws = [], bad = new Set();
+  if (!PL.slots.size) ws.push(['warn', 'まだ配置していません。「自動で配置」を押してください。']);
+  if (tray.length && PL.slots.size) ws.push(['ng', `表に入っていない選手が ${tray.length}名います。空いた行に入れてください（行が足りないときは、行数を増やして配置し直します）。`]);
+  W.sameDojo.forEach((x) => { x.lines.forEach((l) => bad.add(KB.key(x.b, l))); });
+  if (W.sameDojo.length) ws.push(['ng', `1回戦で同じ道場の選手が当たる組が ${W.sameDojo.length}組あります（赤い行）: ${W.sameDojo.map((x) => zek(x.b, x.lines[0]) + '−' + zek(x.b, x.lines[1])).join('、')}`]);
+  if (W.seedEarly.length) ws.push(['warn', `シードの選手同士が、決まった位置より早く当たります: ${W.seedEarly.map((x) => 'シード' + x.a.seed + '（' + zek(x.a.b, x.a.l) + '）とシード' + x.b.seed + '（' + zek(x.b.b, x.b.l) + '）').join('、')}`]);
+  if (W.emptyPair.length && PL.slots.size) ws.push(['warn', `1回戦が空いた行同士になっている組があります: ${W.emptyPair.map((x) => zek(x.b, x.lines[0]) + '−' + zek(x.b, x.lines[1])).join('、')}`]);
+  if (PL.slots.size && Math.max(...W.counts) - Math.min(...W.counts) >= 2) ws.push(['warn', `ブロックの人数に差があります（${W.counts.map((n, b) => LETTER[b] + ' ' + n + '名').join('、')}）。`]);
+  const seedOff = players.filter((p) => p.seed && placed.has(p.id)).filter((p) => { const g = L.slotOfSeed.get(p.seed), w = g == null ? null : L.where(g); return !w || PL.slots.get(KB.key(w.b, w.l)) !== p.id; });
+  if (seedOff.length && !W.seedEarly.length) ws.push(['warn', `シードの位置にいないシード選手がいます: ${seedOff.map((p) => 'シード' + p.seed).join('、')}`]);
+  if (PL.slots.size && !ws.length) ws.push(['ok', '注意はありません。']);
+  $('pk-warns').innerHTML = ws.map(([k, t]) => `<div class="${k}">${esc(t)}</div>`).join('');
+
+  $('pk-tray').style.display = tray.length && PL.slots.size ? '' : 'none';
+  $('pk-tray').innerHTML = `<b>表に入っていない選手（押してから、空いた行を押してください）</b>` + tray.map((p) =>
+    `<span class="chip ${PL.sel === 'tray:' + p.id ? 'sel' : ''}" draggable="true" data-tray="${esc(p.id)}">${p.seed ? '<span class="badge seed">' + p.seed + '</span>' : ''}${esc(p.row.player_name)}<small>${esc(p.row.affiliation || '')}</small></span>`).join('');
+
+  // 表
+  const blockHtml = (b, mirror) => {
+    const t = KB.tree(L, b), levels = Math.log2(L.S), w = levels * LW + 26, hgt = PL.R * H, X = (x) => (mirror ? w - x : x), Y = (y) => (y - 0.5) * H;
+    let path = '', text = '';
+    const draw = (n) => {
+      if (n.line) return { x: 0, y: Y(n.y) };
+      const a = draw(n.a), c = draw(n.b), x = n.level * LW, y = Y(n.y);
+      path += `M${X(a.x)} ${a.y}H${X(x)}M${X(c.x)} ${c.y}H${X(x)}M${X(x)} ${a.y}V${c.y}`;
+      text += `<text x="${X(x - 5)}" y="${y + 5}" text-anchor="${mirror ? 'start' : 'end'}">${n.no}</text>`;
+      return { x, y };
+    };
+    if (t.root) { const r = draw(t.root); path += `M${X(r.x)} ${r.y}H${X(r.x + 22)}`; }
+    let lines = '';
+    for (let l = 1; l <= PL.R; l++) {
+      const k = KB.key(b, l), id = PL.slots.get(k), p = id && info.get(id);
+      lines += p ? `<div class="ln ${bad.has(k) ? 'bad' : ''} ${PL.sel === k ? 'sel' : ''}" draggable="true" data-k="${k}" data-dojo="${esc(p.dojo)}" title="${esc(p.row.player_name)}（${esc(p.row.affiliation || '所属なし')}）">
+          <span class="no">${zek(b, l)}</span>${p.seed ? `<span class="sd" title="シード${p.seed}">${p.seed}</span>` : ''}
+          <span class="nm"><small>${esc(p.row.player_kana)}</small>${esc(p.row.player_name)}</span><span class="dj">${esc(p.row.affiliation || '')}</span>
+          <button class="lk ${PL.locks.has(id) ? 'on' : ''}" data-lk="${esc(id)}" title="固定（自動配置で動かさない）" aria-label="${esc(p.row.player_name)}を固定" aria-pressed="${PL.locks.has(id)}">固</button></div>`
+        : `<div class="ln empty" data-k="${k}"><span class="no">${zek(b, l)}</span><span class="nm">（空き）</span></div>`;
+    }
+    return `<div class="blk"><div class="blk-h">${PL.B === 1 ? '' : LETTER[b] + ' ブロック　'}${W.counts[b]}名</div><div class="blk-b"><div class="lines">${lines}</div>
+      <svg class="bk-svg" width="${w}" height="${hgt}" viewBox="0 0 ${w} ${hgt}" role="img" aria-label="${PL.B === 1 ? '' : LETTER[b] + 'ブロックの'}対戦の線"><path d="${path}" fill="none" stroke="#141a26" stroke-width="2"/><g font-size="13" font-weight="700" fill="#2c3545">${text}</g></svg></div></div>`;
+  };
+  const half = PL.B / 2, left = [], right = [];
+  for (let b = 0; b < PL.B; b++) (PL.B === 1 || b < half ? left : right).push(b);
+  const mid = PL.B === 1 ? '' : `<div class="mid">${PL.B === 2 ? '<span>決勝<br>A − B</span>' : PL.B === 4 ? '<span>準決勝①<br>A − B</span><span>決勝</span><span>準決勝②<br>C − D</span>'
+    : '<span>準々決勝<br>A−B・C−D</span><span>準決勝・決勝</span><span>準々決勝<br>E−F・G−H</span>'}</div>`;
+  $('pk-sheet').innerHTML = `<div class="col">${left.map((b) => blockHtml(b, false)).join('')}</div>${mid}${right.length ? `<div class="col right">${right.map((b) => blockHtml(b, true)).join('')}</div>` : ''}`;
+}
+
+$('pc-body').addEventListener('click', async (e) => {
+  const r = e.target.closest('[data-pc]'); if (!r || (PL && PL.cls === r.dataset.pc) || !leaveOk()) return;
+  await openClass(r.dataset.pc);
+});
+function autoPlace() {
+  const info = plInfo(), players = [...info.values()], keep = new Map();
+  PL.slots.forEach((id, k) => { if (PL.locks.has(id)) keep.set(k, id); });
+  change(() => { PL.slots = KB.autoPlace(players, PL.B, PL.R, keep); });
+  const left = players.length - PL.slots.size;
+  toast(left ? `行が足りず、${left}名を配置できませんでした。行数を増やしてください。` : '配置しました。保存するまで確定しません。', left ? 'ng' : 'ok');
+}
+$('pk-auto').addEventListener('click', autoPlace);
+$('pk-rows').addEventListener('change', () => {
+  const r = Number($('pk-rows').value);
+  if (PL.slots.size && !confirm('行数を変えると、表の形が変わるため配置し直します（固定した選手は、同じ行に残します）。よろしいですか？')) { renderPlace(); return; }
+  const before = snap(); PL.R = r;
+  if (PL.slots.size) { PL.undo.push(before); PL.redo = []; const info = plInfo(), keep = new Map(); PL.slots.forEach((id, k) => { if (PL.locks.has(id) && Number(k.split(':')[1]) <= r) keep.set(k, id); });
+    PL.slots = KB.autoPlace([...info.values()], PL.B, PL.R, keep); PL.dirty = true; }
+  renderPlace();
+});
+$('pk-undo').addEventListener('click', () => { if (!PL.undo.length) return; PL.redo.push(snap()); restore(PL.undo.pop()); PL.dirty = true; PL.sel = null; renderPlace(); });
+$('pk-redo').addEventListener('click', () => { if (!PL.redo.length) return; PL.undo.push(snap()); restore(PL.redo.pop()); PL.dirty = true; PL.sel = null; renderPlace(); });
+
+// 入れ替え。src は行（"b:l"）か、表に入っていない選手（"tray:id"）
+function move(src, dst) {
+  if (src === dst) { PL.sel = null; renderPlace(); return; }
+  if (src.startsWith('tray:')) {
+    if (PL.slots.has(dst)) { toast('空いた行に入れてください。', 'ng'); return; }
+    change(() => { PL.slots.set(dst, src.slice(5)); }); return;
+  }
+  const a = PL.slots.get(src), b = PL.slots.get(dst); if (!a) return;
+  change(() => { if (b) PL.slots.set(src, b); else PL.slots.delete(src); PL.slots.set(dst, a); });
+}
+$('pk-sheet').addEventListener('click', (e) => {
+  const lk = e.target.closest('[data-lk]');
+  if (lk) { const id = lk.dataset.lk; change(() => { if (PL.locks.has(id)) PL.locks.delete(id); else PL.locks.add(id); }); return; }
+  const ln = e.target.closest('.ln'); if (!ln) return;
+  const k = ln.dataset.k;
+  if (PL.sel) { move(PL.sel, k); return; }
+  if (PL.slots.has(k)) { PL.sel = k; renderPlace(); }
+});
+$('pk-tray').addEventListener('click', (e) => { const c = e.target.closest('[data-tray]'); if (!c) return; const k = 'tray:' + c.dataset.tray; PL.sel = PL.sel === k ? null : k; renderPlace(); });
+let dragSrc = null;
+document.addEventListener('dragstart', (e) => {
+  const ln = e.target.closest && e.target.closest('.ln[draggable], [data-tray]'); if (!ln || !PL) return;
+  dragSrc = ln.dataset.k || 'tray:' + ln.dataset.tray; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', dragSrc); } catch (_) {}
+});
+$('pk-sheet').addEventListener('dragover', (e) => { const ln = e.target.closest('.ln'); if (!ln || !dragSrc) return; e.preventDefault(); document.querySelectorAll('.ln.over').forEach((x) => x.classList.remove('over')); ln.classList.add('over'); });
+$('pk-sheet').addEventListener('dragleave', (e) => { const ln = e.target.closest('.ln'); if (ln) ln.classList.remove('over'); });
+$('pk-sheet').addEventListener('drop', (e) => { const ln = e.target.closest('.ln'); if (!ln || !dragSrc) return; e.preventDefault(); const s = dragSrc; dragSrc = null; move(s, ln.dataset.k); });
+document.addEventListener('dragend', () => { dragSrc = null; document.querySelectorAll('.ln.over').forEach((x) => x.classList.remove('over')); });
+// 同じ道場の選手を、指した間だけ黄色で示す
+$('pk-sheet').addEventListener('mouseover', (e) => {
+  const ln = e.target.closest('.ln[data-dojo]'); document.querySelectorAll('.ln.mate').forEach((x) => x.classList.remove('mate'));
+  if (!ln || !ln.dataset.dojo) return;
+  document.querySelectorAll('.ln[data-dojo]').forEach((x) => { if (x.dataset.dojo === ln.dataset.dojo) x.classList.add('mate'); });
+});
+$('pk-sheet').addEventListener('mouseleave', () => document.querySelectorAll('.ln.mate').forEach((x) => x.classList.remove('mate')));
+
+$('pk-save').addEventListener('click', async () => {
+  const slots = [...PL.slots].map(([k, id]) => { const [b, p] = k.split(':').map(Number); return { b, p, e: id, l: PL.locks.has(id) }; });
+  const d = await call('kw_bracket_save', { p_class: PL.cls, p_blocks: PL.B, p_rows: PL.R, p_slots: slots, p_version: PL.version });
+  if (!d) return;
+  PL.version = d.version; PL.dirty = false; PL.saved = true; PL.undo = []; PL.redo = [];
+  await load();
+  toast(d.unplaced ? `保存しました（表に入っていない選手が ${d.unplaced}名います）` : '保存しました', d.unplaced ? 'warn' : 'ok');
+});
+$('pk-reset').addEventListener('click', async () => {
+  if (!confirm('このクラスの配置を消して、未配置に戻します。よろしいですか？')) return;
+  const d = await call('kw_bracket_reset', { p_class: PL.cls }); if (!d) return;
+  const id = PL.cls; PL = null; await load(); await openClass(id); toast('配置を消しました', 'ok');
+});
+// 印刷: A4 縦に収まるように縮める
+$('pk-print').addEventListener('click', () => window.print());
+window.addEventListener('beforeprint', () => { const s = $('pk-sheet'); if (!s || !s.offsetWidth) return; s.parentElement.style.zoom = Math.min(1, 720 / s.scrollWidth, 980 / (s.scrollHeight + 50)); });
+window.addEventListener('afterprint', () => { const s = $('pk-sheet'); if (s) s.parentElement.style.zoom = ''; });
 
 init();
 </script>
