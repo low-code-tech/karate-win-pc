@@ -4,7 +4,8 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Karate Win｜編成（トーナメント表）</title>
-<!-- admin-bracket.html v2.1 (2026-11-25): よみがなの無い名簿では、氏名の順に並べる。
+<!-- admin-bracket.html v3.0 (2026-11-25): 試合結果をトーナメント表に載せる（勝ち上がりの赤線・得点・準決勝と決勝・入賞者）。試合速報ページの公開設定を追加。
+     v2.1: よみがなの無い名簿では、氏名の順に並べる。
      v2.0: 第2段階 2-2。「3 配置と調整」を追加（自動配置、トーナメント表、マウスでの入れ替え、固定、元に戻す、注意の表示、保存、印刷）。
      v1.2: 準備の選手一覧を、道場別・クラス別に並べ替え、道場とクラスで絞り込めるようにした。
      v1.1: 準備の選手一覧に「戦歴」の列と「戦歴のある選手だけ」の絞り込みを追加。
@@ -178,9 +179,30 @@
   .ln.over{background:#d6e4ff}
   .ln.sel{outline:3px solid var(--blue);outline-offset:-3px}
   .bk-svg{flex:none;display:block}
+  .bk-svg .sc .w{fill:#d0121f}
+  .ln.lost{color:#7d8798;background:#f6f7f9}
+  .ln.lost .nm small,.ln.lost .dj{color:#9aa3b5}
+  .ln.champ{background:#fff0c2}
+  .finals{width:auto;min-width:0;margin:0 auto 12px;border:2px solid var(--txt);border-collapse:collapse}
+  .finals th,.finals td{padding:8px 14px;border:1px solid var(--line2);font-size:16px;text-align:center;background:#fff;vertical-align:middle}
+  .finals th{background:#eef1f6;white-space:nowrap}
+  .finals td small{display:block;font-size:12px;color:var(--txt3);font-weight:600}
+  .finals td .from{display:block;font-size:12px;color:var(--txt3);font-weight:700}
+  .finals td.w{font-weight:900;color:#d0121f}
+  .finals td.l{color:#7d8798}
+  .finals td.vs{font-weight:900;white-space:nowrap}
+  .finals .tbd{color:var(--txt3)}
+  .podium{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:14px}
+  .podium span{padding:8px 16px;border:2px solid var(--line2);border-radius:10px;font-weight:900;font-size:16px;text-align:center;background:#fff}
+  .podium span:first-child{border-color:#d9a400;background:#fff0c2}
+  .podium b{display:block;font-size:13px;color:var(--txt2)}
+  .podium small{display:block;font-size:12px;color:var(--txt3);font-weight:600}
+  .live-url{width:100%;height:44px;padding:0 10px;border:2px solid var(--line2);border-radius:8px;font-size:14px;font-weight:600;background:#f6f8fc}
+  .live-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
   @media print{
     @page{size:A4 portrait;margin:8mm}
     header,.bar,#notice,.stats,.steps,.pl-left,.tb,.warns,.tray,.ver,#toast,.card-h,.ln .lk,.noprint{display:none!important}
+    .ln.lost,.ln.champ{background:#fff}
     body{background:#fff}
     .main-view{padding:0;max-width:none}
     .place{display:block}
@@ -303,9 +325,24 @@
     <!-- ═══ 3 配置と調整 ═══ -->
     <div id="p-place" style="display:none">
       <div class="place">
-        <div class="card pl-left">
-          <div class="card-h"><h3>クラス</h3><p>クラスを押すと、右にトーナメント表が出ます。</p></div>
-          <div class="card-b"><div class="scroll" style="max-height:760px"><table><thead><tr><th>クラス</th><th>人数</th><th>状態</th></tr></thead><tbody id="pc-body"></tbody></table></div></div>
+        <div class="pl-left">
+          <div class="card">
+            <div class="card-h"><h3>クラス</h3><p>クラスを押すと、右にトーナメント表が出ます。</p></div>
+            <div class="card-b"><div class="scroll" style="max-height:620px"><table><thead><tr><th>クラス</th><th>人数</th><th>状態</th></tr></thead><tbody id="pc-body"></tbody></table></div></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><h3>試合速報</h3><p>タイマーで確定した結果を、トーナメント表に赤い線で出します。</p></div>
+            <div class="card-b">
+              <div class="filter-field"><label for="lv-name">タイマーの大会名</label><input type="text" id="lv-name" maxlength="120" /></div>
+              <p style="font-size:14px;color:var(--txt2);margin:6px 0 10px" id="lv-count"></p>
+              <label style="font-weight:800;font-size:16px"><input type="checkbox" id="lv-on" /> 速報ページを公開する</label>
+              <div class="live-row"><button class="btn btn-primary btn-sm" id="lv-save">設定を保存</button></div>
+              <div id="lv-url-wrap" style="display:none;margin-top:14px">
+                <div class="filter-field"><label for="lv-url">速報ページの URL（知っている人だけが見られます）</label><input class="live-url" type="text" id="lv-url" readonly /></div>
+                <div class="live-row"><button class="btn btn-secondary btn-sm" id="lv-copy">URL をコピー</button><button class="btn btn-danger btn-sm" id="lv-rotate">URL を作り直す</button></div>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="card">
           <div class="card-h"><h3 id="pk-title">トーナメント表</h3><p id="pk-sub">左の表でクラスを選んでください。</p></div>
@@ -323,14 +360,14 @@
             </div>
             <div class="warns" id="pk-warns"></div>
             <div class="tray" id="pk-tray" style="display:none"></div>
-            <div class="sheet-wrap"><div class="sheet-title" id="pk-sheet-title"></div><div class="sheet" id="pk-sheet"></div></div>
+            <div class="sheet-wrap"><div class="sheet-title" id="pk-sheet-title"></div><div id="pk-finals"></div><div class="sheet" id="pk-sheet"></div></div>
             <p class="noprint" style="margin-top:12px;color:var(--txt2);font-size:15px">選手をつかんで別の行に落とすと、2人が入れ替わります。選手を押してから別の行を押しても同じです。「固」を押した選手は、自動配置をやり直しても動きません。</p>
           </div>
         </div>
       </div>
     </div>
   </div>
-  <div class="ver">編成画面 v2.1</div>
+  <div class="ver">編成画面 v3.0</div>
 </div>
 
 <div id="toast"></div>
@@ -491,6 +528,110 @@ const KB = (() => {
 })();
 // </core>
 
+// <view> ── トーナメント表の表示と、試合結果の勝ち上がり（編成画面と速報ページで同じものを使う）──
+const KV = (() => {
+  const H = 46, LW = 30, LETTER = 'ABCDEFGH';
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const zek = (B, b, l) => (B === 1 ? '' : LETTER[b]) + l;
+  const pk = (a, b) => (a < b ? a + '|' + b : b + '|' + a);
+  // 結果の一覧 [{a, b, sa, sb, w, reason}] を、2人の組で引ける形にする
+  const resultMap = (list) => { const m = new Map(); (list || []).forEach((r) => { if (r.a && r.b) m.set(pk(r.a, r.b), r); }); return m; };
+  // 勝ち上がりを計算する。空いた行の相手は不戦勝で進む
+  function progress(L, slots, results) {
+    const used = new Set(), blocks = [], all = [];
+    const play = (m, A, Bs) => {
+      m.pa = A.id; m.pb = Bs.id; m.win = null; m.res = null; m.walk = false; all.push(m);
+      if (!A.done || !Bs.done) return { id: null, done: false };
+      if (!A.id && !Bs.id) return { id: null, done: true };
+      if (!A.id || !Bs.id) { m.walk = true; m.win = A.id ? 'a' : 'b'; return { id: A.id || Bs.id, done: true }; }
+      const k = pk(A.id, Bs.id), r = results && results.get(k);
+      if (!r) return { id: null, done: false };
+      used.add(k);
+      const same = r.a === A.id;
+      m.res = { sa: same ? r.sa : r.sb, sb: same ? r.sb : r.sa, reason: r.reason || '' };
+      if (!r.w) return { id: null, done: false };
+      m.win = r.w === A.id ? 'a' : 'b'; return { id: r.w, done: true };
+    };
+    for (let b = 0; b < L.B; b++) {
+      const t = KB.tree(L, b);
+      const ev = (n) => (n.line ? { id: slots.get(KB.key(b, n.line)) || null, done: true } : play(n, ev(n.a), ev(n.b)));
+      blocks.push({ tree: t, top: t.root ? ev(t.root) : { id: null, done: true } });
+    }
+    // 準決勝・決勝。前の試合をたどれるよう、a・b に前の試合（またはブロックの決勝）を持たせる
+    const rounds = []; let cur = blocks.map((x) => x.top), prev = blocks.map((x) => x.tree.root);
+    while (cur.length > 1) {
+      const nx = [], ms = [];
+      for (let i = 0; i < cur.length; i += 2) { const m = { final: true, a: prev[i], b: prev[i + 1] }; nx.push(play(m, cur[i], cur[i + 1])); ms.push(m); }
+      rounds.push(ms); cur = nx; prev = ms;
+    }
+    const loser = (m) => (m && m.win && m.pa && m.pb ? (m.win === 'a' ? m.pb : m.pa) : null);
+    const lost = new Set(); all.forEach((m) => { const x = loser(m); if (x) lost.add(x); });
+    // 入賞者: 不戦勝（相手が空き）の試合は飛ばして、実際に行った最後の試合を決勝・準決勝とみなす
+    const real = (n) => { while (n && !n.line && n.walk) n = n.win === 'a' ? n.a : n.b; return n && !n.line ? n : null; };
+    const fin = real(prev[0]);
+    const semis = fin && fin.win ? [real(fin.a), real(fin.b)].filter(Boolean) : [];
+    const unused = []; if (results) results.forEach((r, k) => { if (!used.has(k)) unused.push(r); });
+    return { blocks, rounds, lost, unused, any: used.size > 0, champion: cur[0] && cur[0].done ? cur[0].id : null,
+      second: loser(fin), thirds: semis.map(loser).filter(Boolean) };
+  }
+  // 表の HTML。o = {B, R, slots, info(id → {name, kana, aff, dojo, seed}), locks, sel, bad, edit, prog, counts}
+  function sheetHtml(o) {
+    const L = KB.layout(o.B, o.R), prog = o.prog, locks = o.locks || new Set(), bad = o.bad || new Set();
+    const blockHtml = (b, mirror) => {
+      const t = prog ? prog.blocks[b].tree : KB.tree(L, b), levels = Math.log2(L.S), w = levels * LW + 26, hgt = o.R * H, X = (x) => (mirror ? w - x : x), Y = (y) => (y - 0.5) * H;
+      let path = '', red = '', text = '', score = '';
+      const draw = (n) => {
+        if (n.line) return { x: 0, y: Y(n.y) };
+        const a = draw(n.a), c = draw(n.b), x = n.level * LW, y = Y(n.y);
+        path += `M${X(a.x)} ${a.y}H${X(x)}M${X(c.x)} ${c.y}H${X(x)}M${X(x)} ${a.y}V${c.y}`;
+        if (!(prog && n.res)) text += `<text x="${X(x - 5)}" y="${y + 5}" text-anchor="${mirror ? 'start' : 'end'}">${n.no}</text>`;   // 結果が出た試合は、試合番号の代わりに得点を出す
+        if (prog && n.win) { const s = n.win === 'a' ? a : c; red += `M${X(s.x)} ${s.y}H${X(x)}V${y}`; }
+        if (prog && n.res) {
+          const cls = (side) => (n.win === side ? ' class="w"' : '');
+          score += `<text x="${X(x + 5)}" y="${a.y + 15}" text-anchor="${mirror ? 'end' : 'start'}"${cls('a')}>${esc(n.res.sa)}</text><text x="${X(x + 5)}" y="${c.y - 6}" text-anchor="${mirror ? 'end' : 'start'}"${cls('b')}>${esc(n.res.sb)}</text>`;
+        }
+        return { x, y };
+      };
+      if (t.root) { const r = draw(t.root); path += `M${X(r.x)} ${r.y}H${X(r.x + 22)}`; if (prog && prog.blocks[b].top.done && prog.blocks[b].top.id) red += `M${X(r.x)} ${r.y}H${X(r.x + 22)}`; }
+      let lines = '', n = 0;
+      for (let l = 1; l <= o.R; l++) {
+        const k = KB.key(b, l), id = o.slots.get(k), p = id && o.info.get(id);
+        if (p) n++;
+        const cls = ['ln']; if (p) { if (bad.has(k)) cls.push('bad'); if (o.sel === k) cls.push('sel'); if (prog && prog.lost.has(id)) cls.push('lost'); if (prog && prog.champion === id) cls.push('champ'); } else cls.push('empty');
+        lines += p ? `<div class="${cls.join(' ')}" ${o.edit ? 'draggable="true"' : ''} data-k="${k}" data-dojo="${esc(p.dojo || '')}" title="${esc(p.name)}（${esc(p.aff || '所属なし')}）">
+            <span class="no">${zek(o.B, b, l)}</span>${p.seed ? `<span class="sd" title="シード${p.seed}">${p.seed}</span>` : ''}
+            <span class="nm"><small>${esc(p.kana || '')}</small>${esc(p.name)}</span><span class="dj">${esc(p.aff || '')}</span>
+            ${o.edit ? `<button class="lk ${locks.has(id) ? 'on' : ''}" data-lk="${esc(id)}" title="固定（自動配置で動かさない）" aria-label="${esc(p.name)}を固定" aria-pressed="${locks.has(id)}">固</button>` : ''}</div>`
+          : `<div class="ln empty" data-k="${k}"><span class="no">${zek(o.B, b, l)}</span><span class="nm">（空き）</span></div>`;
+      }
+      return `<div class="blk"><div class="blk-h">${o.B === 1 ? '' : LETTER[b] + ' ブロック　'}${n}名</div><div class="blk-b"><div class="lines">${lines}</div>
+        <svg class="bk-svg" width="${w}" height="${hgt}" viewBox="0 0 ${w} ${hgt}" role="img" aria-label="${o.B === 1 ? '' : LETTER[b] + 'ブロックの'}対戦の線"><path d="${path}" fill="none" stroke="#141a26" stroke-width="2"/><path class="red" d="${red}" fill="none" stroke="#d0121f" stroke-width="5" stroke-linejoin="round"/><g font-size="13" font-weight="700" fill="#2c3545">${text}</g><g class="sc" font-size="13" font-weight="800" fill="#56607a">${score}</g></svg></div></div>`;
+    };
+    const half = o.B / 2, left = [], right = [];
+    for (let b = 0; b < o.B; b++) (o.B === 1 || b < half ? left : right).push(b);
+    const mid = o.B === 1 ? '' : `<div class="mid">${o.B === 2 ? '<span>決勝<br>A − B</span>' : o.B === 4 ? '<span>準決勝①<br>A − B</span><span>決勝</span><span>準決勝②<br>C − D</span>'
+      : '<span>準々決勝<br>A−B・C−D</span><span>準決勝・決勝</span><span>準々決勝<br>E−F・G−H</span>'}</div>`;
+    return `<div class="col">${left.map((b) => blockHtml(b, false)).join('')}</div>${mid}${right.length ? `<div class="col right">${right.map((b) => blockHtml(b, true)).join('')}</div>` : ''}`;
+  }
+  // 準決勝・決勝の結果と入賞者
+  function finalsHtml(o) {
+    const prog = o.prog; if (!prog || !prog.any) return '';
+    const nm = (id) => { const p = id && o.info.get(id); return p ? `${esc(p.name)}<small>${esc(p.aff || '')}</small>` : '<span class="tbd">未定</span>'; };
+    const label = (ri, i) => { const left = prog.rounds.length - ri; const base = left === 1 ? '決勝' : left === 2 ? '準決勝' : '準々決勝'; return base + (prog.rounds[ri].length > 1 ? '①②③④'[i] : ''); };
+    let rows = '';
+    prog.rounds.forEach((ms, ri) => ms.forEach((m, i) => {
+      const span = Math.pow(2, ri), from = (j) => { const s = j * span, e = s + span - 1; return LETTER[s] + (e > s ? '〜' + LETTER[e] : '') + ' の勝者'; };
+      rows += `<tr><th>${label(ri, i)}</th><td class="${m.win === 'a' ? 'w' : m.win ? 'l' : ''}"><span class="from">${from(i * 2)}</span>${nm(m.pa)}</td>
+        <td class="vs">${m.res ? esc(m.res.sa) + ' − ' + esc(m.res.sb) : m.walk ? '不戦勝' : '−'}${m.res && m.res.reason ? `<small>${esc(m.res.reason)}</small>` : ''}</td>
+        <td class="${m.win === 'b' ? 'w' : m.win ? 'l' : ''}"><span class="from">${from(i * 2 + 1)}</span>${nm(m.pb)}</td></tr>`;
+    }));
+    const pod = prog.champion ? `<div class="podium"><span><b>優勝</b>${nm(prog.champion)}</span>${prog.second ? `<span><b>準優勝</b>${nm(prog.second)}</span>` : ''}${prog.thirds.map((id) => `<span><b>3位</b>${nm(id)}</span>`).join('')}</div>` : '';
+    return (rows ? `<table class="finals"><tbody>${rows}</tbody></table>` : '') + pod;
+  }
+  return { H, LETTER, esc, zek, pk, resultMap, progress, sheetHtml, finalsHtml };
+})();
+// </view>
+
 const EVENT = { kumite: '組手', kata: '形' };
 const STATUS = { draft: '下書き', open: '受付中', closed: '締切', finished: '終了' };
 const MSG = {
@@ -580,8 +721,8 @@ async function loadTournaments() {
   if (!list.length) $('notice').innerHTML = '<div class="note info">申込の設定がある大会がありません。大会設定画面で大会を登録してください。</div>';
   if (list.some((t) => t.id === keep)) { $('tsel').value = keep; T = keep; await load(); }
 }
-$('tsel').addEventListener('change', async () => { if (!leaveOk()) { $('tsel').value = T; return; } PL = null; T = $('tsel').value; selClass = ''; D = null; await load(); });
-$('reload').addEventListener('click', async () => { if (!T || !leaveOk()) return; const c = PL && PL.cls; PL = null; await load(); if (c && step === 'place') await openClass(c); toast('読み込み直しました', 'ok'); });
+$('tsel').addEventListener('change', async () => { if (!leaveOk()) { $('tsel').value = T; return; } PL = null; LV = null; T = $('tsel').value; selClass = ''; D = null; await load(); });
+$('reload').addEventListener('click', async () => { if (!T || !leaveOk()) return; const c = PL && PL.cls; PL = null; LV = null; await load(); if (c && step === 'place') await openClass(c); toast('読み込み直しました', 'ok'); });
 
 async function load() {
   if (!T) { $('work').style.display = 'none'; $('notice').innerHTML = ''; return; }
@@ -609,7 +750,7 @@ function render() {
   $('p-place').style.display = step === 'place' ? '' : 'none';
   if (step === 'prep') { renderPlayers(); renderDojos(); renderAssign(); }
   else if (step === 'seed') { renderConfig(); renderClasses(); renderSeeds(); }
-  else renderPlace();
+  else { renderPlace(); if (!LV) loadLive(); else renderLive(); }
 }
 document.querySelectorAll('.step[data-step]').forEach((b) => b.addEventListener('click', () => { if (b.dataset.step !== 'place' && !leaveOk()) return; step = b.dataset.step; render(); }));
 
@@ -835,14 +976,14 @@ $('sd-body').addEventListener('change', async (e) => {
 });
 
 // ── 3 配置と調整 ──────────────────────────────
-const H = 46, LW = 30, LETTER = 'ABCDEFGH';
+const LETTER = KV.LETTER;
 let PL = null;   // 開いているクラスの表 {cls, B, R, version, slots: Map("b:l" → 種目の行の id), locks: Set, dirty, undo, redo, sel}
 const leaveOk = () => !(PL && PL.dirty) || confirm('保存していない変更があります。保存せずに移りますか？');
 window.addEventListener('beforeunload', (e) => { if (PL && PL.dirty) { e.preventDefault(); e.returnValue = ''; } });
 
 const plPlayers = () => D.rows.filter((r) => r.bracket_class_id === PL.cls);
-const plInfo = () => new Map(plPlayers().map((r) => [r.event_id, { id: r.event_id, dojo: r.dojo_key || '', seed: r.seed, row: r }]));
-const zek = (b, l) => (PL.B === 1 ? '' : LETTER[b]) + l;
+const plInfo = () => new Map(plPlayers().map((r) => [r.event_id, { id: r.event_id, dojo: r.dojo_key || '', seed: r.seed, row: r, name: r.player_name, kana: r.player_kana, aff: r.affiliation }]));
+const zek = (b, l) => KV.zek(PL.B, b, l);
 const snap = () => JSON.stringify({ s: [...PL.slots], k: [...PL.locks], R: PL.R });
 function restore(j) { const o = JSON.parse(j); PL.slots = new Map(o.s); PL.locks = new Set(o.k); PL.R = o.R; }
 function change(fn) { PL.undo.push(snap()); PL.redo = []; fn(); PL.dirty = true; PL.sel = null; renderPlace(); }
@@ -850,10 +991,11 @@ function change(fn) { PL.undo.push(snap()); PL.redo = []; fn(); PL.dirty = true;
 async function openClass(id) {
   const c = D.cmap.get(id); if (!c) return;
   const d = await call('kw_bracket_get', { p_class: id }); if (!d) return;
+  const rs = await call('kw_bracket_results_get', { p_class: id });
   const b = d.bracket, B = (b && b.block_count) || c.suggest, n = D.rows.filter((r) => r.bracket_class_id === id).length;
   PL = { cls: id, B, R: (b && b.rows) || Math.max(1, Math.ceil(n / B)), version: (b && b.version) || 0,
     slots: new Map(d.slots.map((s) => [KB.key(s.b, s.p), s.e])), locks: new Set(d.slots.filter((s) => s.l).map((s) => s.e)),
-    dirty: false, undo: [], redo: [], sel: null, saved: !!(b && b.state !== 'draft') };
+    dirty: false, undo: [], redo: [], sel: null, saved: !!(b && b.state !== 'draft'), results: KV.resultMap(rs ? rs.results : []) };
   renderPlace();
 }
 
@@ -870,6 +1012,7 @@ function renderPlace() {
   // 除外や振り分けでこのクラスにいなくなった選手は、表から外す
   [...PL.slots].forEach(([k, id]) => { if (!info.has(id)) PL.slots.delete(k); });
   const L = KB.layout(PL.B, PL.R), W = KB.analyze(L, PL.slots, info);
+  const prog = PL.results.size ? KV.progress(L, PL.slots, PL.results) : null;
   const placed = new Set(PL.slots.values()), tray = players.filter((p) => !placed.has(p.id));
   $('pk-b').style.display = '';
   $('pk-title').textContent = `${EVENT[c.event]} ${c.name}`;
@@ -894,42 +1037,18 @@ function renderPlace() {
   if (PL.slots.size && Math.max(...W.counts) - Math.min(...W.counts) >= 2) ws.push(['warn', `ブロックの人数に差があります（${W.counts.map((n, b) => LETTER[b] + ' ' + n + '名').join('、')}）。`]);
   const seedOff = players.filter((p) => p.seed && placed.has(p.id)).filter((p) => { const g = L.slotOfSeed.get(p.seed), w = g == null ? null : L.where(g); return !w || PL.slots.get(KB.key(w.b, w.l)) !== p.id; });
   if (seedOff.length && !W.seedEarly.length) ws.push(['warn', `シードの位置にいないシード選手がいます: ${seedOff.map((p) => 'シード' + p.seed).join('、')}`]);
+  if (prog && prog.unused.length && PL.slots.size) ws.push(['warn', `試合結果のうち ${prog.unused.length}件は、この表の対戦に当てはまりません（表の並びが実際の対戦と違う、または前の回戦の結果がまだ無い）: ${prog.unused.slice(0, 6).map((r) => (info.get(r.a) || {}).name + '−' + (info.get(r.b) || {}).name).join('、')}${prog.unused.length > 6 ? ' ほか' : ''}`]);
   if (PL.slots.size && !ws.length) ws.push(['ok', '注意はありません。']);
+  if (prog && PL.slots.size) ws.unshift(['ok', `試合結果 ${PL.results.size}件のうち ${PL.results.size - prog.unused.length}件を表に出しています。`]);
   $('pk-warns').innerHTML = ws.map(([k, t]) => `<div class="${k}">${esc(t)}</div>`).join('');
 
   $('pk-tray').style.display = tray.length && PL.slots.size ? '' : 'none';
   $('pk-tray').innerHTML = `<b>表に入っていない選手（押してから、空いた行を押してください）</b>` + tray.map((p) =>
     `<span class="chip ${PL.sel === 'tray:' + p.id ? 'sel' : ''}" draggable="true" data-tray="${esc(p.id)}">${p.seed ? '<span class="badge seed">' + p.seed + '</span>' : ''}${esc(p.row.player_name)}<small>${esc(p.row.affiliation || '')}</small></span>`).join('');
 
-  // 表
-  const blockHtml = (b, mirror) => {
-    const t = KB.tree(L, b), levels = Math.log2(L.S), w = levels * LW + 26, hgt = PL.R * H, X = (x) => (mirror ? w - x : x), Y = (y) => (y - 0.5) * H;
-    let path = '', text = '';
-    const draw = (n) => {
-      if (n.line) return { x: 0, y: Y(n.y) };
-      const a = draw(n.a), c = draw(n.b), x = n.level * LW, y = Y(n.y);
-      path += `M${X(a.x)} ${a.y}H${X(x)}M${X(c.x)} ${c.y}H${X(x)}M${X(x)} ${a.y}V${c.y}`;
-      text += `<text x="${X(x - 5)}" y="${y + 5}" text-anchor="${mirror ? 'start' : 'end'}">${n.no}</text>`;
-      return { x, y };
-    };
-    if (t.root) { const r = draw(t.root); path += `M${X(r.x)} ${r.y}H${X(r.x + 22)}`; }
-    let lines = '';
-    for (let l = 1; l <= PL.R; l++) {
-      const k = KB.key(b, l), id = PL.slots.get(k), p = id && info.get(id);
-      lines += p ? `<div class="ln ${bad.has(k) ? 'bad' : ''} ${PL.sel === k ? 'sel' : ''}" draggable="true" data-k="${k}" data-dojo="${esc(p.dojo)}" title="${esc(p.row.player_name)}（${esc(p.row.affiliation || '所属なし')}）">
-          <span class="no">${zek(b, l)}</span>${p.seed ? `<span class="sd" title="シード${p.seed}">${p.seed}</span>` : ''}
-          <span class="nm"><small>${esc(p.row.player_kana)}</small>${esc(p.row.player_name)}</span><span class="dj">${esc(p.row.affiliation || '')}</span>
-          <button class="lk ${PL.locks.has(id) ? 'on' : ''}" data-lk="${esc(id)}" title="固定（自動配置で動かさない）" aria-label="${esc(p.row.player_name)}を固定" aria-pressed="${PL.locks.has(id)}">固</button></div>`
-        : `<div class="ln empty" data-k="${k}"><span class="no">${zek(b, l)}</span><span class="nm">（空き）</span></div>`;
-    }
-    return `<div class="blk"><div class="blk-h">${PL.B === 1 ? '' : LETTER[b] + ' ブロック　'}${W.counts[b]}名</div><div class="blk-b"><div class="lines">${lines}</div>
-      <svg class="bk-svg" width="${w}" height="${hgt}" viewBox="0 0 ${w} ${hgt}" role="img" aria-label="${PL.B === 1 ? '' : LETTER[b] + 'ブロックの'}対戦の線"><path d="${path}" fill="none" stroke="#141a26" stroke-width="2"/><g font-size="13" font-weight="700" fill="#2c3545">${text}</g></svg></div></div>`;
-  };
-  const half = PL.B / 2, left = [], right = [];
-  for (let b = 0; b < PL.B; b++) (PL.B === 1 || b < half ? left : right).push(b);
-  const mid = PL.B === 1 ? '' : `<div class="mid">${PL.B === 2 ? '<span>決勝<br>A − B</span>' : PL.B === 4 ? '<span>準決勝①<br>A − B</span><span>決勝</span><span>準決勝②<br>C − D</span>'
-    : '<span>準々決勝<br>A−B・C−D</span><span>準決勝・決勝</span><span>準々決勝<br>E−F・G−H</span>'}</div>`;
-  $('pk-sheet').innerHTML = `<div class="col">${left.map((b) => blockHtml(b, false)).join('')}</div>${mid}${right.length ? `<div class="col right">${right.map((b) => blockHtml(b, true)).join('')}</div>` : ''}`;
+  // 表（試合結果があれば、勝ち上がりを赤い線で出す）
+  $('pk-sheet').innerHTML = KV.sheetHtml({ B: PL.B, R: PL.R, slots: PL.slots, info, locks: PL.locks, sel: PL.sel, bad, edit: true, prog });
+  $('pk-finals').innerHTML = KV.finalsHtml({ prog, info });
 }
 
 $('pc-body').addEventListener('click', async (e) => {
@@ -1008,6 +1127,28 @@ $('pk-reset').addEventListener('click', async () => {
 $('pk-print').addEventListener('click', () => window.print());
 window.addEventListener('beforeprint', () => { const s = $('pk-sheet'); if (!s || !s.offsetWidth) return; s.parentElement.style.zoom = Math.min(1, 720 / s.scrollWidth, 980 / (s.scrollHeight + 50)); });
 window.addEventListener('afterprint', () => { const s = $('pk-sheet'); if (s) s.parentElement.style.zoom = ''; });
+
+// ── 試合速報の設定 ──────────────────────────────
+let LV = null;
+const liveUrl = (tk) => new URL('bracket-live.html?k=' + encodeURIComponent(tk), location.href).href;
+function renderLive() {
+  if (!LV) return;
+  $('lv-name').value = LV.live_name || ''; $('lv-on').checked = !!LV.live_on;
+  $('lv-count').textContent = `この大会名でタイマーから届いている速報: ${LV.live_count}件`;
+  $('lv-url-wrap').style.display = LV.live_on && LV.live_token ? '' : 'none';
+  $('lv-url').value = LV.live_token ? liveUrl(LV.live_token) : '';
+}
+// ほかの操作を止めないよう、ここだけは直接呼ぶ（失敗しても画面は使える）
+async function loadLive() { try { const { data } = await sb.rpc('kw_bracket_live_get', { p_tournament: T }); if (data && data.ok) { LV = data; renderLive(); } } catch (_) {} }
+async function saveLive(rotate) {
+  const d = await call('kw_bracket_live_set', { p_tournament: T, p_name: $('lv-name').value.trim(), p_on: $('lv-on').checked, p_rotate: !!rotate });
+  if (!d) return;
+  LV = d; renderLive(); toast(rotate ? 'URL を作り直しました。前の URL は使えません。' : '速報の設定を保存しました', 'ok');
+  if (PL && !PL.dirty) await openClass(PL.cls);
+}
+$('lv-save').addEventListener('click', () => saveLive(false));
+$('lv-rotate').addEventListener('click', () => { if (confirm('速報ページの URL を作り直します。いま配っている URL は見られなくなります。よろしいですか？')) saveLive(true); });
+$('lv-copy').addEventListener('click', async () => { $('lv-url').select(); try { await navigator.clipboard.writeText($('lv-url').value); toast('URL をコピーしました', 'ok'); } catch (_) { toast('コピーできませんでした。URL を選んでコピーしてください。', 'ng'); } });
 
 init();
 </script>
