@@ -4,7 +4,8 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Karate Win｜編成（トーナメント表）</title>
-<!-- admin-bracket.html v1.0 (2026-11-25): 第2段階 2-1。準備（除外・道場名の名寄せ・編成用クラスへの振り分け）と、ブロック分割・シード指定。 -->
+<!-- admin-bracket.html v1.1 (2026-11-25): 準備の選手一覧に「戦歴」の列と「戦歴のある選手だけ」の絞り込みを追加。
+     v1.0: 第2段階 2-1。準備（除外・道場名の名寄せ・編成用クラスへの振り分け）と、ブロック分割・シード指定。 -->
 <style>
 
   :root{
@@ -119,7 +120,7 @@
   .badge.ng{background:#ffe6e8;color:#9a1020;border:1px solid #d9485a}
   .badge.kumite{background:#e6eeff;color:#0a3a8a;border:1px solid #7aa7e8}
   .badge.kata{background:#ece8ff;color:#3a2a8a;border:1px solid #9a8ae0}
-  .badge.seed{background:#fff0c2;color:#5c4300;border:1px solid #d9a400}
+  .badge.seed{background:#fff0c2;color:#5c4300;border:1px solid #d9a400;white-space:normal}
   .two{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:20px;align-items:start}
   #cl-body td{white-space:nowrap;padding:10px}
   #cl-body td.player{white-space:normal;min-width:9.5em}
@@ -180,9 +181,9 @@
         <div class="card-b">
           <div class="tools">
             <div class="filter-field"><label for="pl-q">選手を探す</label><input type="text" id="pl-q" placeholder="氏名・よみがな・所属" /></div>
-            <div class="filter-field"><label for="pl-only">表示</label><select id="pl-only"><option value="">すべて</option><option value="dup">同じ名前がある選手だけ</option></select></div>
+            <div class="filter-field"><label for="pl-only">表示</label><select id="pl-only"><option value="">すべて</option><option value="dup">同じ名前がある選手だけ</option><option value="hist">戦歴のある選手だけ</option></select></div>
           </div>
-          <div class="scroll"><table><thead><tr><th>氏名</th><th>学年</th><th>性別</th><th>所属</th><th>種目とクラス</th><th>注意</th><th></th></tr></thead><tbody id="pl-body"></tbody></table></div>
+          <div class="scroll"><table><thead><tr><th>氏名</th><th>学年</th><th>性別</th><th>所属</th><th>種目とクラス</th><th>戦歴</th><th>注意</th><th></th></tr></thead><tbody id="pl-body"></tbody></table></div>
           <div id="ex-wrap" style="display:none;margin-top:18px">
             <h3 style="font-size:17px;font-weight:900;margin-bottom:8px">除外した申込 <span class="count-badge" id="ex-count"></span></h3>
             <div class="scroll"><table><thead><tr><th>氏名</th><th>学年</th><th>性別</th><th>所属</th><th></th></tr></thead><tbody id="ex-body"></tbody></table></div>
@@ -239,7 +240,7 @@
       </div>
     </div>
   </div>
-  <div class="ver">編成画面 v1.0</div>
+  <div class="ver">編成画面 v1.1</div>
 </div>
 
 <div id="toast"></div>
@@ -383,15 +384,16 @@ function playerList() {
 function renderPlayers() {
   const q = nkey($('pl-q').value), only = $('pl-only').value;
   const all = playerList();
-  const list = all.filter((p) => (!only || p.dup) && (!q || nkey(p.player_name + p.player_kana + (p.affiliation || '')).includes(q)));
+  const list = all.filter((p) => (only !== 'dup' || p.dup) && (only !== 'hist' || histText(p.history)) && (!q || nkey(p.player_name + p.player_kana + (p.affiliation || '')).includes(q)));
   $('pl-count').textContent = list.length === all.length ? all.length + '名' : list.length + ' / ' + all.length + '名';
   $('pl-body').innerHTML = list.length ? list.map((p) => `<tr>
     <td><span class="player">${esc(p.player_name)}</span><span class="sub">${esc(p.player_kana)}</span></td>
     <td>${esc(p.grade)}</td><td>${esc(p.gender)}</td><td>${esc(p.affiliation || '')}</td>
     <td>${p.events.map((e) => `<div><span class="badge ${e.event}">${EVENT[e.event]}</span> ${esc(className(e.bracket_class_id))}${e.assign_class_id ? ' <span class="sub">申込: ' + esc(className(e.class_id)) + '</span>' : ''}</div>`).join('')}</td>
+    <td>${histText(p.history) ? '<span class="badge seed">' + esc(histText(p.history)) + '</span>' : ''}</td>
     <td>${p.dup ? '<span class="badge warn">同じ名前あり</span>' : ''}</td>
     <td><button class="btn-icon" data-ex="${esc(p.entry_id)}" data-name="${esc(p.player_name)}">除外</button></td></tr>`).join('')
-    : '<tr><td colspan="7" class="empty">当てはまる選手がいません</td></tr>';
+    : '<tr><td colspan="8" class="empty">当てはまる選手がいません</td></tr>';
   $('ex-wrap').style.display = D.excluded.length ? '' : 'none';
   $('ex-count').textContent = D.excluded.length + '件';
   $('ex-body').innerHTML = D.excluded.map((p) => `<tr class="dim"><td><span class="player">${esc(p.player_name)}</span><span class="sub">${esc(p.player_kana)}</span></td>
