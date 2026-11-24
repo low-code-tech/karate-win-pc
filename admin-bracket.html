@@ -4,7 +4,8 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Karate Win｜編成（トーナメント表）</title>
-<!-- admin-bracket.html v1.1 (2026-11-25): 準備の選手一覧に「戦歴」の列と「戦歴のある選手だけ」の絞り込みを追加。
+<!-- admin-bracket.html v1.2 (2026-11-25): 準備の選手一覧を、道場別・クラス別に並べ替え、道場とクラスで絞り込めるようにした。
+     v1.1: 準備の選手一覧に「戦歴」の列と「戦歴のある選手だけ」の絞り込みを追加。
      v1.0: 第2段階 2-1。準備（除外・道場名の名寄せ・編成用クラスへの振り分け）と、ブロック分割・シード指定。 -->
 <style>
 
@@ -126,6 +127,8 @@
   #cl-body td.player{white-space:normal;min-width:9.5em}
   #cl-body td:last-child{white-space:normal}
   @media (max-width:1100px){.two{grid-template-columns:1fr}}
+  tr.grp td{background:#0f1f3d;color:#fff;font-weight:900;font-size:16px;position:sticky;top:44px}
+  tr.grp:hover td{background:#0f1f3d}
   tr.pick{cursor:pointer}
   tr.sel td{background:#e6eeff}
   tr.dim td{color:var(--txt3)}
@@ -181,6 +184,9 @@
         <div class="card-b">
           <div class="tools">
             <div class="filter-field"><label for="pl-q">選手を探す</label><input type="text" id="pl-q" placeholder="氏名・よみがな・所属" /></div>
+            <div class="filter-field"><label for="pl-sort">並べ方</label><select id="pl-sort"><option value="kana">よみがな順</option><option value="dojo">道場別</option><option value="class">クラス別</option></select></div>
+            <div class="filter-field"><label for="pl-dojo">道場</label><select id="pl-dojo"><option value="">すべて</option></select></div>
+            <div class="filter-field"><label for="pl-class">クラス</label><select id="pl-class"><option value="">すべて</option></select></div>
             <div class="filter-field"><label for="pl-only">表示</label><select id="pl-only"><option value="">すべて</option><option value="dup">同じ名前がある選手だけ</option><option value="hist">戦歴のある選手だけ</option></select></div>
           </div>
           <div class="scroll"><table><thead><tr><th>氏名</th><th>学年</th><th>性別</th><th>所属</th><th>種目とクラス</th><th>戦歴</th><th>注意</th><th></th></tr></thead><tbody id="pl-body"></tbody></table></div>
@@ -240,7 +246,7 @@
       </div>
     </div>
   </div>
-  <div class="ver">編成画面 v1.1</div>
+  <div class="ver">編成画面 v1.2</div>
 </div>
 
 <div id="toast"></div>
@@ -381,25 +387,55 @@ function playerList() {
   return list;
 }
 
+// 絞り込みの選択肢を作り直す（選んでいた値は残す）
+function fillSelect(id, items) {
+  const el = $(id), keep = el.value;
+  el.innerHTML = '<option value="">すべて</option>' + items.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join('');
+  el.value = items.some(([v]) => v === keep) ? keep : '';
+}
 function renderPlayers() {
-  const q = nkey($('pl-q').value), only = $('pl-only').value;
+  const q = nkey($('pl-q').value), only = $('pl-only').value, sort = $('pl-sort').value;
   const all = playerList();
-  const list = all.filter((p) => (only !== 'dup' || p.dup) && (only !== 'hist' || histText(p.history)) && (!q || nkey(p.player_name + p.player_kana + (p.affiliation || '')).includes(q)));
+  const dj = new Map(); all.forEach((p) => { const n = (p.affiliation || '').trim() || '（所属なし）'; dj.set(n, (dj.get(n) || 0) + 1); });
+  fillSelect('pl-dojo', [...dj.entries()].sort((a, b) => a[0].localeCompare(b[0], 'ja')).map(([n, c]) => [n, `${n}（${c}名）`]));
+  fillSelect('pl-class', D.classes.filter((c) => c.count > 0).map((c) => [c.id, `${EVENT[c.event]}｜${c.name}（${c.count}名）`]));
+  const fd = $('pl-dojo').value, fc = $('pl-class').value;
+  const dojoOf = (p) => (p.affiliation || '').trim() || '（所属なし）';
+  const list = all.filter((p) => (only !== 'dup' || p.dup) && (only !== 'hist' || histText(p.history))
+    && (!fd || dojoOf(p) === fd) && (!fc || p.events.some((e) => e.bracket_class_id === fc))
+    && (!q || nkey(p.player_name + p.player_kana + (p.affiliation || '')).includes(q)));
   $('pl-count').textContent = list.length === all.length ? all.length + '名' : list.length + ' / ' + all.length + '名';
-  $('pl-body').innerHTML = list.length ? list.map((p) => `<tr>
+  const row = (p) => `<tr>
     <td><span class="player">${esc(p.player_name)}</span><span class="sub">${esc(p.player_kana)}</span></td>
     <td>${esc(p.grade)}</td><td>${esc(p.gender)}</td><td>${esc(p.affiliation || '')}</td>
     <td>${p.events.map((e) => `<div><span class="badge ${e.event}">${EVENT[e.event]}</span> ${esc(className(e.bracket_class_id))}${e.assign_class_id ? ' <span class="sub">申込: ' + esc(className(e.class_id)) + '</span>' : ''}</div>`).join('')}</td>
     <td>${histText(p.history) ? '<span class="badge seed">' + esc(histText(p.history)) + '</span>' : ''}</td>
     <td>${p.dup ? '<span class="badge warn">同じ名前あり</span>' : ''}</td>
-    <td><button class="btn-icon" data-ex="${esc(p.entry_id)}" data-name="${esc(p.player_name)}">除外</button></td></tr>`).join('')
-    : '<tr><td colspan="8" class="empty">当てはまる選手がいません</td></tr>';
+    <td><button class="btn-icon" data-ex="${esc(p.entry_id)}" data-name="${esc(p.player_name)}">除外</button></td></tr>`;
+  const byKana = (a, b) => String(a.player_kana).localeCompare(String(b.player_kana), 'ja');
+  let html = '';
+  if (sort === 'kana') html = list.slice().sort(byKana).map(row).join('');
+  else {
+    // 見出しごとにまとめる。クラス別では、形と組手の両方に出る選手は両方のクラスに出る
+    const groups = new Map();
+    const add = (k, label, order, p) => { if (!groups.has(k)) groups.set(k, { label, order, items: [] }); groups.get(k).items.push(p); };
+    if (sort === 'dojo') list.forEach((p) => add(dojoOf(p), dojoOf(p), dojoOf(p), p));
+    else {
+      const ord = new Map(D.classes.map((c, i) => [c.id, i]));
+      list.forEach((p) => p.events.forEach((e) => { if (fc && e.bracket_class_id !== fc) return;
+        add(e.bracket_class_id, `${EVENT[e.event]}｜${className(e.bracket_class_id)}`, ord.get(e.bracket_class_id), p); }));
+    }
+    const gs = [...groups.values()].sort((a, b) => sort === 'dojo' ? String(a.order).localeCompare(String(b.order), 'ja') : a.order - b.order);
+    html = gs.map((g) => `<tr class="grp"><td colspan="8">${esc(g.label)} <span class="count-badge">${g.items.length}名</span></td></tr>` + g.items.sort(byKana).map(row).join('')).join('');
+  }
+  $('pl-body').innerHTML = html || '<tr><td colspan="8" class="empty">当てはまる選手がいません</td></tr>';
   $('ex-wrap').style.display = D.excluded.length ? '' : 'none';
   $('ex-count').textContent = D.excluded.length + '件';
   $('ex-body').innerHTML = D.excluded.map((p) => `<tr class="dim"><td><span class="player">${esc(p.player_name)}</span><span class="sub">${esc(p.player_kana)}</span></td>
     <td>${esc(p.grade)}</td><td>${esc(p.gender)}</td><td>${esc(p.affiliation || '')}</td>
     <td><button class="btn-icon" data-re="${esc(p.entry_id)}">戻す</button></td></tr>`).join('');
 }
+['pl-sort', 'pl-dojo', 'pl-class'].forEach((id) => $(id).addEventListener('change', renderPlayers));
 $('pl-q').addEventListener('input', renderPlayers);
 $('pl-only').addEventListener('change', renderPlayers);
 $('pl-body').addEventListener('click', async (e) => {
