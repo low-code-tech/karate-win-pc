@@ -4,7 +4,8 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Karate Win｜編成（トーナメント表）</title>
-<!-- admin-bracket.html v2.0 (2026-11-25): 第2段階 2-2。「3 配置と調整」を追加（自動配置、トーナメント表、マウスでの入れ替え、固定、元に戻す、注意の表示、保存、印刷）。
+<!-- admin-bracket.html v2.1 (2026-11-25): よみがなの無い名簿では、氏名の順に並べる。
+     v2.0: 第2段階 2-2。「3 配置と調整」を追加（自動配置、トーナメント表、マウスでの入れ替え、固定、元に戻す、注意の表示、保存、印刷）。
      v1.2: 準備の選手一覧を、道場別・クラス別に並べ替え、道場とクラスで絞り込めるようにした。
      v1.1: 準備の選手一覧に「戦歴」の列と「戦歴のある選手だけ」の絞り込みを追加。
      v1.0: 第2段階 2-1。準備（除外・道場名の名寄せ・編成用クラスへの振り分け）と、ブロック分割・シード指定。 -->
@@ -329,7 +330,7 @@
       </div>
     </div>
   </div>
-  <div class="ver">編成画面 v2.0</div>
+  <div class="ver">編成画面 v2.1</div>
 </div>
 
 <div id="toast"></div>
@@ -650,7 +651,7 @@ function renderPlayers() {
     <td>${histText(p.history) ? '<span class="badge seed">' + esc(histText(p.history)) + '</span>' : ''}</td>
     <td>${p.dup ? '<span class="badge warn">同じ名前あり</span>' : ''}</td>
     <td><button class="btn-icon" data-ex="${esc(p.entry_id)}" data-name="${esc(p.player_name)}">除外</button></td></tr>`;
-  const byKana = (a, b) => String(a.player_kana).localeCompare(String(b.player_kana), 'ja');
+  const byKana = (a, b) => String(a.player_kana || a.player_name).localeCompare(String(b.player_kana || b.player_name), 'ja');
   let html = '';
   if (sort === 'kana') html = list.slice().sort(byKana).map(row).join('');
   else {
@@ -818,7 +819,7 @@ function renderSeeds() {
   $('sd-title').textContent = `シードの指定｜${EVENT[c.event]} ${c.name}`;
   $('sd-sub').textContent = `${c.count}名・${blocksOf(c)}ブロック。戦歴は父兄の入力なので、確かめてから順位を付けてください。シード1〜4は表の4隅に入ります。`;
   const rows = D.rows.filter((r) => r.bracket_class_id === selClass).sort((a, b) =>
-    ((a.seed || 99) - (b.seed || 99)) || ((histText(b.history) ? 1 : 0) - (histText(a.history) ? 1 : 0)) || String(a.player_kana).localeCompare(String(b.player_kana), 'ja'));
+    ((a.seed || 99) - (b.seed || 99)) || ((histText(b.history) ? 1 : 0) - (histText(a.history) ? 1 : 0)) || String(a.player_kana || a.player_name).localeCompare(String(b.player_kana || b.player_name), 'ja'));
   $('sd-body').innerHTML = rows.length ? rows.map((r) => `<tr>
     <td><select class="cell" data-sd="${esc(r.event_id)}" aria-label="${esc(r.player_name)}のシード順位"><option value="">なし</option>
       ${[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `<option value="${n}" ${r.seed === n ? 'selected' : ''}>${n}</option>`).join('')}</select></td>
