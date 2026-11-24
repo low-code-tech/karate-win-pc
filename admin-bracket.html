@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Karate Win｜編成（トーナメント表）</title>
+<!-- admin-bracket.html v1.0 (2026-11-25): 第2段階 2-1。準備（除外・道場名の名寄せ・編成用クラスへの振り分け）と、ブロック分割・シード指定。 -->
+<style>
+
+  :root{
+    --bg:#f2f4f8; --bg2:#ffffff; --line:#d3d9e3; --line2:#7d8798;
+    --txt:#141a26; --txt2:#2c3545; --txt3:#56607a;
+    --gold:#8a4f00; --blue:#0b57d0; --red:#c01f2f; --green:#176b3a; --navy:#0f1f3d;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--txt);min-height:100vh;line-height:1.6;font-size:16px;
+    font-family:"Hiragino Sans","Yu Gothic UI","Yu Gothic","Meiryo",-apple-system,BlinkMacSystemFont,system-ui,sans-serif}
+  button,input,select,textarea{font:inherit;color:inherit}
+  a{color:inherit}
+  header{padding:14px 24px;background:var(--navy);color:#fff;position:sticky;top:0;z-index:100}
+  .header-inner{max-width:1400px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .brand-wrap{display:flex;align-items:center;gap:14px}
+  .brand{font-size:19px;font-weight:900;letter-spacing:2px;color:#f3cf6b}
+  .header-title{font-size:14px;font-weight:700;padding:3px 12px;border-radius:100px;background:#fff;color:var(--navy)}
+  .user-info{display:flex;align-items:center;gap:12px;font-size:14px;color:#d5dcea}
+  .btn-logout{padding:8px 16px;border-radius:8px;background:transparent;border:2px solid #fff;color:#fff;font-size:14px;font-weight:800;cursor:pointer}
+
+  .login-view{min-height:calc(100vh - 60px);display:flex;align-items:center;justify-content:center;padding:40px 24px}
+  .login-card{width:100%;max-width:440px;background:#fff;border:1px solid var(--line);border-radius:16px;padding:36px;box-shadow:0 1px 3px rgba(15,31,61,.08)}
+  .login-card h1{font-size:24px;font-weight:900;margin-bottom:8px;text-align:center}
+  .login-card h1 .grad{color:var(--navy)}
+  .login-sub{text-align:center;color:var(--txt2);font-size:15px;margin-bottom:28px}
+  .field{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
+  .field label{font-size:15px;font-weight:800;color:var(--txt)}
+  .field input,.field select,.field textarea{width:100%;height:48px;padding:0 14px;background:#fff;border:2px solid var(--line2);border-radius:8px;color:var(--txt);font-size:16px;font-weight:600}
+  .field textarea{padding:12px 14px;min-height:100px;height:auto;resize:vertical;line-height:1.6;font-weight:400}
+  .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 4px rgba(11,87,208,.2)}
+  .btn{padding:12px 22px;border-radius:9px;font-weight:800;font-size:15px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;justify-content:center;border:2px solid transparent;white-space:nowrap}
+  .btn-primary{background:var(--navy);color:#fff}
+  .btn-primary:disabled{opacity:.5;cursor:not-allowed}
+  .btn-secondary{background:#fff;border-color:var(--line2);color:var(--txt)}
+  .btn-danger{background:#fff;border-color:var(--red);color:var(--red)}
+  .btn-full{width:100%}
+  .login-msg{margin-top:16px;padding:12px 14px;border-radius:8px;font-size:15px;font-weight:600;line-height:1.6;display:none}
+  .login-msg.error{background:#ffe6e8;border:2px solid #d9485a;color:#9a1020;display:block}
+  .login-msg.ok{background:#dff3e6;border:2px solid #4caf73;color:#0f5a2e;display:block}
+
+  .main-view{max-width:1400px;margin:0 auto;padding:24px}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px}
+  .stat-card{padding:18px 22px;border-radius:14px;background:#fff;border:1px solid var(--line);box-shadow:0 1px 3px rgba(15,31,61,.08)}
+  .stat-label{font-size:15px;color:var(--txt3);font-weight:800;margin-bottom:6px}
+  .stat-value{font-size:32px;font-weight:900;line-height:1.1;color:var(--txt)}
+  .stat-value.gold{color:var(--navy)}
+  .stat-value.blue{color:var(--blue)}
+  .stat-value.red{color:var(--red)}
+
+  .filter-bar{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:24px;box-shadow:0 1px 3px rgba(15,31,61,.08)}
+  .filter-h{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+  .filter-h h2{font-size:19px;font-weight:800;display:flex;align-items:center;gap:10px}
+  .filter-actions{display:flex;gap:8px;flex-wrap:wrap}
+  .btn-sm{padding:10px 16px;font-size:15px}
+  .filter-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px}
+  .filter-field{display:flex;flex-direction:column;gap:6px}
+  .filter-field label{font-size:15px;color:var(--txt);font-weight:800}
+  .filter-field select,.filter-field input{height:46px;padding:0 12px;background:#fff;border:2px solid var(--line2);border-radius:8px;color:var(--txt);font-size:16px;font-weight:600}
+  .filter-field select:focus,.filter-field input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 4px rgba(11,87,208,.2)}
+
+  .table-wrap{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(15,31,61,.08)}
+  .table-head{padding:16px 20px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);flex-wrap:wrap;gap:12px}
+  .table-head h3{font-size:18px;font-weight:800}
+  .count-badge{padding:3px 12px;border-radius:100px;background:#e6eeff;border:1px solid #7aa7e8;color:#0a3a8a;font-size:14px;font-weight:800;margin-left:8px}
+  .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  table{width:100%;border-collapse:collapse;min-width:1000px}
+  th,td{padding:12px 14px;text-align:left;border-bottom:1px solid var(--line);font-size:15px;vertical-align:middle}
+  th{background:#eef1f6;color:var(--txt2);font-size:14px;font-weight:800;white-space:nowrap}
+  tbody tr:hover{background:#f6f8fc}
+  tr.off td{color:var(--txt3);background:#f6f7f9}
+  td.center,th.center{text-align:center}
+  .player{font-weight:800;font-size:16px}
+  .kana{color:var(--txt3);font-size:13px;font-weight:600}
+  .badge{display:inline-block;padding:2px 10px;border-radius:100px;font-size:13px;font-weight:800;white-space:nowrap}
+  .badge.male{background:#e6eeff;color:#0a3a8a;border:1px solid #7aa7e8}
+  .badge.female{background:#ffe9ee;color:#a0143a;border:1px solid #e58aa0}
+  .badge.ok{background:#dff3e6;color:#0f5a2e;border:1px solid #4caf73}
+  .badge.off{background:#e6e9ef;color:#3f4960;border:1px solid #9aa3b5}
+  .row-actions{display:flex;gap:6px;justify-content:flex-end}
+  .btn-icon{padding:7px 14px;border-radius:7px;font-size:14px;font-weight:800;cursor:pointer;background:#fff;border:2px solid var(--line2);color:var(--txt)}
+  .btn-icon.edit:hover{border-color:var(--blue);color:var(--blue)}
+  .empty-row{padding:40px;text-align:center;color:var(--txt3);font-size:16px}
+
+    #toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:12px 24px;border-radius:100px;font-size:15px;font-weight:700;z-index:9500;opacity:0;pointer-events:none;transition:opacity .3s;max-width:90vw;text-align:center}
+  #toast.on{opacity:1}
+  #toast.ok{background:#0f3d22}
+  #toast.ng{background:#8a1020}
+  #toast.warn{background:#6b4300}
+
+  .bar{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:18px;box-shadow:0 1px 3px rgba(15,31,61,.08);display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap}
+  .bar .filter-field{min-width:320px;flex:1}
+  .note{padding:12px 16px;border-radius:10px;font-size:15px;font-weight:700;line-height:1.7;margin-bottom:18px}
+  .note.warn{background:#fff4d6;border:2px solid #d9a400;color:#5c4300}
+  .note.info{background:#e6eeff;border:2px solid #7aa7e8;color:#0a3a8a}
+  .steps{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+  .step{padding:12px 18px;border-radius:10px;border:2px solid var(--line2);background:#fff;font-size:16px;font-weight:800;cursor:pointer;color:var(--txt)}
+  .step.on{background:var(--navy);border-color:var(--navy);color:#fff}
+  .step:disabled{cursor:not-allowed;color:var(--txt3);background:#eef1f6;border-color:var(--line)}
+  .step small{display:block;font-size:12px;font-weight:700}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;margin-bottom:20px;box-shadow:0 1px 3px rgba(15,31,61,.08);overflow:hidden}
+  .card-h{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  .card-h h3{font-size:19px;font-weight:900}
+  .card-h p{font-size:15px;color:var(--txt2);width:100%}
+  .card-b{padding:16px 20px}
+  .tools{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px}
+  .tools .filter-field{min-width:220px}
+  .card table{min-width:0}
+  .scroll{max-height:560px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+  .scroll th{position:sticky;top:0;z-index:1}
+  td .sub{display:block;color:var(--txt3);font-size:13px;font-weight:600}
+  .badge.warn{background:#fff4d6;color:#5c4300;border:1px solid #d9a400}
+  .badge.ng{background:#ffe6e8;color:#9a1020;border:1px solid #d9485a}
+  .badge.kumite{background:#e6eeff;color:#0a3a8a;border:1px solid #7aa7e8}
+  .badge.kata{background:#ece8ff;color:#3a2a8a;border:1px solid #9a8ae0}
+  .badge.seed{background:#fff0c2;color:#5c4300;border:1px solid #d9a400}
+  .two{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:20px;align-items:start}
+  #cl-body td{white-space:nowrap;padding:10px}
+  #cl-body td.player{white-space:normal;min-width:9.5em}
+  #cl-body td:last-child{white-space:normal}
+  @media (max-width:1100px){.two{grid-template-columns:1fr}}
+  tr.pick{cursor:pointer}
+  tr.sel td{background:#e6eeff}
+  tr.dim td{color:var(--txt3)}
+  select.cell{height:42px;padding:0 10px;border:2px solid var(--line2);border-radius:8px;background:#fff;font-size:16px;font-weight:700}
+  input.num{width:90px;height:46px;padding:0 10px;border:2px solid var(--line2);border-radius:8px;font-size:17px;font-weight:800;text-align:center}
+  input[type=checkbox]{width:22px;height:22px;vertical-align:middle}
+  .ver{text-align:center;color:var(--txt3);font-size:13px;padding:8px 0 30px}
+  .empty{padding:28px;text-align:center;color:var(--txt3);font-size:16px}
+</style>
+</head>
+<body>
+<header>
+  <div class="header-inner">
+    <div class="brand-wrap"><div class="brand">KARATE WIN</div><div class="header-title">編成（トーナメント表）</div></div>
+    <div class="user-info" id="user-info" style="display:none"><span id="user-email"></span><button class="btn-logout" id="btn-logout">ログアウト</button></div>
+  </div>
+</header>
+
+<div class="login-view" id="login-view" style="display:none">
+  <div class="login-card">
+    <h1><span class="grad">運営者ログイン</span></h1>
+    <p class="login-sub">運営、または主催道場の管理者のアカウントで入ってください</p>
+    <div class="field"><label for="login-email">メールアドレス</label><input type="email" id="login-email" autocomplete="username" /></div>
+    <div class="field"><label for="login-password">パスワード</label><input type="password" id="login-password" autocomplete="current-password" /></div>
+    <button class="btn btn-primary btn-full" id="btn-login">ログイン</button>
+    <div class="login-msg" id="login-msg"></div>
+  </div>
+</div>
+
+<div class="main-view" id="main-view" style="display:none">
+  <div class="bar">
+    <div class="filter-field"><label for="tsel">大会</label><select id="tsel"></select></div>
+    <button class="btn btn-secondary" id="reload">読み込み直す</button>
+  </div>
+  <div id="notice"></div>
+
+  <div id="work" style="display:none">
+    <div class="stats" id="stats"></div>
+    <div class="steps">
+      <button class="step on" data-step="prep">1 準備</button>
+      <button class="step" data-step="seed">2 分割とシード</button>
+      <button class="step" disabled>3 初期配置<small>次の回で作ります</small></button>
+      <button class="step" disabled>4 調整<small>次の回で作ります</small></button>
+      <button class="step" disabled>5 ゼッケン<small>このあと作ります</small></button>
+      <button class="step" disabled>6 コートと進行<small>このあと作ります</small></button>
+    </div>
+
+    <!-- ═══ 1 準備 ═══ -->
+    <div id="p-prep">
+      <div class="card">
+        <div class="card-h"><h3>申込の確認と除外 <span class="count-badge" id="pl-count"></span></h3>
+          <p>いたずらや二重の申込を「除外」にします。除外した申込はトーナメント表に入りません。あとで戻せます。</p></div>
+        <div class="card-b">
+          <div class="tools">
+            <div class="filter-field"><label for="pl-q">選手を探す</label><input type="text" id="pl-q" placeholder="氏名・よみがな・所属" /></div>
+            <div class="filter-field"><label for="pl-only">表示</label><select id="pl-only"><option value="">すべて</option><option value="dup">同じ名前がある選手だけ</option></select></div>
+          </div>
+          <div class="scroll"><table><thead><tr><th>氏名</th><th>学年</th><th>性別</th><th>所属</th><th>種目とクラス</th><th>注意</th><th></th></tr></thead><tbody id="pl-body"></tbody></table></div>
+          <div id="ex-wrap" style="display:none;margin-top:18px">
+            <h3 style="font-size:17px;font-weight:900;margin-bottom:8px">除外した申込 <span class="count-badge" id="ex-count"></span></h3>
+            <div class="scroll"><table><thead><tr><th>氏名</th><th>学年</th><th>性別</th><th>所属</th><th></th></tr></thead><tbody id="ex-body"></tbody></table></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><h3>道場名をそろえる <span class="count-badge" id="dj-count"></span></h3>
+          <p>同じ道場なのに書き方が違う名前を、1つにそろえます。同じ道場の選手を離して配置するために使います。そろえたい名前にチェックを入れ、そろえる名前を入れてください。</p></div>
+        <div class="card-b">
+          <div class="scroll" style="max-height:380px"><table><thead><tr><th style="width:50px"></th><th>道場名（申込の表記）</th><th>選手数</th><th>注意</th></tr></thead><tbody id="dj-body"></tbody></table></div>
+          <div class="tools" style="margin-top:14px;margin-bottom:0">
+            <div class="filter-field" style="flex:1"><label for="dj-to">そろえる名前</label><input type="text" id="dj-to" maxlength="60" placeholder="チェックを入れると、選手数の多い名前が入ります" /></div>
+            <button class="btn btn-primary" id="dj-go" disabled>この名前にそろえる</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="as-card">
+        <div class="card-h"><h3>編成用クラスへの振り分け</h3>
+          <p>一部・二部のように、運営が決めるクラスへ選手を移します。移した選手は、移した先のクラスのトーナメント表に入ります。</p></div>
+        <div class="card-b" id="as-b">
+          <div class="tools">
+            <div class="filter-field"><label for="as-from">いまのクラス</label><select id="as-from"></select></div>
+            <div class="filter-field"><label for="as-to">移す先</label><select id="as-to"></select></div>
+            <button class="btn btn-primary" id="as-go" disabled>チェックした選手を移す</button>
+          </div>
+          <div class="scroll" style="max-height:420px"><table><thead><tr><th style="width:50px"><input type="checkbox" id="as-all" aria-label="すべて選ぶ" /></th><th>氏名</th><th>学年</th><th>所属</th><th>申込のクラス</th><th>戦歴</th></tr></thead><tbody id="as-body"></tbody></table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ 2 分割とシード ═══ -->
+    <div id="p-seed" style="display:none">
+      <div class="card">
+        <div class="card-h"><h3>ブロック数の目安</h3>
+          <p>1ブロックが「目安の人数」を超えない最小のブロック数（1・2・4・8）を提案します。クラスごとに下の表で変えられます。</p></div>
+        <div class="card-b"><div class="tools" style="margin-bottom:0">
+          <div class="filter-field" style="min-width:0"><label for="cf-target">1ブロックの目安（名）</label><input class="num" type="number" id="cf-target" min="2" max="64" /></div>
+          <div class="filter-field" style="min-width:0"><label for="cf-max">1ブロックの上限（名）</label><input class="num" type="number" id="cf-max" min="2" max="64" /></div>
+          <button class="btn btn-secondary" id="cf-save">保存して提案し直す</button>
+        </div></div>
+      </div>
+      <div class="two">
+        <div class="card">
+          <div class="card-h"><h3>クラスとブロック数</h3><p>クラスの行を押すと、右にそのクラスの選手が出ます。</p></div>
+          <div class="card-b"><div class="scroll" style="max-height:720px"><table><thead><tr><th>種目</th><th>クラス</th><th>人数</th><th>ブロック数</th><th>1ブロック</th><th>シード</th><th>注意</th></tr></thead><tbody id="cl-body"></tbody></table></div></div>
+        </div>
+        <div class="card">
+          <div class="card-h"><h3 id="sd-title">シードの指定</h3><p id="sd-sub">左の表でクラスを選んでください。</p></div>
+          <div class="card-b"><div class="scroll" style="max-height:720px"><table><thead><tr><th style="width:110px">シード</th><th>氏名</th><th>所属</th><th>戦歴（父兄の入力）</th></tr></thead><tbody id="sd-body"></tbody></table></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="ver">編成画面 v1.0</div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+'use strict';
+const CFG = {
+  SUPABASE_URL: 'https://ocxyycuasswuztjkbwuf.supabase.co',
+  SUPABASE_KEY: 'sb_publishable_fmCxA2UUUZtWdxwBhvhS5w_Z29KVTNp'
+};
+const EVENT = { kumite: '組手', kata: '形' };
+const STATUS = { draft: '下書き', open: '受付中', closed: '締切', finished: '終了' };
+const MSG = {
+  forbidden: 'この大会を編成する権限がありません。運営か、主催道場の管理者のアカウントで入ってください。',
+  no_settings: 'この大会には申込の設定がありません。大会設定画面で保存してください。',
+  not_found: '対象が見つかりません。読み込み直してください。',
+  invalid: '入力の内容を確認してください。',
+  placed: 'このクラスは配置済みのため、ここではブロック数を変えられません。',
+  event_mismatch: '形と組手をまたいで移すことはできません。',
+  class_not_found: '移す先のクラスが見つかりません。',
+  duplicate: '同じ選手の申込が2つになるため、実行できません。先にどちらかを除外してください。'
+};
+let sb = null, currentUser = null, T = '', D = null, step = 'prep', selClass = '', busy = false;
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const nkey = (s) => String(s || '').normalize('NFKC').replace(/\s+/g, '').toLowerCase();
+function toast(msg, kind = '') { const t = $('toast'); t.textContent = msg; t.className = 'on ' + kind; clearTimeout(t._h); t._h = setTimeout(() => { t.className = ''; }, 4200); }
+
+// 関数を呼ぶ。失敗したら日本語で知らせて null を返す
+async function call(fn, args) {
+  if (busy) return null;
+  busy = true;
+  try {
+    const { data, error } = await sb.rpc(fn, args);
+    if (error) throw error;
+    if (!data || data.ok !== true) { toast(MSG[data && data.code] || '実行できませんでした。', 'ng'); return null; }
+    return data;
+  } catch (err) {
+    console.error(fn, err);
+    toast('通信に失敗しました: ' + (err.message || err), 'ng');
+    return null;
+  } finally { busy = false; }
+}
+
+// ── ログイン ──────────────────────────────
+async function init() {
+  try {
+    sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_KEY);
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) { currentUser = session.user; showMain(); } else showLogin();
+    sb.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) { if (!currentUser) { currentUser = session.user; showMain(); } }
+      else if (event === 'SIGNED_OUT') { currentUser = null; showLogin(); }
+    });
+  } catch (err) { console.error(err); toast('初期化に失敗しました: ' + err.message, 'ng'); }
+}
+function showLogin() { $('login-view').style.display = ''; $('main-view').style.display = 'none'; $('user-info').style.display = 'none'; }
+async function showMain() {
+  $('login-view').style.display = 'none'; $('main-view').style.display = ''; $('user-info').style.display = 'flex';
+  $('user-email').textContent = (currentUser && currentUser.email) || '';
+  await loadTournaments();
+}
+async function doLogin() {
+  const email = $('login-email').value.trim(), password = $('login-password').value, m = $('login-msg');
+  m.className = 'login-msg';
+  if (!email || !password) { m.textContent = 'メールアドレスとパスワードを入力してください'; m.className = 'login-msg error'; return; }
+  const b = $('btn-login'); b.disabled = true; b.textContent = 'ログイン中...';
+  try {
+    const { error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+  } catch (err) {
+    const msg = String(err.message || err);
+    m.textContent = msg.includes('Invalid login credentials') ? 'メールアドレスまたはパスワードが違います' : msg;
+    m.className = 'login-msg error';
+  } finally { b.disabled = false; b.textContent = 'ログイン'; }
+}
+$('btn-login').addEventListener('click', doLogin);
+$('login-password').addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
+$('btn-logout').addEventListener('click', async () => { if (confirm('ログアウトしますか？')) await sb.auth.signOut(); });
+
+// ── 大会 ──────────────────────────────
+async function loadTournaments() {
+  const [a, b] = await Promise.all([
+    sb.from('tournaments').select('id,name,date_start').order('date_start', { ascending: false }),
+    sb.from('kw_entry_settings').select('tournament_id,entry_status')
+  ]);
+  if (a.error || b.error) { toast('大会の読み込みに失敗しました: ' + ((a.error || b.error).message), 'ng'); return; }
+  const st = new Map((b.data || []).map((r) => [r.tournament_id, r.entry_status]));
+  const list = (a.data || []).filter((t) => st.has(t.id))
+    .sort((x, y) => String(y.date_start || '').localeCompare(String(x.date_start || '')));
+  const keep = T || new URLSearchParams(location.search).get('t') || '';
+  $('tsel').innerHTML = '<option value="">大会を選んでください</option>' + list.map((t) =>
+    `<option value="${esc(t.id)}">${esc(t.name)}${t.date_start ? '（' + esc(t.date_start) + '）' : ''}｜${esc(STATUS[st.get(t.id)] || '')}</option>`).join('');
+  if (!list.length) $('notice').innerHTML = '<div class="note info">申込の設定がある大会がありません。大会設定画面で大会を登録してください。</div>';
+  if (list.some((t) => t.id === keep)) { $('tsel').value = keep; T = keep; await load(); }
+}
+$('tsel').addEventListener('change', async () => { T = $('tsel').value; selClass = ''; D = null; await load(); });
+$('reload').addEventListener('click', async () => { if (T) { await load(); toast('読み込み直しました', 'ok'); } });
+
+async function load() {
+  if (!T) { $('work').style.display = 'none'; $('notice').innerHTML = ''; return; }
+  const d = await call('kw_bracket_overview', { p_tournament: T });
+  if (!d) { $('work').style.display = 'none'; return; }
+  D = d;
+  D.cmap = new Map(D.classes.map((c) => [c.id, c]));
+  $('work').style.display = '';
+  render();
+}
+
+// ── 表示 ──────────────────────────────
+function render() {
+  const s = D.settings.entry_status;
+  $('notice').innerHTML = (s === 'closed' || s === 'finished') ? '' :
+    `<div class="note warn">この大会の受付は「${esc(STATUS[s] || s)}」です。編成の途中で申込が増えたり変わったりしないよう、大会設定画面で「締切」にしてから編成を進めてください。</div>`;
+  const players = new Set(D.rows.map((r) => r.entry_id)).size;
+  const used = D.classes.filter((c) => c.count > 0);
+  const blocks = used.reduce((n, c) => n + (c.block_count || c.suggest), 0);
+  $('stats').innerHTML = [['選手', players + '名'], ['選手のいるクラス', used.length], ['ブロックの合計', blocks], ['除外した申込', D.excluded.length]]
+    .map(([l, v]) => `<div class="stat-card"><div class="stat-label">${l}</div><div class="stat-value">${esc(v)}</div></div>`).join('');
+  document.querySelectorAll('.step[data-step]').forEach((b) => b.classList.toggle('on', b.dataset.step === step));
+  $('p-prep').style.display = step === 'prep' ? '' : 'none';
+  $('p-seed').style.display = step === 'seed' ? '' : 'none';
+  if (step === 'prep') { renderPlayers(); renderDojos(); renderAssign(); } else { renderConfig(); renderClasses(); renderSeeds(); }
+}
+document.querySelectorAll('.step[data-step]').forEach((b) => b.addEventListener('click', () => { step = b.dataset.step; render(); }));
+
+const className = (id) => { const c = D.cmap.get(id); return c ? c.name : '（不明なクラス）'; };
+const histText = (h) => (Array.isArray(h) ? h : []).map((x) => [x.tournament, x.rank].filter(Boolean).join(' ')).filter(Boolean).join(' ／ ');
+
+// 選手ごとにまとめる（形と組手の2行を1人に）
+function playerList() {
+  const m = new Map();
+  D.rows.forEach((r) => { if (!m.has(r.entry_id)) m.set(r.entry_id, { ...r, events: [] }); m.get(r.entry_id).events.push(r); });
+  const list = [...m.values()], cnt = new Map();
+  list.forEach((p) => { const k = nkey(p.player_name); cnt.set(k, (cnt.get(k) || 0) + 1); });
+  list.forEach((p) => { p.dup = cnt.get(nkey(p.player_name)) > 1; });
+  return list;
+}
+
+function renderPlayers() {
+  const q = nkey($('pl-q').value), only = $('pl-only').value;
+  const all = playerList();
+  const list = all.filter((p) => (!only || p.dup) && (!q || nkey(p.player_name + p.player_kana + (p.affiliation || '')).includes(q)));
+  $('pl-count').textContent = list.length === all.length ? all.length + '名' : list.length + ' / ' + all.length + '名';
+  $('pl-body').innerHTML = list.length ? list.map((p) => `<tr>
+    <td><span class="player">${esc(p.player_name)}</span><span class="sub">${esc(p.player_kana)}</span></td>
+    <td>${esc(p.grade)}</td><td>${esc(p.gender)}</td><td>${esc(p.affiliation || '')}</td>
+    <td>${p.events.map((e) => `<div><span class="badge ${e.event}">${EVENT[e.event]}</span> ${esc(className(e.bracket_class_id))}${e.assign_class_id ? ' <span class="sub">申込: ' + esc(className(e.class_id)) + '</span>' : ''}</div>`).join('')}</td>
+    <td>${p.dup ? '<span class="badge warn">同じ名前あり</span>' : ''}</td>
+    <td><button class="btn-icon" data-ex="${esc(p.entry_id)}" data-name="${esc(p.player_name)}">除外</button></td></tr>`).join('')
+    : '<tr><td colspan="7" class="empty">当てはまる選手がいません</td></tr>';
+  $('ex-wrap').style.display = D.excluded.length ? '' : 'none';
+  $('ex-count').textContent = D.excluded.length + '件';
+  $('ex-body').innerHTML = D.excluded.map((p) => `<tr class="dim"><td><span class="player">${esc(p.player_name)}</span><span class="sub">${esc(p.player_kana)}</span></td>
+    <td>${esc(p.grade)}</td><td>${esc(p.gender)}</td><td>${esc(p.affiliation || '')}</td>
+    <td><button class="btn-icon" data-re="${esc(p.entry_id)}">戻す</button></td></tr>`).join('');
+}
+$('pl-q').addEventListener('input', renderPlayers);
+$('pl-only').addEventListener('change', renderPlayers);
+$('pl-body').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-ex]'); if (!b) return;
+  if (!confirm(`「${b.dataset.name}」の申込を除外しますか？\nトーナメント表に入らなくなります。あとで戻せます。`)) return;
+  if (await call('kw_bracket_set_entry_status', { p_entry: b.dataset.ex, p_status: 'excluded' })) { await load(); toast('除外しました', 'ok'); }
+});
+$('ex-body').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-re]'); if (!b) return;
+  if (await call('kw_bracket_set_entry_status', { p_entry: b.dataset.re, p_status: 'applied' })) { await load(); toast('戻しました', 'ok'); }
+});
+
+// 道場名: 申込の表記ごとに数える。空白や全角半角だけが違う表記には印を付ける
+let djPick = new Set();
+function dojoList() {
+  const m = new Map();
+  playerList().forEach((p) => { const n = (p.affiliation || '').trim(); if (!n) return; const x = m.get(n) || { name: n, key: nkey(n), count: 0 }; x.count++; m.set(n, x); });
+  const list = [...m.values()], kc = new Map();
+  list.forEach((x) => kc.set(x.key, (kc.get(x.key) || 0) + 1));
+  list.forEach((x) => { x.variant = kc.get(x.key) > 1; });
+  return list.sort((a, b) => a.key.localeCompare(b.key, 'ja') || b.count - a.count);
+}
+function renderDojos() {
+  const list = dojoList();
+  djPick = new Set([...djPick].filter((n) => list.some((x) => x.name === n)));
+  const none = playerList().filter((p) => !(p.affiliation || '').trim()).length;
+  $('dj-count').textContent = list.length + '件';
+  $('dj-body').innerHTML = (list.length ? list.map((x) => `<tr><td><input type="checkbox" data-dj="${esc(x.name)}" ${djPick.has(x.name) ? 'checked' : ''} aria-label="${esc(x.name)}を選ぶ" /></td>
+    <td class="player">${esc(x.name)}</td><td>${x.count}名</td>
+    <td>${x.variant ? '<span class="badge warn">空白や全角半角だけが違う名前あり</span>' : ''}</td></tr>`).join('')
+    : '<tr><td colspan="4" class="empty">道場名の入った申込がありません</td></tr>')
+    + (none ? `<tr class="dim"><td></td><td>（所属なし）</td><td>${none}名</td><td></td></tr>` : '');
+  $('dj-go').disabled = djPick.size === 0;
+}
+$('dj-body').addEventListener('change', (e) => {
+  const c = e.target.closest('[data-dj]'); if (!c) return;
+  if (c.checked) djPick.add(c.dataset.dj); else djPick.delete(c.dataset.dj);
+  const top = dojoList().filter((x) => djPick.has(x.name)).sort((a, b) => b.count - a.count)[0];
+  $('dj-to').value = top ? top.name : '';
+  $('dj-go').disabled = djPick.size === 0;
+});
+$('dj-go').addEventListener('click', async () => {
+  const to = $('dj-to').value.trim();
+  if (!to) { toast('そろえる名前を入れてください', 'ng'); return; }
+  const from = [...djPick];
+  if (!confirm(`次の ${from.length} 件を「${to}」にそろえます。\n\n${from.join('\n')}\n\nよろしいですか？`)) return;
+  const d = await call('kw_bracket_merge_dojo', { p_tournament: T, p_from: from, p_to: to });
+  if (d) { djPick.clear(); $('dj-to').value = ''; await load(); toast(d.changed + '名の道場名をそろえました', 'ok'); }
+});
+
+// 編成用クラスへの振り分け
+let asPick = new Set();
+function renderAssign() {
+  const has = D.classes.some((c) => c.assign_only);
+  if (!has) {
+    $('as-b').innerHTML = '<div class="empty">この大会には編成用クラスがありません。一部・二部などに分ける大会は、大会設定画面でクラスの区分を「編成用」にして追加してください。</div>';
+    return;
+  }
+  const from = D.classes.filter((c) => c.count > 0);
+  const cur = from.some((c) => c.id === $('as-from').value) ? $('as-from').value : (from[0] ? from[0].id : '');
+  $('as-from').innerHTML = from.map((c) => `<option value="${esc(c.id)}">${EVENT[c.event]}｜${esc(c.name)}（${c.count}名）</option>`).join('') || '<option value="">選手のいるクラスがありません</option>';
+  $('as-from').value = cur;
+  const fc = D.cmap.get(cur);
+  const tos = fc ? D.classes.filter((c) => c.event === fc.event && c.id !== cur).sort((a, b) => (b.assign_only - a.assign_only) || a.sort_order - b.sort_order) : [];
+  const keepTo = $('as-to').value;
+  $('as-to').innerHTML = tos.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}${c.assign_only ? '（編成用）' : ''}｜いま${c.count}名</option>`).join('') + '<option value="__back">申込のクラスに戻す</option>';
+  if ([...$('as-to').options].some((o) => o.value === keepTo)) $('as-to').value = keepTo;
+  const rows = D.rows.filter((r) => r.bracket_class_id === cur);
+  asPick = new Set([...asPick].filter((id) => rows.some((r) => r.event_id === id)));
+  $('as-body').innerHTML = rows.length ? rows.map((r) => `<tr><td><input type="checkbox" data-as="${esc(r.event_id)}" ${asPick.has(r.event_id) ? 'checked' : ''} aria-label="${esc(r.player_name)}を選ぶ" /></td>
+    <td><span class="player">${esc(r.player_name)}</span><span class="sub">${esc(r.player_kana)}</span></td><td>${esc(r.grade)}</td><td>${esc(r.affiliation || '')}</td>
+    <td>${esc(className(r.class_id))}</td><td>${esc(histText(r.history))}</td></tr>`).join('') : '<tr><td colspan="6" class="empty">このクラスに選手がいません</td></tr>';
+  $('as-all').checked = rows.length > 0 && asPick.size === rows.length;
+  $('as-go').disabled = asPick.size === 0;
+  $('as-go').textContent = asPick.size ? `チェックした ${asPick.size}名を移す` : 'チェックした選手を移す';
+}
+$('as-card').addEventListener('change', (e) => {
+  if (e.target.id === 'as-from') { asPick.clear(); renderAssign(); return; }
+  if (e.target.id === 'as-all') { asPick = new Set(e.target.checked ? D.rows.filter((r) => r.bracket_class_id === $('as-from').value).map((r) => r.event_id) : []); renderAssign(); return; }
+  const c = e.target.closest('[data-as]'); if (!c) return;
+  if (c.checked) asPick.add(c.dataset.as); else asPick.delete(c.dataset.as);
+  renderAssign();
+});
+$('as-card').addEventListener('click', async (e) => {
+  if (e.target.id !== 'as-go') return;
+  const to = $('as-to').value, ids = [...asPick];
+  if (!ids.length || !to) return;
+  const d = await call('kw_bracket_assign', { p_event_ids: ids, p_class: to === '__back' ? null : to });
+  if (d) { asPick.clear(); await load(); toast(d.moved + '名を移しました', 'ok'); }
+});
+
+// ── 2 分割とシード ──────────────────────────────
+function renderConfig() { $('cf-target').value = D.settings.block_target; $('cf-max').value = D.settings.block_max; }
+$('cf-save').addEventListener('click', async () => {
+  const t = Number($('cf-target').value), m = Number($('cf-max').value);
+  if (!Number.isInteger(t) || !Number.isInteger(m) || t < 2 || m > 64 || t > m) { toast('目安は2以上、上限は64以下で、目安が上限を超えないように入れてください', 'ng'); return; }
+  if (await call('kw_bracket_set_config', { p_tournament: T, p_target: t, p_max: m })) { await load(); toast('保存しました', 'ok'); }
+});
+
+const blocksOf = (c) => c.block_count || c.suggest;
+function classWarn(c) {
+  const b = blocksOf(c), w = [];
+  if (c.count === 0) return [];
+  if (c.count === 1) w.push(['ng', '1名（試合なし）']);
+  if (Math.ceil(c.count / b) > D.settings.block_max) w.push(['ng', '上限を超えています']);
+  if (b > 1 && c.count < b * 2) w.push(['warn', 'ブロックが多すぎます']);
+  const seeds = D.rows.filter((r) => r.bracket_class_id === c.id && r.seed).map((r) => r.seed).sort((x, y) => x - y);
+  if (seeds.some((s, i) => s !== i + 1)) w.push(['warn', 'シード順位に抜けがあります']);
+  return w;
+}
+function renderClasses() {
+  const list = D.classes.filter((c) => c.count > 0 || c.assign_only);
+  if (!list.some((c) => c.id === selClass)) selClass = (list.find((c) => c.count > 0) || {}).id || '';
+  $('cl-body').innerHTML = list.length ? list.map((c) => {
+    const b = blocksOf(c), lo = Math.floor(c.count / b), hi = Math.ceil(c.count / b), locked = c.state !== 'draft';
+    return `<tr class="pick ${c.id === selClass ? 'sel' : ''} ${c.count ? '' : 'dim'}" data-cl="${esc(c.id)}">
+      <td><span class="badge ${c.event}">${EVENT[c.event]}</span></td>
+      <td class="player">${esc(c.name)}${c.assign_only ? '<span class="sub">編成用</span>' : ''}</td>
+      <td>${c.count}名</td>
+      <td>${c.count ? `<select class="cell" data-bk="${esc(c.id)}" ${locked ? 'disabled' : ''} aria-label="${esc(c.name)}のブロック数">
+        <option value="" ${c.block_count ? '' : 'selected'}>提案どおり（${c.suggest}）</option>
+        ${[1, 2, 4, 8].map((n) => `<option value="${n}" ${c.block_count === n ? 'selected' : ''}>${n}</option>`).join('')}</select>` : ''}</td>
+      <td>${c.count ? (lo === hi ? hi + '名' : lo + '〜' + hi + '名') : ''}</td>
+      <td>${c.seeds ? `<span class="badge seed">${c.seeds}名</span>` : ''}</td>
+      <td>${classWarn(c).map(([k, t]) => `<span class="badge ${k}">${t}</span>`).join(' ')}</td></tr>`;
+  }).join('') : '<tr><td colspan="7" class="empty">選手のいるクラスがありません</td></tr>';
+}
+$('cl-body').addEventListener('click', (e) => {
+  if (e.target.closest('select')) return;
+  const r = e.target.closest('[data-cl]'); if (!r) return;
+  selClass = r.dataset.cl; renderClasses(); renderSeeds();
+});
+$('cl-body').addEventListener('change', async (e) => {
+  const s = e.target.closest('[data-bk]'); if (!s) return;
+  const d = await call('kw_bracket_set_blocks', { p_class: s.dataset.bk, p_blocks: s.value ? Number(s.value) : null });
+  await load(); if (d) toast('ブロック数を保存しました', 'ok');
+});
+
+function renderSeeds() {
+  const c = D.cmap.get(selClass);
+  if (!c) { $('sd-title').textContent = 'シードの指定'; $('sd-sub').textContent = '左の表でクラスを選んでください。'; $('sd-body').innerHTML = ''; return; }
+  $('sd-title').textContent = `シードの指定｜${EVENT[c.event]} ${c.name}`;
+  $('sd-sub').textContent = `${c.count}名・${blocksOf(c)}ブロック。戦歴は父兄の入力なので、確かめてから順位を付けてください。シード1〜4は表の4隅に入ります。`;
+  const rows = D.rows.filter((r) => r.bracket_class_id === selClass).sort((a, b) =>
+    ((a.seed || 99) - (b.seed || 99)) || ((histText(b.history) ? 1 : 0) - (histText(a.history) ? 1 : 0)) || String(a.player_kana).localeCompare(String(b.player_kana), 'ja'));
+  $('sd-body').innerHTML = rows.length ? rows.map((r) => `<tr>
+    <td><select class="cell" data-sd="${esc(r.event_id)}" aria-label="${esc(r.player_name)}のシード順位"><option value="">なし</option>
+      ${[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `<option value="${n}" ${r.seed === n ? 'selected' : ''}>${n}</option>`).join('')}</select></td>
+    <td><span class="player">${esc(r.player_name)}</span><span class="sub">${esc(r.player_kana)}・${esc(r.grade)}</span></td>
+    <td>${esc(r.affiliation || '')}</td><td>${esc(histText(r.history))}</td></tr>`).join('')
+    : '<tr><td colspan="4" class="empty">このクラスに選手がいません</td></tr>';
+}
+$('sd-body').addEventListener('change', async (e) => {
+  const s = e.target.closest('[data-sd]'); if (!s) return;
+  const d = await call('kw_bracket_set_seed', { p_event_id: s.dataset.sd, p_seed: s.value ? Number(s.value) : null });
+  await load();
+  if (d) toast(d.replaced ? `シード${d.seed}を付け替えました（前の選手のシードは外しました）` : (d.seed ? `シード${d.seed}を付けました` : 'シードを外しました'), 'ok');
+});
+
+init();
+</script>
+</body>
+</html>
