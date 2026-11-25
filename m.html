@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex, nofollow" />
+<meta name="referrer" content="no-referrer" />
+<title>Karate Win｜試合速報（トーナメント表）</title>
+<!-- bracket-live.html v1.2 (2026-11-25): 父兄のページの下に「お知らせの設定」を追加（動画のお知らせを受け取る／SMS の配信を止める）。m.html は同じ内容の短い名前の写し。
+     v1.1: 父兄ごとの URL（?g=）に対応。お子さまの表を最初に開き、お子さまの行に印を付け、「お子さまの試合」を一覧で出す。
+     v1.0: 試合速報ページ。URL の合言葉（?k=）を知っている人だけが見られる。表示専用。タイマーで確定した結果を、トーナメント表に赤い線で出す。 -->
+<style>
+  :root{--bg:#f2f4f8;--line:#d3d9e3;--line2:#7d8798;--txt:#141a26;--txt2:#2c3545;--txt3:#56607a;--navy:#0f1f3d;--blue:#0b57d0}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--txt);min-height:100vh;line-height:1.6;font-size:16px;font-family:"Hiragino Sans","Yu Gothic UI","Yu Gothic","Meiryo",-apple-system,BlinkMacSystemFont,system-ui,sans-serif}
+  button,select{font:inherit;color:inherit}
+  header{padding:12px 18px;background:var(--navy);color:#fff}
+  .hd{max-width:1300px;margin:0 auto;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .brand{font-size:18px;font-weight:900;letter-spacing:2px;color:#f3cf6b}
+  .tag{font-size:14px;font-weight:800;padding:3px 12px;border-radius:100px;background:#fff;color:var(--navy)}
+  .tname{font-size:17px;font-weight:800}
+  main{max-width:1300px;margin:0 auto;padding:16px}
+  .bar{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:14px;display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
+  .bar label{display:block;font-size:15px;font-weight:800;margin-bottom:4px}
+  .bar select{height:50px;min-width:260px;max-width:100%;padding:0 12px;border:2px solid var(--line2);border-radius:8px;background:#fff;font-size:17px;font-weight:700}
+  .btn{height:50px;padding:0 18px;border-radius:9px;border:2px solid var(--line2);background:#fff;font-weight:800;font-size:16px;cursor:pointer}
+  .btn.on{background:var(--navy);border-color:var(--navy);color:#fff}
+  .upd{font-size:14px;color:var(--txt2);font-weight:700;margin-left:auto}
+  .msg{padding:26px;text-align:center;font-size:17px;font-weight:700;background:#fff;border:1px solid var(--line);border-radius:14px}
+  .msg.ng{background:#ffe6e8;border:2px solid #d9485a;color:#9a1020}
+  .sheet-wrap{overflow:auto;border:1px solid var(--line);border-radius:14px;padding:16px;background:#fff}
+  .sheet-title{font-size:21px;font-weight:900;text-align:center;margin-bottom:12px}
+  .sheet{display:flex;justify-content:center;align-items:stretch;width:max-content;margin:0 auto}
+  .col{display:flex;flex-direction:column;gap:22px}
+  .mid{width:104px;display:flex;flex-direction:column;justify-content:center;gap:26px;text-align:center;font-weight:900;font-size:15px}
+  .mid span{display:block;padding:8px 4px;border:2px solid var(--txt);border-radius:8px}
+  .blk-h{font-weight:900;font-size:16px;margin-bottom:6px}
+  .col.right .blk-h{text-align:right}
+  .blk-b{display:flex}
+  .col.right .blk-b{flex-direction:row-reverse}
+  .lines{width:262px}
+  .ln{height:46px;display:flex;align-items:center;gap:6px;padding:0 6px;border:1px solid var(--line2);margin-top:-1px;background:#fff}
+  .ln .no{width:42px;font-weight:900;font-size:16px;flex:none}
+  .ln .nm{flex:1;min-width:0;line-height:1.15;font-weight:800;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ln .nm small{display:none}
+  .ln .dj{max-width:84px;font-size:13px;font-weight:700;color:var(--txt2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none}
+  .ln .sd{flex:none;min-width:22px;height:22px;border-radius:11px;background:#fff0c2;border:1px solid #d9a400;color:#5c4300;font-size:13px;font-weight:900;text-align:center;line-height:20px}
+  .ln.empty{background:#f1f3f7;color:var(--txt3)}
+  .ln.lost{color:#7d8798;background:#f6f7f9}
+  .ln.lost .dj{color:#9aa3b5}
+  .ln.champ{background:#fff0c2}
+  .bk-svg{flex:none;display:block}
+  .bk-svg .sc .w{fill:#d0121f}
+  .finals{margin:0 auto 12px;border:2px solid var(--txt);border-collapse:collapse}
+  .finals th,.finals td{padding:8px 14px;border:1px solid var(--line2);font-size:16px;text-align:center;background:#fff;vertical-align:middle}
+  .finals th{background:#eef1f6;white-space:nowrap}
+  .finals td small{display:block;font-size:12px;color:var(--txt3);font-weight:600}
+  .finals td .from{display:block;font-size:12px;color:var(--txt3);font-weight:700}
+  .finals td.w{font-weight:900;color:#d0121f}
+  .finals td.l{color:#7d8798}
+  .finals td.vs{font-weight:900;white-space:nowrap}
+  .finals .tbd{color:var(--txt3)}
+  .podium{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:14px}
+  .podium span{padding:8px 16px;border:2px solid var(--line2);border-radius:10px;font-weight:900;font-size:16px;text-align:center;background:#fff}
+  .podium span:first-child{border-color:#d9a400;background:#fff0c2}
+  .podium b{display:block;font-size:13px;color:var(--txt2)}
+  .podium small{display:block;font-size:12px;color:var(--txt3);font-weight:600}
+  .ln.mine{outline:3px solid var(--blue);outline-offset:-3px;background:#e6eeff;color:var(--txt)}
+  .ln.mine.champ{background:#fff0c2}
+  .ln .me{color:var(--blue);margin-right:3px}
+  .kids{background:#fff;border:2px solid var(--blue);border-radius:14px;padding:14px 16px;margin-bottom:14px}
+  .kids h2{font-size:18px;font-weight:900;margin-bottom:8px}
+  .kid{padding:10px 0;border-top:1px solid var(--line)}
+  .kid:first-of-type{border-top:0}
+  .kid-name{font-size:19px;font-weight:900}
+  .kid-name .rank{display:inline-block;margin-left:8px;padding:2px 12px;border-radius:100px;background:#fff0c2;border:1px solid #d9a400;color:#5c4300;font-size:15px}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+  .chip{min-height:46px;padding:6px 14px;border-radius:9px;border:2px solid var(--line2);background:#fff;font-weight:800;font-size:16px;cursor:pointer;text-align:left}
+  .chip.on{background:var(--navy);border-color:var(--navy);color:#fff}
+  .chip:disabled{cursor:default;color:var(--txt3);background:#f1f3f7;border-color:var(--line)}
+  .chip small{display:block;font-size:12px;font-weight:700}
+  .mlist{list-style:none;margin:4px 0 0}
+  .mlist li{padding:5px 0;font-size:16px;font-weight:700}
+  .mlist b{display:inline-block;min-width:5.5em}
+  .mlist .win{color:#d0121f}
+  .mlist .lose{color:var(--txt3)}
+  .mlist .next{color:var(--blue)}
+  .notice{margin-top:14px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+  .notice h2{font-size:17px;font-weight:900;margin-bottom:6px}
+  .notice p{font-size:15px;line-height:1.8;margin-bottom:10px}
+  .notice .btn{height:auto;min-height:50px;padding:8px 18px}
+  .notice .btn.pri{background:var(--navy);border-color:var(--navy);color:#fff}
+  .foot{margin-top:14px;font-size:14px;color:var(--txt2);line-height:1.8}
+  .ver{text-align:center;color:var(--txt3);font-size:13px;padding:14px 0 26px}
+</style>
+</head>
+<body>
+<header><div class="hd"><span class="brand">KARATE WIN</span><span class="tag">試合速報</span><span class="tname" id="tname"></span></div></header>
+<main>
+  <div class="bar" id="bar" style="display:none">
+    <div><label for="csel">クラス</label><select id="csel"></select></div>
+    <button class="btn" id="fit" aria-pressed="false">全体を画面に収める</button>
+    <button class="btn" id="now">いま更新</button>
+    <span class="upd" id="upd" aria-live="polite"></span>
+  </div>
+  <div class="kids" id="kids" style="display:none"></div>
+  <div class="msg" id="msg">読み込んでいます…</div>
+  <div class="sheet-wrap" id="wrap" style="display:none"><div id="zoom"><div class="sheet-title" id="title"></div><div id="finals"></div><div class="sheet" id="sheet"></div></div></div>
+  <p class="foot" id="foot" style="display:none">赤い線が勝ち上がりです。線の横の数字は得点（形は旗の本数）です。結果は、コートで勝敗が確定すると自動で出ます（20秒ごとに更新）。<br>このページは大会の関係者向けです。URL をほかの人に広めないでください。</p>
+  <div class="notice" id="notice" style="display:none"></div>
+  <div class="ver">試合速報 v1.2</div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+'use strict';
+const CFG = {
+  SUPABASE_URL: 'https://ocxyycuasswuztjkbwuf.supabase.co',
+  SUPABASE_KEY: 'sb_publishable_fmCxA2UUUZtWdxwBhvhS5w_Z29KVTNp',
+  REFRESH_MS: 20000
+};
+// <core> ── トーナメント表の計算（画面とは切り離してある）──────────────
+// 枠の番号は 0 始まり。クラス全体を「ブロック数 × S 枠」の1本のトーナメントとして扱う。
+const KB = (() => {
+  const pow2 = (n) => { let s = 1; while (s < n) s *= 2; return s; };
+  // 枠 → 強さの順位（1 が最上段、2 が最下段、3 が下半分の上端、4 が上半分の下端 …）
+  function seedOrder(n) {
+    let a = [1];
+    while (a.length < n) { const m = a.length * 2, b = []; a.forEach((x, i) => { if (i % 2 === 0) b.push(x, m + 1 - x); else b.push(m + 1 - x, x); }); a = b; }
+    return a;
+  }
+  // 2つの枠が当たる回戦（1 = 1回戦）
+  const meet = (g1, g2) => 32 - Math.clz32(g1 ^ g2);
+  // 表の形。B ブロック、各ブロック R 行。行数が 2・4・8… でないときは、順位の高い枠から1回戦を免除する
+  function layout(B, R) {
+    const S = pow2(R), G = seedOrder(B * S), blocks = [];
+    for (let b = 0; b < B; b++) {
+      const base = b * S, order = []; for (let i = 0; i < S; i++) order.push(base + i);
+      order.sort((x, y) => G[x] - G[y]);
+      const gone = new Set(); order.slice(0, S - R).forEach((g) => gone.add(g ^ 1));
+      const slots = []; for (let i = 0; i < S; i++) if (!gone.has(base + i)) slots.push(base + i);
+      const lineOf = new Map(slots.map((g, i) => [g, i + 1]));
+      // 空き行を置く順番: 順位の高い枠の「最初の相手」になる行から
+      const empty = [], push = (g) => { const l = lineOf.get(g); if (l && !empty.includes(l)) empty.push(l); };
+      order.forEach((g) => {
+        if (!lineOf.has(g)) return;
+        if (lineOf.has(g ^ 1)) { push(g ^ 1); return; }
+        const pair = g >> 1, sib = pair ^ 1; push(sib > pair ? sib * 2 : sib * 2 + 1);
+      });
+      order.slice().reverse().forEach(push);
+      blocks.push({ slots, lineOf, empty });
+    }
+    const slotOfSeed = new Map(); G.forEach((rank, g) => slotOfSeed.set(rank, g));
+    return { B, R, S, G, blocks, slotOfSeed,
+      at: (b, l) => blocks[b].slots[l - 1],
+      where: (g) => { const b = Math.floor(g / S), l = blocks[b].lineOf.get(g); return l ? { b, l } : null; } };
+  }
+  // 各ブロックの人数（ほぼ同じにする。余りは A から）
+  function caps(n, B) { const base = Math.floor(n / B), ex = n % B, a = []; for (let b = 0; b < B; b++) a.push(base + (b < ex ? 1 : 0)); return a; }
+  const key = (b, l) => b + ':' + l;
+  // 1通りの並びを作る
+  function placeOnce(players, B, R, keep, rnd) {
+    const L = layout(B, R), out = new Map(), gOf = new Map(), ids = new Set(players.map((p) => p.id));
+    const put = (b, l, id) => { out.set(key(b, l), id); gOf.set(id, L.at(b, l)); };
+    (keep || new Map()).forEach((id, k) => { const [b, l] = k.split(':').map(Number); if (ids.has(id) && b < B && l <= R && !gOf.has(id)) put(b, l, id); });
+    // シードは決まった位置へ
+    players.filter((p) => p.seed && !gOf.has(p.id)).sort((a, b) => a.seed - b.seed).forEach((p) => {
+      const g = L.slotOfSeed.get(p.seed), w = g == null ? null : L.where(g);
+      if (w && !out.has(key(w.b, w.l))) put(w.b, w.l, p.id);
+    });
+    const cap = caps(players.length, B), used = cap.map(() => 0);
+    out.forEach((id, k) => { used[Number(k.split(':')[0])]++; });
+    for (let b = 0; b < B; b++) cap[b] = Math.max(cap[b], used[b]);
+    // 空けておく行
+    const hold = new Set();
+    for (let b = 0; b < B; b++) { let need = R - cap[b]; for (const l of L.blocks[b].empty) { if (need <= 0) break; if (!out.has(key(b, l))) { hold.add(key(b, l)); need--; } } }
+    // 残りの選手: 人数の多い道場から。道場の中は無作為
+    const size = new Map(); players.forEach((p) => size.set(p.dojo, (size.get(p.dojo) || 0) + 1));
+    const rest = players.filter((p) => !gOf.has(p.id)).map((p) => ({ p, r: rnd() }))
+      .sort((a, b) => (size.get(b.p.dojo) - size.get(a.p.dojo)) || String(a.p.dojo).localeCompare(String(b.p.dojo)) || a.r - b.r).map((x) => x.p);
+    const mates = new Map(); players.forEach((p) => { if (gOf.has(p.id)) { if (!mates.has(p.dojo)) mates.set(p.dojo, []); mates.get(p.dojo).push(gOf.get(p.id)); } });
+    for (const p of rest) {
+      let cands = [];
+      const collect = (strict) => { for (let b = 0; b < B; b++) { if (strict && used[b] >= cap[b]) continue; for (let l = 1; l <= R; l++) { const k = key(b, l); if (!out.has(k) && (!strict || !hold.has(k))) cands.push({ b, l, g: L.at(b, l) }); } } };
+      collect(true); if (!cands.length) collect(false);
+      if (!cands.length) break;   // 行が足りない（呼び出し側で未配置として扱う）
+      const ms = mates.get(p.dojo) || [];
+      let best = [], bs = -1;
+      for (const c of cands) {
+        const far = ms.length ? Math.min(...ms.map((g) => meet(g, c.g))) : 99;            // 同じ道場と当たる回戦（遅いほどよい）
+        const score = far * 1000 + Math.round(100 * (cap[c.b] - used[c.b]) / Math.max(cap[c.b], 1)); // 同点なら空きの多いブロック
+        if (score > bs) { bs = score; best = [c]; } else if (score === bs) best.push(c);
+      }
+      const c = best[Math.floor(rnd() * best.length)];
+      put(c.b, c.l, p.id); used[c.b]++;
+      if (!mates.has(p.dojo)) mates.set(p.dojo, []); mates.get(p.dojo).push(c.g);
+    }
+    return out;
+  }
+  // 並びの悪さ。同じ道場の2人が早い回戦で当たるほど大きい（1回戦で当たる組が最も重い）
+  function cost(L, map, dojoOf) {
+    const by = new Map();
+    map.forEach((id, k) => { const d = dojoOf.get(id); if (!d) return; const [b, l] = k.split(':').map(Number); if (!by.has(d)) by.set(d, []); by.get(d).push(L.at(b, l)); });
+    let c = 0;
+    by.forEach((gs) => { for (let i = 0; i < gs.length; i++) for (let j = i + 1; j < gs.length; j++) c += Math.pow(8, 10 - meet(gs[i], gs[j])); });
+    return c;
+  }
+  // 自動配置。何通りか並べて最もよいものを選び、さらに2人の入れ替えで良くなるところを直す
+  //   players: [{id, dojo, seed}]、keep: 固定した選手 Map("b:l" → id)。戻り値は Map("b:l" → id)
+  function autoPlace(players, B, R, keep, rnd, tries) {
+    rnd = rnd || Math.random;
+    const L = layout(B, R), dojoOf = new Map(players.map((p) => [p.id, p.dojo]));
+    let best = null, bc = Infinity;
+    for (let t = 0; t < (tries || 24); t++) { const m = placeOnce(players, B, R, keep, rnd), c = cost(L, m, dojoOf); if (c < bc) { bc = c; best = m; } if (c === 0) break; }
+    // 動かしてよいのは、固定していない選手と、シードの位置にいない選手
+    const fixed = new Set(); (keep || new Map()).forEach((id) => fixed.add(id));
+    players.forEach((p) => { if (!p.seed) return; const g = L.slotOfSeed.get(p.seed), w = g == null ? null : L.where(g); if (w && best.get(key(w.b, w.l)) === p.id) fixed.add(p.id); });
+    for (let pass = 0; pass < 60 && bc > 0; pass++) {
+      const ks = [...best.keys()].filter((k) => !fixed.has(best.get(k)));
+      let gain = 0, sw = null;
+      for (let i = 0; i < ks.length; i++) for (let j = i + 1; j < ks.length; j++) {
+        const a = best.get(ks[i]), b = best.get(ks[j]); if (dojoOf.get(a) === dojoOf.get(b)) continue;
+        best.set(ks[i], b); best.set(ks[j], a);
+        const c = cost(L, best, dojoOf); if (bc - c > gain) { gain = bc - c; sw = [ks[i], ks[j]]; }
+        best.set(ks[i], a); best.set(ks[j], b);
+      }
+      if (!sw) break;
+      const a = best.get(sw[0]), b = best.get(sw[1]); best.set(sw[0], b); best.set(sw[1], a); bc -= gain;
+    }
+    return best;
+  }
+  // ブロックの線を描くための木。戻り値: {root, matches:[{no, level, y, a, b}]}（y は行の番号で表す）
+  function tree(L, b) {
+    const blk = L.blocks[b], base = b * L.S, matches = [];
+    const build = (lo, size) => {
+      if (size === 1) { const l = blk.lineOf.get(base + lo); return l ? { level: 0, y: l, line: l } : null; }
+      const a = build(lo, size / 2), c = build(lo + size / 2, size / 2);
+      if (!a) return c; if (!c) return a;
+      const m = { level: Math.log2(size), y: (a.y + c.y) / 2, a, b: c }; matches.push(m); return m;
+    };
+    const root = build(0, L.S);
+    matches.sort((x, y) => x.level - y.level || x.y - y.y).forEach((m, i) => { m.no = i + 1; });
+    return { root, matches };
+  }
+  // 注意の一覧。slots: Map("b:l" → id)、info: Map(id → {dojo, seed, name})
+  function analyze(L, slots, info) {
+    const w = { sameDojo: [], emptyPair: [], seedEarly: [], counts: [] };
+    for (let b = 0; b < L.B; b++) {
+      let n = 0;
+      tree(L, b).matches.filter((m) => m.a.line && m.b.line).forEach((m) => {
+        const x = slots.get(key(b, m.a.line)), y = slots.get(key(b, m.b.line));
+        if (!x && !y) w.emptyPair.push({ b, lines: [m.a.line, m.b.line] });
+        else if (x && y && info.get(x) && info.get(y) && info.get(x).dojo && info.get(x).dojo === info.get(y).dojo) w.sameDojo.push({ b, lines: [m.a.line, m.b.line] });
+      });
+      for (let l = 1; l <= L.R; l++) if (slots.get(key(b, l))) n++;
+      w.counts.push(n);
+    }
+    // シード同士が、決まった位置に置いたときより早く当たる
+    const seeded = []; slots.forEach((id, k) => { const i = info.get(id); if (i && i.seed) { const [b, l] = k.split(':').map(Number); seeded.push({ id, seed: i.seed, g: L.at(b, l), b, l }); } });
+    for (let i = 0; i < seeded.length; i++) for (let j = i + 1; j < seeded.length; j++) {
+      const p = seeded[i], q = seeded[j], gp = L.slotOfSeed.get(p.seed), gq = L.slotOfSeed.get(q.seed);
+      if (gp == null || gq == null || p.seed === q.seed) continue;
+      if (meet(p.g, q.g) < meet(gp, gq)) w.seedEarly.push({ a: p, b: q });
+    }
+    return w;
+  }
+  return { pow2, seedOrder, meet, layout, caps, autoPlace, placeOnce, cost, tree, analyze, key };
+})();
+// </core>
+
+// <view> ── トーナメント表の表示と、試合結果の勝ち上がり（編成画面と速報ページで同じものを使う）──
+const KV = (() => {
+  const H = 46, LW = 30, LETTER = 'ABCDEFGH';
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const zek = (B, b, l) => (B === 1 ? '' : LETTER[b]) + l;
+  const pk = (a, b) => (a < b ? a + '|' + b : b + '|' + a);
+  // 結果の一覧 [{a, b, sa, sb, w, reason}] を、2人の組で引ける形にする
+  const resultMap = (list) => { const m = new Map(); (list || []).forEach((r) => { if (r.a && r.b) m.set(pk(r.a, r.b), r); }); return m; };
+  // 勝ち上がりを計算する。空いた行の相手は不戦勝で進む
+  function progress(L, slots, results) {
+    const used = new Set(), blocks = [], all = [];
+    const play = (m, A, Bs) => {
+      m.pa = A.id; m.pb = Bs.id; m.win = null; m.res = null; m.walk = false; all.push(m);
+      if (!A.done || !Bs.done) return { id: null, done: false };
+      if (!A.id && !Bs.id) return { id: null, done: true };
+      if (!A.id || !Bs.id) { m.walk = true; m.win = A.id ? 'a' : 'b'; return { id: A.id || Bs.id, done: true }; }
+      const k = pk(A.id, Bs.id), r = results && results.get(k);
+      if (!r) return { id: null, done: false };
+      used.add(k);
+      const same = r.a === A.id;
+      m.res = { sa: same ? r.sa : r.sb, sb: same ? r.sb : r.sa, reason: r.reason || '' };
+      if (!r.w) return { id: null, done: false };
+      m.win = r.w === A.id ? 'a' : 'b'; return { id: r.w, done: true };
+    };
+    for (let b = 0; b < L.B; b++) {
+      const t = KB.tree(L, b);
+      const ev = (n) => (n.line ? { id: slots.get(KB.key(b, n.line)) || null, done: true } : play(n, ev(n.a), ev(n.b)));
+      blocks.push({ tree: t, top: t.root ? ev(t.root) : { id: null, done: true } });
+    }
+    // 準決勝・決勝。前の試合をたどれるよう、a・b に前の試合（またはブロックの決勝）を持たせる
+    const rounds = []; let cur = blocks.map((x) => x.top), prev = blocks.map((x) => x.tree.root);
+    while (cur.length > 1) {
+      const nx = [], ms = [];
+      for (let i = 0; i < cur.length; i += 2) { const m = { final: true, a: prev[i], b: prev[i + 1] }; nx.push(play(m, cur[i], cur[i + 1])); ms.push(m); }
+      rounds.push(ms); cur = nx; prev = ms;
+    }
+    const loser = (m) => (m && m.win && m.pa && m.pb ? (m.win === 'a' ? m.pb : m.pa) : null);
+    const lost = new Set(); all.forEach((m) => { const x = loser(m); if (x) lost.add(x); });
+    // 入賞者: 不戦勝（相手が空き）の試合は飛ばして、実際に行った最後の試合を決勝・準決勝とみなす
+    const real = (n) => { while (n && !n.line && n.walk) n = n.win === 'a' ? n.a : n.b; return n && !n.line ? n : null; };
+    const fin = real(prev[0]);
+    const semis = fin && fin.win ? [real(fin.a), real(fin.b)].filter(Boolean) : [];
+    const unused = []; if (results) results.forEach((r, k) => { if (!used.has(k)) unused.push(r); });
+    return { blocks, rounds, lost, unused, any: used.size > 0, champion: cur[0] && cur[0].done ? cur[0].id : null,
+      second: loser(fin), thirds: semis.map(loser).filter(Boolean) };
+  }
+  // 表の HTML。o = {B, R, slots, info(id → {name, kana, aff, dojo, seed}), locks, sel, bad, edit, prog, counts}
+  function sheetHtml(o) {
+    const L = KB.layout(o.B, o.R), prog = o.prog, locks = o.locks || new Set(), bad = o.bad || new Set(), mine = o.mine || new Set();
+    const blockHtml = (b, mirror) => {
+      const t = prog ? prog.blocks[b].tree : KB.tree(L, b), levels = Math.log2(L.S), w = levels * LW + 26, hgt = o.R * H, X = (x) => (mirror ? w - x : x), Y = (y) => (y - 0.5) * H;
+      let path = '', red = '', text = '', score = '';
+      const draw = (n) => {
+        if (n.line) return { x: 0, y: Y(n.y) };
+        const a = draw(n.a), c = draw(n.b), x = n.level * LW, y = Y(n.y);
+        path += `M${X(a.x)} ${a.y}H${X(x)}M${X(c.x)} ${c.y}H${X(x)}M${X(x)} ${a.y}V${c.y}`;
+        if (!(prog && n.res)) text += `<text x="${X(x - 5)}" y="${y + 5}" text-anchor="${mirror ? 'start' : 'end'}">${n.no}</text>`;   // 結果が出た試合は、試合番号の代わりに得点を出す
+        if (prog && n.win) { const s = n.win === 'a' ? a : c; red += `M${X(s.x)} ${s.y}H${X(x)}V${y}`; }
+        if (prog && n.res) {
+          const cls = (side) => (n.win === side ? ' class="w"' : '');
+          score += `<text x="${X(x + 5)}" y="${a.y + 15}" text-anchor="${mirror ? 'end' : 'start'}"${cls('a')}>${esc(n.res.sa)}</text><text x="${X(x + 5)}" y="${c.y - 6}" text-anchor="${mirror ? 'end' : 'start'}"${cls('b')}>${esc(n.res.sb)}</text>`;
+        }
+        return { x, y };
+      };
+      if (t.root) { const r = draw(t.root); path += `M${X(r.x)} ${r.y}H${X(r.x + 22)}`; if (prog && prog.blocks[b].top.done && prog.blocks[b].top.id) red += `M${X(r.x)} ${r.y}H${X(r.x + 22)}`; }
+      let lines = '', n = 0;
+      for (let l = 1; l <= o.R; l++) {
+        const k = KB.key(b, l), id = o.slots.get(k), p = id && o.info.get(id);
+        if (p) n++;
+        const cls = ['ln']; if (p) { if (bad.has(k)) cls.push('bad'); if (o.sel === k) cls.push('sel'); if (prog && prog.lost.has(id)) cls.push('lost'); if (prog && prog.champion === id) cls.push('champ'); if (mine.has(id)) cls.push('mine'); } else cls.push('empty');
+        lines += p ? `<div class="${cls.join(' ')}" ${o.edit ? 'draggable="true"' : ''} data-k="${k}" data-dojo="${esc(p.dojo || '')}" title="${esc(p.name)}（${esc(p.aff || '所属なし')}）">
+            <span class="no">${zek(o.B, b, l)}</span>${p.seed ? `<span class="sd" title="シード${p.seed}">${p.seed}</span>` : ''}
+            <span class="nm"><small>${esc(p.kana || '')}</small>${mine.has(id) ? '<span class="me" title="お子さま">★</span>' : ''}${esc(p.name)}</span><span class="dj">${esc(p.aff || '')}</span>
+            ${o.edit ? `<button class="lk ${locks.has(id) ? 'on' : ''}" data-lk="${esc(id)}" title="固定（自動配置で動かさない）" aria-label="${esc(p.name)}を固定" aria-pressed="${locks.has(id)}">固</button>` : ''}</div>`
+          : `<div class="ln empty" data-k="${k}"><span class="no">${zek(o.B, b, l)}</span><span class="nm">（空き）</span></div>`;
+      }
+      return `<div class="blk"><div class="blk-h">${o.B === 1 ? '' : LETTER[b] + ' ブロック　'}${n}名</div><div class="blk-b"><div class="lines">${lines}</div>
+        <svg class="bk-svg" width="${w}" height="${hgt}" viewBox="0 0 ${w} ${hgt}" role="img" aria-label="${o.B === 1 ? '' : LETTER[b] + 'ブロックの'}対戦の線"><path d="${path}" fill="none" stroke="#141a26" stroke-width="2"/><path class="red" d="${red}" fill="none" stroke="#d0121f" stroke-width="5" stroke-linejoin="round"/><g font-size="13" font-weight="700" fill="#2c3545">${text}</g><g class="sc" font-size="13" font-weight="800" fill="#56607a">${score}</g></svg></div></div>`;
+    };
+    const half = o.B / 2, left = [], right = [];
+    for (let b = 0; b < o.B; b++) (o.B === 1 || b < half ? left : right).push(b);
+    const mid = o.B === 1 ? '' : `<div class="mid">${o.B === 2 ? '<span>決勝<br>A − B</span>' : o.B === 4 ? '<span>準決勝①<br>A − B</span><span>決勝</span><span>準決勝②<br>C − D</span>'
+      : '<span>準々決勝<br>A−B・C−D</span><span>準決勝・決勝</span><span>準々決勝<br>E−F・G−H</span>'}</div>`;
+    return `<div class="col">${left.map((b) => blockHtml(b, false)).join('')}</div>${mid}${right.length ? `<div class="col right">${right.map((b) => blockHtml(b, true)).join('')}</div>` : ''}`;
+  }
+  // 準決勝・決勝の結果と入賞者
+  function finalsHtml(o) {
+    const prog = o.prog; if (!prog || !prog.any) return '';
+    const nm = (id) => { const p = id && o.info.get(id); return p ? `${esc(p.name)}<small>${esc(p.aff || '')}</small>` : '<span class="tbd">未定</span>'; };
+    const label = (ri, i) => { const left = prog.rounds.length - ri; const base = left === 1 ? '決勝' : left === 2 ? '準決勝' : '準々決勝'; return base + (prog.rounds[ri].length > 1 ? '①②③④'[i] : ''); };
+    let rows = '';
+    prog.rounds.forEach((ms, ri) => ms.forEach((m, i) => {
+      const span = Math.pow(2, ri), from = (j) => { const s = j * span, e = s + span - 1; return LETTER[s] + (e > s ? '〜' + LETTER[e] : '') + ' の勝者'; };
+      rows += `<tr><th>${label(ri, i)}</th><td class="${m.win === 'a' ? 'w' : m.win ? 'l' : ''}"><span class="from">${from(i * 2)}</span>${nm(m.pa)}</td>
+        <td class="vs">${m.res ? esc(m.res.sa) + ' − ' + esc(m.res.sb) : m.walk ? '不戦勝' : '−'}${m.res && m.res.reason ? `<small>${esc(m.res.reason)}</small>` : ''}</td>
+        <td class="${m.win === 'b' ? 'w' : m.win ? 'l' : ''}"><span class="from">${from(i * 2 + 1)}</span>${nm(m.pb)}</td></tr>`;
+    }));
+    const pod = prog.champion ? `<div class="podium"><span><b>優勝</b>${nm(prog.champion)}</span>${prog.second ? `<span><b>準優勝</b>${nm(prog.second)}</span>` : ''}${prog.thirds.map((id) => `<span><b>3位</b>${nm(id)}</span>`).join('')}</div>` : '';
+    return (rows ? `<table class="finals"><tbody>${rows}</tbody></table>` : '') + pod;
+  }
+  // 1人の選手の試合を、行った順に並べる（父兄のページの「お子さまの試合」に使う）
+  //   state: win 勝ち / lose 負け / walk 不戦勝 / draw 勝敗なし / next これから
+  function path(L, prog, id) {
+    const total = Math.log2(L.S) + Math.log2(L.B), out = [];
+    const name = (g) => { const left = total - g; return left === 0 ? '決勝' : left === 1 ? '準決勝' : left === 2 ? '準々決勝' : g + '回戦'; };
+    const add = (m, g) => {
+      if (m.pa !== id && m.pb !== id) return;
+      const a = m.pa === id, opp = a ? m.pb : m.pa, won = m.win ? (m.win === 'a') === a : null;
+      out.push({ g, round: name(g), no: m.no || null, opp,
+        mine: m.res ? (a ? m.res.sa : m.res.sb) : null, theirs: m.res ? (a ? m.res.sb : m.res.sa) : null, reason: m.res ? m.res.reason : '',
+        state: m.walk ? 'walk' : won === true ? 'win' : won === false ? 'lose' : m.res ? 'draw' : 'next' });
+    };
+    prog.blocks.forEach((b) => b.tree.matches.forEach((m) => add(m, m.level)));
+    prog.rounds.forEach((ms, ri) => ms.forEach((m) => add(m, Math.log2(L.S) + ri + 1)));
+    out.sort((x, y) => x.g - y.g);
+    const rank = prog.champion === id ? '優勝' : prog.second === id ? '準優勝' : prog.thirds.includes(id) ? '3位' : '';
+    return { matches: out, rank, out: prog.lost.has(id) };
+  }
+  return { H, LETTER, esc, zek, pk, resultMap, progress, path, sheetHtml, finalsHtml };
+})();
+// </view>
+
+const EVENT = { kumite: '組手', kata: '形' };
+const $ = (id) => document.getElementById(id);
+const K = new URLSearchParams(location.search).get('k') || '';
+const G = new URLSearchParams(location.search).get('g') || '';   // 父兄ごとの URL
+let sb = null, kids = [], classes = [], cur = new URLSearchParams(location.search).get('c') || '', timer = null, busy = false, fit = false;
+
+function fail(text) { $('msg').textContent = text; $('msg').className = 'msg ng'; $('msg').style.display = ''; $('wrap').style.display = 'none'; $('bar').style.display = 'none'; $('foot').style.display = 'none'; $('kids').style.display = 'none'; $('notice').style.display = 'none'; }
+function note(text) { $('msg').textContent = text; $('msg').className = 'msg'; $('msg').style.display = ''; $('wrap').style.display = 'none'; }
+
+async function load() {
+  if (busy) return; busy = true;
+  try {
+    const { data, error } = G ? await sb.rpc('kw_bracket_my', { p_token: G, p_class: cur || null })
+                              : await sb.rpc('kw_bracket_live', { p_token: K, p_class: cur || null });
+    if (error) throw error;
+    if (!data || data.ok !== true) {
+      if (data && data.code === 'class_not_found' && cur) { cur = ''; busy = false; return load(); }
+      clearInterval(timer);
+      if (data && data.code === 'no_live') { fail('いま公開中の試合速報はありません。大会の当日に、もう一度この URL を開いてください。'); return; }
+      fail('この URL では速報を見られません。公開が終わったか、URL が変わった可能性があります。大会の事務局に確かめてください。'); return;
+    }
+    $('tname').textContent = data.tournament || '';
+    document.title = (data.tournament || 'Karate Win') + '｜試合速報';
+    classes = data.classes || []; kids = data.kids || [];
+    if (!cur && data.bracket) cur = data.bracket.class_id;
+    $('bar').style.display = ''; $('foot').style.display = '';
+    const opt = (ev) => { const l = classes.filter((c) => c.event === ev); return l.length ? `<optgroup label="${EVENT[ev]}">${l.map((c) => `<option value="${KV.esc(c.id)}">${EVENT[ev]}｜${KV.esc(c.name)}</option>`).join('')}</optgroup>` : ''; };
+    $('csel').innerHTML = '<option value="">クラスを選んでください</option>' + opt('kumite') + opt('kata');
+    $('csel').value = classes.some((c) => c.id === cur) ? cur : '';
+    if (!data.bracket) renderKids(null, null, new Map());
+    if (!classes.length) { note('まだ公開されているトーナメント表がありません。'); return; }
+    if (!data.bracket) { note('上の「クラス」から、見たいクラスを選んでください。'); return; }
+    render(data);
+  } catch (err) {
+    console.error(err); $('upd').textContent = '更新できませんでした（通信を確かめてください）';
+  } finally { busy = false; }
+}
+
+function render(d) {
+  const c = classes.find((x) => x.id === d.bracket.class_id), B = d.bracket.block_count, R = d.bracket.rows;
+  const slots = new Map(d.slots.map((s) => [KB.key(s.b, s.p), s.e]));
+  const info = new Map(d.players.map((p) => [p.e, { name: p.name, aff: p.aff, seed: p.seed, dojo: '' }]));
+  const L = KB.layout(B, R), prog = KV.progress(L, slots, KV.resultMap(d.results)), mine = new Set(d.mine || []);
+  renderKids(L, prog, info);
+  $('msg').style.display = 'none'; $('wrap').style.display = '';
+  $('title').textContent = c ? `${EVENT[c.event]} ${c.name}` : '';
+  $('sheet').innerHTML = KV.sheetHtml({ B, R, slots, info, edit: false, prog, mine });
+  $('finals').innerHTML = KV.finalsHtml({ prog, info });
+  const t = new Date(); $('upd').textContent = `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}:${String(t.getSeconds()).padStart(2, '0')} 更新`;
+  applyFit();
+}
+// お子さまの一覧と、いま開いているクラスでの試合（父兄ごとの URL のときだけ）
+function renderKids(L, prog, info) {
+  const el = $('kids');
+  if (!G || !kids.length) { el.style.display = 'none'; return; }
+  const MARK = { win: ['win', '○ 勝ち'], lose: ['lose', '● 負け'], walk: ['win', '不戦勝'], draw: ['', '勝敗はまだ'], next: ['next', 'これから'] };
+  el.style.display = '';
+  el.innerHTML = '<h2>お子さまの試合</h2>' + kids.map((k) => {
+    const chips = k.events.map((ev) => `<button class="chip ${ev.class_id === cur ? 'on' : ''}" data-c="${KV.esc(ev.class_id)}" ${ev.placed ? '' : 'disabled'} aria-pressed="${ev.class_id === cur}">${EVENT[ev.event]}｜${KV.esc(ev.class_name)}${ev.placed ? '' : '<small>表は準備中です</small>'}</button>`).join('');
+    const ev = k.events.find((x) => x.class_id === cur && x.placed);
+    let body = '', rank = '';
+    if (ev && prog) {
+      const p = KV.path(L, prog, ev.e); rank = p.rank;
+      body = '<ul class="mlist">' + (p.matches.length ? p.matches.map((m) => {
+        const [c, t] = MARK[m.state], o = m.opp && info.get(m.opp);
+        const opp = m.state === 'walk' ? '' : o ? `対 ${KV.esc(o.name)}（${KV.esc(o.aff || '')}）` : '相手は未定';
+        const sc = m.mine != null && m.theirs != null ? ` ${KV.esc(m.mine)} − ${KV.esc(m.theirs)}` : '';
+        return `<li class="${c}"><b>${m.round}</b>${t}${sc}　${opp}${m.state === 'next' && m.no ? '（試合' + m.no + '）' : ''}</li>`;
+      }).join('') : '<li>試合はまだ決まっていません</li>') + '</ul>';
+    }
+    return `<div class="kid"><div class="kid-name">${KV.esc(k.name)}${rank ? `<span class="rank">${rank}</span>` : ''}</div><div class="chips">${chips || '出場する種目がありません'}</div>${body}</div>`;
+  }).join('');
+}
+$('kids').addEventListener('click', (e) => { const b = e.target.closest('[data-c]'); if (!b || b.disabled) return; $('csel').value = b.dataset.c; $('csel').dispatchEvent(new Event('change')); });
+// お知らせの設定（父兄ごとの URL のときだけ）
+let NS = null, nsBusy = false;
+function renderNotice() {
+  const el = $('notice'); if (!G || !NS) { el.style.display = 'none'; return; }
+  el.style.display = '';
+  el.innerHTML = '<h2>お知らせの設定</h2>' + (NS.consent
+    ? '<p>お子さまの試合の動画ができたとき、この携帯に SMS でお知らせします（選手会員 月額 税込550円のご案内を含みます）。</p><button class="btn" data-n="stop">SMS の配信を止める</button>'
+    : `<p>${NS.stopped ? 'SMS の配信を止めています。' : ''}お子さまの試合の動画ができたとき、この携帯に SMS でお知らせできます。お知らせには、動画を見られる選手会員（月額 税込550円）のご案内が入ります。あとから止められます。</p><button class="btn pri" data-n="consent">動画ができたら SMS で受け取る</button>${NS.stopped ? '' : ' <button class="btn" data-n="stop">SMS の配信を止める</button>'}`);
+}
+async function loadNotice() { try { const { data } = await sb.rpc('kw_notice_state', { p_token: G }); NS = data && data.ok ? data : null; } catch (_) { NS = null; } renderNotice(); }
+$('notice').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-n]'); if (!b || nsBusy) return;
+  if (b.dataset.n === 'stop' && !confirm('この携帯への SMS の配信を止めます。よろしいですか？')) return;
+  nsBusy = true;
+  try { const { data } = await sb.rpc('kw_notice_set', { p_token: G, p_action: b.dataset.n }); if (data && data.ok) NS = data; } catch (_) {}
+  nsBusy = false; renderNotice();
+});
+// 表の全体を画面の幅に収める（文字は小さくなる）
+function applyFit() {
+  const z = $('zoom'); z.style.zoom = '';
+  if (fit) { const w = $('sheet').scrollWidth, room = $('wrap').clientWidth - 34; if (w > room && room > 0) z.style.zoom = Math.max(0.3, room / w); }
+  $('fit').classList.toggle('on', fit); $('fit').setAttribute('aria-pressed', fit); $('fit').textContent = fit ? '元の大きさに戻す' : '全体を画面に収める';
+}
+$('fit').addEventListener('click', () => { fit = !fit; applyFit(); });
+$('now').addEventListener('click', load);
+$('csel').addEventListener('change', () => {
+  cur = $('csel').value;
+  const u = new URL(location.href); if (cur) u.searchParams.set('c', cur); else u.searchParams.delete('c'); history.replaceState(null, '', u);
+  load();
+});
+window.addEventListener('resize', () => { if (fit) applyFit(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
+
+(function init() {
+  if (G ? G.length < 10 : K.length < 20) { fail('URL が正しくありません。大会の事務局から届いた URL を、そのまま開いてください。'); return; }
+  try { sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_KEY, { auth: { persistSession: false } }); } catch (e) { fail('読み込みに失敗しました。ページを開き直してください。'); return; }
+  load(); if (G) loadNotice();
+  timer = setInterval(() => { if (!document.hidden) load(); }, CFG.REFRESH_MS);
+})();
+</script>
+</body>
+</html>

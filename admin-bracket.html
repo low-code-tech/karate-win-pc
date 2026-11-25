@@ -4,7 +4,9 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Karate Win｜編成（トーナメント表）</title>
-<!-- admin-bracket.html v3.0 (2026-11-25): 試合結果をトーナメント表に載せる（勝ち上がりの赤線・得点・準決勝と決勝・入賞者）。試合速報ページの公開設定を追加。
+<!-- admin-bracket.html v3.2 (2026-11-25): 父兄への SMS（試合速報の URL）を、宛先と文面を確かめてから送れるようにした。
+     v3.1: 父兄ごとの速報ページの URL を発行できるようにした。
+     v3.0: 試合結果をトーナメント表に載せる（勝ち上がりの赤線・得点・準決勝と決勝・入賞者）。試合速報ページの公開設定を追加。
      v2.1: よみがなの無い名簿では、氏名の順に並べる。
      v2.0: 第2段階 2-2。「3 配置と調整」を追加（自動配置、トーナメント表、マウスでの入れ替え、固定、元に戻す、注意の表示、保存、印刷）。
      v1.2: 準備の選手一覧を、道場別・クラス別に並べ替え、道場とクラスで絞り込めるようにした。
@@ -341,6 +343,27 @@
                 <div class="filter-field"><label for="lv-url">速報ページの URL（知っている人だけが見られます）</label><input class="live-url" type="text" id="lv-url" readonly /></div>
                 <div class="live-row"><button class="btn btn-secondary btn-sm" id="lv-copy">URL をコピー</button><button class="btn btn-danger btn-sm" id="lv-rotate">URL を作り直す</button></div>
               </div>
+              <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line)">
+                <p style="font-size:16px;font-weight:900;margin-bottom:4px">父兄ごとの URL</p>
+                <p style="font-size:14px;color:var(--txt2);margin-bottom:10px">開くと、その父兄のお子さまの表と試合が最初に出ます。携帯番号を確認できた父兄に1つずつ発行します。</p>
+                <button class="btn btn-secondary btn-sm" id="my-issue">父兄ごとの URL を発行</button>
+                <p style="font-size:14px;color:var(--txt2);margin-top:10px;line-height:1.8" id="my-info"></p>
+                <a id="my-sample" target="_blank" rel="noopener" style="display:none;font-size:15px;font-weight:800">確認用に1件開く</a>
+              </div>
+              <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line)">
+                <p style="font-size:16px;font-weight:900;margin-bottom:4px">速報の URL を SMS で送る</p>
+                <p style="font-size:14px;color:var(--txt2);margin-bottom:10px">案内に同意した父兄と、一括申込の番号に、父兄ごとの URL を1通ずつ送ります。同じ父兄に2回は送りません。</p>
+                <button class="btn btn-secondary btn-sm" id="sm-check">宛先と文面を確かめる</button>
+                <div id="sm-box" style="display:none;margin-top:12px">
+                  <p style="font-size:14px;line-height:1.9" id="sm-counts"></p>
+                  <pre id="sm-body" style="margin:8px 0;padding:10px;border:2px solid var(--line2);border-radius:8px;background:#f6f8fc;font-size:14px;white-space:pre-wrap;word-break:break-all;font-family:inherit"></pre>
+                  <div class="warns" id="sm-warn"></div>
+                  <div class="filter-field"><label for="sm-test">試し送り（ご自分の携帯番号）</label><input type="tel" id="sm-test" inputmode="numeric" autocomplete="off" placeholder="09012345678" /></div>
+                  <div class="live-row"><button class="btn btn-secondary btn-sm" id="sm-test-go">この番号に1通送る</button></div>
+                  <div class="live-row"><button class="btn btn-primary" id="sm-send" disabled>送信する</button><button class="btn btn-secondary btn-sm" id="sm-retry" style="display:none">失敗した分を送り直す</button></div>
+                  <p style="font-size:15px;font-weight:800;margin-top:10px" id="sm-prog" aria-live="polite"></p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -367,7 +390,7 @@
       </div>
     </div>
   </div>
-  <div class="ver">編成画面 v3.0</div>
+  <div class="ver">編成画面 v3.2</div>
 </div>
 
 <div id="toast"></div>
@@ -576,7 +599,7 @@ const KV = (() => {
   }
   // 表の HTML。o = {B, R, slots, info(id → {name, kana, aff, dojo, seed}), locks, sel, bad, edit, prog, counts}
   function sheetHtml(o) {
-    const L = KB.layout(o.B, o.R), prog = o.prog, locks = o.locks || new Set(), bad = o.bad || new Set();
+    const L = KB.layout(o.B, o.R), prog = o.prog, locks = o.locks || new Set(), bad = o.bad || new Set(), mine = o.mine || new Set();
     const blockHtml = (b, mirror) => {
       const t = prog ? prog.blocks[b].tree : KB.tree(L, b), levels = Math.log2(L.S), w = levels * LW + 26, hgt = o.R * H, X = (x) => (mirror ? w - x : x), Y = (y) => (y - 0.5) * H;
       let path = '', red = '', text = '', score = '';
@@ -597,10 +620,10 @@ const KV = (() => {
       for (let l = 1; l <= o.R; l++) {
         const k = KB.key(b, l), id = o.slots.get(k), p = id && o.info.get(id);
         if (p) n++;
-        const cls = ['ln']; if (p) { if (bad.has(k)) cls.push('bad'); if (o.sel === k) cls.push('sel'); if (prog && prog.lost.has(id)) cls.push('lost'); if (prog && prog.champion === id) cls.push('champ'); } else cls.push('empty');
+        const cls = ['ln']; if (p) { if (bad.has(k)) cls.push('bad'); if (o.sel === k) cls.push('sel'); if (prog && prog.lost.has(id)) cls.push('lost'); if (prog && prog.champion === id) cls.push('champ'); if (mine.has(id)) cls.push('mine'); } else cls.push('empty');
         lines += p ? `<div class="${cls.join(' ')}" ${o.edit ? 'draggable="true"' : ''} data-k="${k}" data-dojo="${esc(p.dojo || '')}" title="${esc(p.name)}（${esc(p.aff || '所属なし')}）">
             <span class="no">${zek(o.B, b, l)}</span>${p.seed ? `<span class="sd" title="シード${p.seed}">${p.seed}</span>` : ''}
-            <span class="nm"><small>${esc(p.kana || '')}</small>${esc(p.name)}</span><span class="dj">${esc(p.aff || '')}</span>
+            <span class="nm"><small>${esc(p.kana || '')}</small>${mine.has(id) ? '<span class="me" title="お子さま">★</span>' : ''}${esc(p.name)}</span><span class="dj">${esc(p.aff || '')}</span>
             ${o.edit ? `<button class="lk ${locks.has(id) ? 'on' : ''}" data-lk="${esc(id)}" title="固定（自動配置で動かさない）" aria-label="${esc(p.name)}を固定" aria-pressed="${locks.has(id)}">固</button>` : ''}</div>`
           : `<div class="ln empty" data-k="${k}"><span class="no">${zek(o.B, b, l)}</span><span class="nm">（空き）</span></div>`;
       }
@@ -628,7 +651,25 @@ const KV = (() => {
     const pod = prog.champion ? `<div class="podium"><span><b>優勝</b>${nm(prog.champion)}</span>${prog.second ? `<span><b>準優勝</b>${nm(prog.second)}</span>` : ''}${prog.thirds.map((id) => `<span><b>3位</b>${nm(id)}</span>`).join('')}</div>` : '';
     return (rows ? `<table class="finals"><tbody>${rows}</tbody></table>` : '') + pod;
   }
-  return { H, LETTER, esc, zek, pk, resultMap, progress, sheetHtml, finalsHtml };
+  // 1人の選手の試合を、行った順に並べる（父兄のページの「お子さまの試合」に使う）
+  //   state: win 勝ち / lose 負け / walk 不戦勝 / draw 勝敗なし / next これから
+  function path(L, prog, id) {
+    const total = Math.log2(L.S) + Math.log2(L.B), out = [];
+    const name = (g) => { const left = total - g; return left === 0 ? '決勝' : left === 1 ? '準決勝' : left === 2 ? '準々決勝' : g + '回戦'; };
+    const add = (m, g) => {
+      if (m.pa !== id && m.pb !== id) return;
+      const a = m.pa === id, opp = a ? m.pb : m.pa, won = m.win ? (m.win === 'a') === a : null;
+      out.push({ g, round: name(g), no: m.no || null, opp,
+        mine: m.res ? (a ? m.res.sa : m.res.sb) : null, theirs: m.res ? (a ? m.res.sb : m.res.sa) : null, reason: m.res ? m.res.reason : '',
+        state: m.walk ? 'walk' : won === true ? 'win' : won === false ? 'lose' : m.res ? 'draw' : 'next' });
+    };
+    prog.blocks.forEach((b) => b.tree.matches.forEach((m) => add(m, m.level)));
+    prog.rounds.forEach((ms, ri) => ms.forEach((m) => add(m, Math.log2(L.S) + ri + 1)));
+    out.sort((x, y) => x.g - y.g);
+    const rank = prog.champion === id ? '優勝' : prog.second === id ? '準優勝' : prog.thirds.includes(id) ? '3位' : '';
+    return { matches: out, rank, out: prog.lost.has(id) };
+  }
+  return { H, LETTER, esc, zek, pk, resultMap, progress, path, sheetHtml, finalsHtml };
 })();
 // </view>
 
@@ -721,7 +762,7 @@ async function loadTournaments() {
   if (!list.length) $('notice').innerHTML = '<div class="note info">申込の設定がある大会がありません。大会設定画面で大会を登録してください。</div>';
   if (list.some((t) => t.id === keep)) { $('tsel').value = keep; T = keep; await load(); }
 }
-$('tsel').addEventListener('change', async () => { if (!leaveOk()) { $('tsel').value = T; return; } PL = null; LV = null; T = $('tsel').value; selClass = ''; D = null; await load(); });
+$('tsel').addEventListener('change', async () => { if (!leaveOk()) { $('tsel').value = T; return; } PL = null; LV = null; SM = null; renderSms(); $('sm-prog').textContent = ''; $('my-info').textContent = ''; $('my-sample').style.display = 'none'; T = $('tsel').value; selClass = ''; D = null; await load(); });
 $('reload').addEventListener('click', async () => { if (!T || !leaveOk()) return; const c = PL && PL.cls; PL = null; LV = null; await load(); if (c && step === 'place') await openClass(c); toast('読み込み直しました', 'ok'); });
 
 async function load() {
@@ -1146,9 +1187,84 @@ async function saveLive(rotate) {
   LV = d; renderLive(); toast(rotate ? 'URL を作り直しました。前の URL は使えません。' : '速報の設定を保存しました', 'ok');
   if (PL && !PL.dirty) await openClass(PL.cls);
 }
+$('my-issue').addEventListener('click', async () => {
+  const d = await call('kw_bracket_my_issue', { p_tournament: T }); if (!d) return;
+  $('my-info').innerHTML = `父兄 ${d.guardians}名（選手 ${d.players}名）に URL があります。今回の発行: ${d.issued}名。<br>案内の SMS を送れる父兄（同意あり・配信停止なし）: ${d.sendable}名。<br>携帯番号の無い選手: ${d.no_phone}名（URL は送れません）。`;
+  const s = $('my-sample'); s.style.display = d.sample_token ? '' : 'none';
+  if (d.sample_token) s.href = new URL('bracket-live.html?g=' + encodeURIComponent(d.sample_token), location.href).href;
+  toast(d.issued ? `${d.issued}名の父兄に URL を発行しました` : '新しく発行する父兄はいませんでした', 'ok');
+  if (LV && !LV.live_on) toast('速報ページが未公開のため、父兄の URL を開いても表は出ません。「速報ページを公開する」を保存してください。', 'warn');
+});
 $('lv-save').addEventListener('click', () => saveLive(false));
 $('lv-rotate').addEventListener('click', () => { if (confirm('速報ページの URL を作り直します。いま配っている URL は見られなくなります。よろしいですか？')) saveLive(true); });
 $('lv-copy').addEventListener('click', async () => { $('lv-url').select(); try { await navigator.clipboard.writeText($('lv-url').value); toast('URL をコピーしました', 'ok'); } catch (_) { toast('コピーできませんでした。URL を選んでコピーしてください。', 'ng'); } });
+
+// ── 父兄への SMS ──────────────────────────────
+const SM_MSG = {
+  forbidden: 'この大会の SMS を送る権限がありません。',
+  too_long: '本文が70文字を超えるため、送れません。短いアドレス（KW_NOTICE_BASE）を設定してください。',
+  sms_not_configured: 'SMS の送信の設定がそろっていません。Edge Function の環境変数（TWILIO_MESSAGING_SID など）を確かめてください。',
+  not_public: '速報ページが未公開です。先に「速報ページを公開する」を保存してください。',
+  bad_phone: '携帯番号（090・080・070 で始まる11桁）を入れてください。',
+  send_failed: '送信に失敗しました。',
+  bad_input: '入力の内容を確かめてください。'
+};
+// Edge Function を呼ぶ。失敗したら { ok:false, code } の形で返す
+async function notify(body) {
+  try {
+    const { data, error } = await sb.functions.invoke('entry-notify', { body: { tournament_id: T, kind: 'live', ...body } });
+    if (!error) return data || { ok: false, code: 'server_error' };
+    try { return await error.context.json(); } catch (_) { return { ok: false, code: 'server_error' }; }
+  } catch (e) { console.error(e); return { ok: false, code: 'server_error' }; }
+}
+let SM = null;
+function renderSms() {
+  if (!SM) { $('sm-box').style.display = 'none'; return; }
+  const c = SM.counts; $('sm-box').style.display = '';
+  $('sm-counts').innerHTML = `<b>これから送る父兄: ${c.to_send}名</b>${c.bulk ? `（うち一括申込の番号 ${c.bulk}名）` : ''}<br>送信済み: ${c.sent}名　／　失敗: ${c.retry}名<br>送らない父兄 — 同意なし: ${c.no_consent}名、配信停止: ${c.stopped}名<br>携帯番号の無い選手: ${c.players_without_phone}名`;
+  $('sm-body').textContent = SM.body + `\n\n（${SM.chars} / ${SM.max}文字。* の12文字は父兄ごとに変わります）`;
+  const w = [];
+  if (!SM.fits) w.push(['ng', `本文が ${SM.chars}文字で、${SM.max}文字を超えています。短いアドレスを設定するまで送れません。`]);
+  if (!SM.ready) w.push(['ng', SM_MSG.sms_not_configured]);
+  if (!c.live_on) w.push(['ng', SM_MSG.not_public]);
+  if (c.no_token) w.push(['warn', `URL を未発行の父兄が ${c.no_token}名います。「父兄ごとの URL を発行」を押してから送ってください。`]);
+  $('sm-warn').innerHTML = w.map(([k, t]) => `<div class="${k}">${esc(t)}</div>`).join('');
+  $('sm-send').disabled = !(SM.fits && SM.ready && c.live_on && c.to_send > 0);
+  $('sm-send').textContent = c.to_send > 0 ? `${c.to_send}名に送信する` : '送る相手がいません';
+  $('sm-retry').style.display = c.retry > 0 && SM.fits && SM.ready ? '' : 'none';
+  $('sm-retry').textContent = `失敗した ${c.retry}名に送り直す`;
+}
+async function checkSms(quiet) {
+  const d = await notify({ action: 'preview' });
+  if (!d.ok) { SM = null; renderSms(); toast(SM_MSG[d.code] || '確かめられませんでした。Edge Function（entry-notify）が置かれているか確かめてください。', 'ng'); return false; }
+  SM = d; renderSms(); if (!quiet) $('sm-prog').textContent = ''; return true;
+}
+$('sm-check').addEventListener('click', () => checkSms(false));
+$('sm-test-go').addEventListener('click', async () => {
+  const phone = $('sm-test').value.trim(); if (!phone) { toast(SM_MSG.bad_phone, 'ng'); return; }
+  const b = $('sm-test-go'); b.disabled = true;
+  const d = await notify({ action: 'test', phone }); b.disabled = false;
+  if (!d.ok) { toast((SM_MSG[d.code] || '送れませんでした。') + (d.detail ? '（' + d.detail + '）' : ''), 'ng'); return; }
+  $('sm-test').value = ''; toast('試し送りをしました。届いた SMS の送信元と URL を確かめてください。', 'ok');
+});
+async function sendSms(retry) {
+  const n = retry ? SM.counts.retry : SM.counts.to_send;
+  if (!confirm(`${n}名の父兄に SMS を送ります。送ったあとは取り消せません。よろしいですか？`)) return;
+  $('sm-send').disabled = true; $('sm-retry').style.display = 'none';
+  let sent = 0, failed = 0;
+  for (let i = 0; i < 200; i++) {
+    const d = await notify({ action: 'send', retry: !!retry });
+    if (!d.ok) { toast(SM_MSG[d.code] || '送信を続けられませんでした。', 'ng'); break; }
+    sent += d.sent; failed += d.failed;
+    $('sm-prog').textContent = `送信中… 成功 ${sent}通、失敗 ${failed}通、残り ${retry ? 0 : d.remaining}名`;
+    if (retry || d.remaining === 0 || d.sent + d.failed === 0) break;
+  }
+  await checkSms(true);
+  $('sm-prog').textContent = `送信が終わりました。成功 ${sent}通、失敗 ${failed}通。`;
+  toast(failed ? `送信しました（失敗 ${failed}通）` : `${sent}通を送信しました`, failed ? 'warn' : 'ok');
+}
+$('sm-send').addEventListener('click', () => sendSms(false));
+$('sm-retry').addEventListener('click', () => sendSms(true));
 
 init();
 </script>
