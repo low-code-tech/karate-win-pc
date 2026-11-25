@@ -1,0 +1,10 @@
+{
+  "redirects": [
+    {
+      "source": "/",
+      "has": [{ "type": "host", "value": "karatewin.com" }],
+      "destination": "https://www.karatewin.com/",
+      "permanent": false
+    }
+  ]
+}
