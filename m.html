@@ -6,7 +6,8 @@
 <meta name="robots" content="noindex, nofollow" />
 <meta name="referrer" content="no-referrer" />
 <title>Karate Win｜試合速報（トーナメント表）</title>
-<!-- bracket-live.html v1.2 (2026-11-25): 父兄のページの下に「お知らせの設定」を追加（動画のお知らせを受け取る／SMS の配信を止める）。m.html は同じ内容の短い名前の写し。
+<!-- bracket-live.html v1.3 (2026-11-27): 父兄のページに「お子さまの動画」（サムネイルと10秒のプレビュー）と選手会員のご案内・マイページへの保存を追加。速報の公開が終わっても、動画のお知らせを受け取った父兄は開ける。
+     v1.2: 父兄のページの下に「お知らせの設定」を追加（動画のお知らせを受け取る／SMS の配信を止める）。m.html は同じ内容の短い名前の写し。
      v1.1: 父兄ごとの URL（?g=）に対応。お子さまの表を最初に開き、お子さまの行に印を付け、「お子さまの試合」を一覧で出す。
      v1.0: 試合速報ページ。URL の合言葉（?k=）を知っている人だけが見られる。表示専用。タイマーで確定した結果を、トーナメント表に赤い線で出す。 -->
 <style>
@@ -90,6 +91,21 @@
   .notice p{font-size:15px;line-height:1.8;margin-bottom:10px}
   .notice .btn{height:auto;min-height:50px;padding:8px 18px}
   .notice .btn.pri{background:var(--navy);border-color:var(--navy);color:#fff}
+  .vids{background:#fff;border:2px solid #d9a400;border-radius:14px;padding:14px 16px;margin-bottom:14px}
+  .vids h2{font-size:18px;font-weight:900;margin-bottom:4px}
+  .vids .lead{font-size:15px;color:var(--txt2);margin-bottom:10px;line-height:1.7}
+  .vgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+  .vcard{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}
+  .vthumb{position:relative;aspect-ratio:16/9;background:#1b2333;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800}
+  .vthumb img,.vthumb video{width:100%;height:100%;object-fit:cover;display:block}
+  .vthumb .ten{position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.7);color:#fff;font-size:13px;font-weight:800;padding:3px 9px;border-radius:6px}
+  .vbody{padding:10px 12px}
+  .vbody .vt{font-size:16px;font-weight:900}
+  .vbody .vs{font-size:14px;color:var(--txt2);margin-top:2px}
+  .vbody .btn{width:100%;margin-top:8px;height:auto;min-height:46px}
+  .cta{margin-top:12px;padding:14px;border-radius:12px;background:#fff7dc;border:1px solid #d9a400}
+  .cta p{font-size:16px;font-weight:700;line-height:1.7;margin-bottom:10px}
+  .cta a{display:flex;align-items:center;justify-content:center;min-height:54px;border-radius:10px;background:var(--navy);color:#fff;font-size:17px;font-weight:900;text-decoration:none;padding:6px 14px;text-align:center}
   .foot{margin-top:14px;font-size:14px;color:var(--txt2);line-height:1.8}
   .ver{text-align:center;color:var(--txt3);font-size:13px;padding:14px 0 26px}
 </style>
@@ -104,11 +120,12 @@
     <span class="upd" id="upd" aria-live="polite"></span>
   </div>
   <div class="kids" id="kids" style="display:none"></div>
+  <div class="vids" id="vids" style="display:none"></div>
   <div class="msg" id="msg">読み込んでいます…</div>
   <div class="sheet-wrap" id="wrap" style="display:none"><div id="zoom"><div class="sheet-title" id="title"></div><div id="finals"></div><div class="sheet" id="sheet"></div></div></div>
   <p class="foot" id="foot" style="display:none">赤い線が勝ち上がりです。線の横の数字は得点（形は旗の本数）です。結果は、コートで勝敗が確定すると自動で出ます（20秒ごとに更新）。<br>このページは大会の関係者向けです。URL をほかの人に広めないでください。</p>
   <div class="notice" id="notice" style="display:none"></div>
-  <div class="ver">試合速報 v1.2</div>
+  <div class="ver">試合速報 v1.3</div>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
@@ -116,7 +133,8 @@
 const CFG = {
   SUPABASE_URL: 'https://ocxyycuasswuztjkbwuf.supabase.co',
   SUPABASE_KEY: 'sb_publishable_fmCxA2UUUZtWdxwBhvhS5w_Z29KVTNp',
-  REFRESH_MS: 20000
+  REFRESH_MS: 20000,
+  SPECTATOR: 'https://karate-spectator.vercel.app'   // 観客アプリ（マイページ）の場所
 };
 // <core> ── トーナメント表の計算（画面とは切り離してある）──────────────
 // 枠の番号は 0 始まり。クラス全体を「ブロック数 × S 枠」の1本のトーナメントとして扱う。
@@ -395,7 +413,7 @@ const K = new URLSearchParams(location.search).get('k') || '';
 const G = new URLSearchParams(location.search).get('g') || '';   // 父兄ごとの URL
 let sb = null, kids = [], classes = [], cur = new URLSearchParams(location.search).get('c') || '', timer = null, busy = false, fit = false;
 
-function fail(text) { $('msg').textContent = text; $('msg').className = 'msg ng'; $('msg').style.display = ''; $('wrap').style.display = 'none'; $('bar').style.display = 'none'; $('foot').style.display = 'none'; $('kids').style.display = 'none'; $('notice').style.display = 'none'; }
+function fail(text) { $('msg').textContent = text; $('msg').className = 'msg ng'; $('msg').style.display = ''; $('wrap').style.display = 'none'; $('bar').style.display = 'none'; $('foot').style.display = 'none'; $('kids').style.display = 'none'; }   // お知らせの設定と動画は、それぞれの読み込みで出し分ける
 function note(text) { $('msg').textContent = text; $('msg').className = 'msg'; $('msg').style.display = ''; $('wrap').style.display = 'none'; }
 
 async function load() {
@@ -407,7 +425,9 @@ async function load() {
     if (!data || data.ok !== true) {
       if (data && data.code === 'class_not_found' && cur) { cur = ''; busy = false; return load(); }
       clearInterval(timer);
-      if (data && data.code === 'no_live') { fail('いま公開中の試合速報はありません。大会の当日に、もう一度この URL を開いてください。'); return; }
+      if (data && data.code === 'no_live') {
+        NOLIVE = true; showEnded(); return;
+      }
       fail('この URL では速報を見られません。公開が終わったか、URL が変わった可能性があります。大会の事務局に確かめてください。'); return;
     }
     $('tname').textContent = data.tournament || '';
@@ -463,6 +483,43 @@ function renderKids(L, prog, info) {
   }).join('');
 }
 $('kids').addEventListener('click', (e) => { const b = e.target.closest('[data-c]'); if (!b || b.disabled) return; $('csel').value = b.dataset.c; $('csel').dispatchEvent(new Event('change')); });
+// お子さまの動画（父兄ごとの URL のときだけ）。サムネイルと10秒のプレビューは、Edge Function が署名した URL（1時間有効）
+let VIDS = [], vidAt = 0, NOLIVE = false;
+// 速報の公開が終わった大会: 動画があれば動画だけを見せる
+function showEnded() {
+  if (G && VIDS.length) { note('試合速報の公開は終わりました。お子さまの動画は上からご覧いただけます。'); $('msg').className = 'msg'; $('bar').style.display = 'none'; $('kids').style.display = 'none'; $('foot').style.display = 'none'; return; }
+  fail('いま公開中の試合速報はありません。大会の当日に、もう一度この URL を開いてください。');
+}
+async function loadVideos() {
+  if (!G) return;
+  try {
+    const r = await fetch(`${CFG.SUPABASE_URL}/functions/v1/kw-mypage`, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: CFG.SUPABASE_KEY }, body: JSON.stringify({ action: 'parent_videos', token: G }) });
+    const j = await r.json().catch(() => null);
+    VIDS = j && j.ok ? (j.videos || []) : []; vidAt = Date.now();
+  } catch (_) { /* 通信できないときは出さない */ }
+  renderVideos(); if (NOLIVE) showEnded();
+}
+function renderVideos() {
+  const el = $('vids');
+  if (!G || !VIDS.length) { el.style.display = 'none'; return; }
+  el.style.display = '';
+  const my = `${CFG.SPECTATOR}/mypage.html?g=${encodeURIComponent(G)}`;
+  el.innerHTML = `<h2>お子さまの動画（${VIDS.length}本）</h2><p class="lead">試合の動画ができました。ここでは最初の10秒をご覧いただけます。</p><div class="vgrid">` + VIDS.map((v, i) => {
+    const sc = v.my_score != null && v.op_score != null ? `${KV.esc(v.my_score)} − ${KV.esc(v.op_score)}` : '';
+    return `<div class="vcard"><div class="vthumb" id="vt${i}">${v.thumb_url ? `<img src="${KV.esc(v.thumb_url)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : '動画'}${v.preview_url ? '<span class="ten">10秒</span>' : ''}</div>
+      <div class="vbody"><div class="vt">${KV.esc(v.kid || '')}　${KV.esc(v.title || '')}</div><div class="vs">${KV.esc(v.class || '')}${v.opponent ? '　対 ' + KV.esc(v.opponent) : ''}${sc ? '　' + sc : ''}</div>
+      ${v.preview_url ? `<button class="btn" data-v="${i}">最初の10秒を見る</button>` : ''}</div></div>`;
+  }).join('') + `</div><div class="cta"><p>動画の全部は、選手会員（月額 税込550円）になるとご覧いただけます。マイページに保存した動画とトーナメント表は、会員の間はいつでも見返せます（期限はありません）。</p><a href="${KV.esc(my)}" rel="noopener">選手会員になって、マイページに保存する</a></div>`;
+}
+$('vids').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-v]'); if (!b) return;
+  if (Date.now() - vidAt > 50 * 60 * 1000) await loadVideos();       // 署名の期限が近ければ取り直す
+  const i = Number(b.dataset.v), v = VIDS[i], box = $('vt' + i); if (!v || !v.preview_url || !box) return;
+  box.innerHTML = `<video src="${KV.esc(v.preview_url)}" controls playsinline autoplay controlslist="nodownload" disablepictureinpicture></video>`;
+  const vd = box.querySelector('video');
+  vd.addEventListener('timeupdate', () => { if (vd.currentTime >= 10) { vd.pause(); vd.currentTime = 10; } });
+  vd.addEventListener('contextmenu', (x) => x.preventDefault());
+});
 // お知らせの設定（父兄ごとの URL のときだけ）
 let NS = null, nsBusy = false;
 function renderNotice() {
@@ -499,7 +556,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) load
 (function init() {
   if (G ? G.length < 10 : K.length < 20) { fail('URL が正しくありません。大会の事務局から届いた URL を、そのまま開いてください。'); return; }
   try { sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_KEY, { auth: { persistSession: false } }); } catch (e) { fail('読み込みに失敗しました。ページを開き直してください。'); return; }
-  load(); if (G) loadNotice();
+  load(); if (G) { loadNotice(); loadVideos(); }
   timer = setInterval(() => { if (!document.hidden) load(); }, CFG.REFRESH_MS);
 })();
 </script>

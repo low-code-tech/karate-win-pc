@@ -4,7 +4,8 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Karate Win｜編成（トーナメント表）</title>
-<!-- admin-bracket.html v3.2 (2026-11-25): 父兄への SMS（試合速報の URL）を、宛先と文面を確かめてから送れるようにした。
+<!-- admin-bracket.html v3.3 (2026-11-27): 準備に「道場の一括申込（Excel）を取り込む」を追加（保護者の携帯番号つき。試してから取り込む）。SMS の欄で2回目（動画ができたお知らせ）を選んで送れるようにした。
+     v3.2: 父兄への SMS（試合速報の URL）を、宛先と文面を確かめてから送れるようにした。
      v3.1: 父兄ごとの速報ページの URL を発行できるようにした。
      v3.0: 試合結果をトーナメント表に載せる（勝ち上がりの赤線・得点・準決勝と決勝・入賞者）。試合速報ページの公開設定を追加。
      v2.1: よみがなの無い名簿では、氏名の順に並べる。
@@ -256,6 +257,21 @@
 
     <!-- ═══ 1 準備 ═══ -->
     <div id="p-prep">
+      <div class="card" id="bk-card">
+        <div class="card-h"><h3>道場の一括申込（Excel）を取り込む</h3>
+          <p>道場から届いた Excel を読み込みます。まず中身を確かめ、問題のない行だけを取り込みます。保護者の携帯番号は必ず入れてもらってください（番号の無い選手の保護者には SMS を送れません）。</p></div>
+        <div class="card-b">
+          <div class="tools">
+            <button class="btn btn-secondary" id="bk-tpl">ひな形をダウンロード</button>
+            <div class="filter-field" style="flex:1"><label for="bk-file">Excel ファイル</label><input type="file" id="bk-file" accept=".xlsx,.xls,.csv" /></div>
+          </div>
+          <div id="bk-res" style="display:none">
+            <div class="warns" id="bk-sum"></div>
+            <div class="scroll" style="max-height:420px"><table><thead><tr><th>行</th><th>選手名</th><th>判定</th><th>携帯</th><th>内容</th></tr></thead><tbody id="bk-body"></tbody></table></div>
+            <div class="tools" style="margin-top:12px;margin-bottom:0"><button class="btn btn-primary" id="bk-go" disabled>取り込む</button><button class="btn btn-secondary" id="bk-clear">やめる</button></div>
+          </div>
+        </div>
+      </div>
       <div class="card">
         <div class="card-h"><h3>申込の確認と除外 <span class="count-badge" id="pl-count"></span></h3>
           <p>いたずらや二重の申込を「除外」にします。除外した申込はトーナメント表に入りません。あとで戻せます。</p></div>
@@ -351,8 +367,9 @@
                 <a id="my-sample" target="_blank" rel="noopener" style="display:none;font-size:15px;font-weight:800">確認用に1件開く</a>
               </div>
               <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line)">
-                <p style="font-size:16px;font-weight:900;margin-bottom:4px">速報の URL を SMS で送る</p>
-                <p style="font-size:14px;color:var(--txt2);margin-bottom:10px">案内に同意した父兄と、一括申込の番号に、父兄ごとの URL を1通ずつ送ります。同じ父兄に2回は送りません。</p>
+                <p style="font-size:16px;font-weight:900;margin-bottom:4px">父兄に SMS を送る</p>
+                <div class="live-row" role="group" aria-label="送る SMS"><button class="btn btn-secondary btn-sm sm-kind" data-k="live" aria-pressed="true">1回目 試合速報の URL</button><button class="btn btn-secondary btn-sm sm-kind" data-k="video" aria-pressed="false">2回目 動画ができたお知らせ</button></div>
+                <p style="font-size:14px;color:var(--txt2);margin-bottom:10px" id="sm-lead"></p>
                 <button class="btn btn-secondary btn-sm" id="sm-check">宛先と文面を確かめる</button>
                 <div id="sm-box" style="display:none;margin-top:12px">
                   <p style="font-size:14px;line-height:1.9" id="sm-counts"></p>
@@ -390,12 +407,13 @@
       </div>
     </div>
   </div>
-  <div class="ver">編成画面 v3.2</div>
+  <div class="ver">編成画面 v3.3</div>
 </div>
 
 <div id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="xlsx.full.min.js"></script>
 <script>
 'use strict';
 const CFG = {
@@ -686,7 +704,8 @@ const MSG = {
   duplicate: '同じ選手の申込が2つになるため、実行できません。先にどちらかを除外してください。',
   conflict: 'ほかの人が先にこのクラスを保存しました。上書きを止めました。「読み込み直す」を押して、最新の表を確かめてください。',
   stale: '除外した選手や、別のクラスへ移した選手が表に残っています。「読み込み直す」を押してください。',
-  invalid_slot: '表の中身に誤りがあります。「読み込み直す」を押してやり直してください。'
+  invalid_slot: '表の中身に誤りがあります。「読み込み直す」を押してやり直してください。',
+  too_many: '一度に取り込めるのは2000行までです。'
 };
 let sb = null, currentUser = null, T = '', D = null, step = 'prep', selClass = '', busy = false;
 const $ = (id) => document.getElementById(id);
@@ -762,7 +781,7 @@ async function loadTournaments() {
   if (!list.length) $('notice').innerHTML = '<div class="note info">申込の設定がある大会がありません。大会設定画面で大会を登録してください。</div>';
   if (list.some((t) => t.id === keep)) { $('tsel').value = keep; T = keep; await load(); }
 }
-$('tsel').addEventListener('change', async () => { if (!leaveOk()) { $('tsel').value = T; return; } PL = null; LV = null; SM = null; renderSms(); $('sm-prog').textContent = ''; $('my-info').textContent = ''; $('my-sample').style.display = 'none'; T = $('tsel').value; selClass = ''; D = null; await load(); });
+$('tsel').addEventListener('change', async () => { if (!leaveOk()) { $('tsel').value = T; return; } bkReset(); PL = null; LV = null; SM = null; renderSms(); $('sm-prog').textContent = ''; $('my-info').textContent = ''; $('my-sample').style.display = 'none'; T = $('tsel').value; selClass = ''; D = null; await load(); });
 $('reload').addEventListener('click', async () => { if (!T || !leaveOk()) return; const c = PL && PL.cls; PL = null; LV = null; await load(); if (c && step === 'place') await openClass(c); toast('読み込み直しました', 'ok'); });
 
 async function load() {
@@ -1212,24 +1231,35 @@ const SM_MSG = {
 // Edge Function を呼ぶ。失敗したら { ok:false, code } の形で返す
 async function notify(body) {
   try {
-    const { data, error } = await sb.functions.invoke('entry-notify', { body: { tournament_id: T, kind: 'live', ...body } });
+    const { data, error } = await sb.functions.invoke('entry-notify', { body: { tournament_id: T, kind: SMK, ...body } });
     if (!error) return data || { ok: false, code: 'server_error' };
     try { return await error.context.json(); } catch (_) { return { ok: false, code: 'server_error' }; }
   } catch (e) { console.error(e); return { ok: false, code: 'server_error' }; }
 }
-let SM = null;
+let SM = null, SMK = 'live';
+const SM_LEAD = {
+  live: '案内に同意した父兄と、一括申込の番号に、父兄ごとの URL を1通ずつ送ります。同じ父兄に2回は送りません。',
+  video: 'お子さまの動画が公開済みで、案内の受け取りに同意した父兄にだけ送ります（一括申込の番号は、ページで「受け取る」を押した父兄だけ）。速報ページを閉じた後でも送れます。動画が増えたら、また押すと新しく対象になった父兄にだけ送ります。'
+};
+function renderSmKind() {
+  document.querySelectorAll('.sm-kind').forEach((b) => { const on = b.dataset.k === SMK; b.setAttribute('aria-pressed', on); b.classList.toggle('btn-primary', on); b.classList.toggle('btn-secondary', !on); });
+  $('sm-lead').textContent = SM_LEAD[SMK];
+}
+document.querySelectorAll('.sm-kind').forEach((b) => b.addEventListener('click', () => { if (SMK === b.dataset.k) return; SMK = b.dataset.k; SM = null; $('sm-prog').textContent = ''; renderSmKind(); renderSms(); }));
+renderSmKind();
 function renderSms() {
   if (!SM) { $('sm-box').style.display = 'none'; return; }
   const c = SM.counts; $('sm-box').style.display = '';
-  $('sm-counts').innerHTML = `<b>これから送る父兄: ${c.to_send}名</b>${c.bulk ? `（うち一括申込の番号 ${c.bulk}名）` : ''}<br>送信済み: ${c.sent}名　／　失敗: ${c.retry}名<br>送らない父兄 — 同意なし: ${c.no_consent}名、配信停止: ${c.stopped}名<br>携帯番号の無い選手: ${c.players_without_phone}名`;
+  $('sm-counts').innerHTML = `<b>これから送る父兄: ${c.to_send}名</b>${c.bulk ? `（うち一括申込の番号 ${c.bulk}名）` : ''}<br>送信済み: ${c.sent}名　／　失敗: ${c.retry}名<br>送らない父兄 — 同意なし: ${c.no_consent}名、配信停止: ${c.stopped}名${SMK === 'video' ? `、動画がまだない: ${c.no_video || 0}名` : ''}<br>携帯番号の無い選手: ${c.players_without_phone}名`;
   $('sm-body').textContent = SM.body + `\n\n（${SM.chars} / ${SM.max}文字。* の12文字は父兄ごとに変わります）`;
   const w = [];
   if (!SM.fits) w.push(['ng', `本文が ${SM.chars}文字で、${SM.max}文字を超えています。短いアドレスを設定するまで送れません。`]);
   if (!SM.ready) w.push(['ng', SM_MSG.sms_not_configured]);
-  if (!c.live_on) w.push(['ng', SM_MSG.not_public]);
+  if (SMK === 'live' && !c.live_on) w.push(['ng', SM_MSG.not_public]);
+  if (SMK === 'video' && !c.live_on && c.to_send > 0) w.push(['warn', '速報ページは閉じています。父兄のページでは、お子さまの動画とお知らせの設定だけが出ます。']);
   if (c.no_token) w.push(['warn', `URL を未発行の父兄が ${c.no_token}名います。「父兄ごとの URL を発行」を押してから送ってください。`]);
   $('sm-warn').innerHTML = w.map(([k, t]) => `<div class="${k}">${esc(t)}</div>`).join('');
-  $('sm-send').disabled = !(SM.fits && SM.ready && c.live_on && c.to_send > 0);
+  $('sm-send').disabled = !(SM.fits && SM.ready && (SMK === 'video' || c.live_on) && c.to_send > 0);
   $('sm-send').textContent = c.to_send > 0 ? `${c.to_send}名に送信する` : '送る相手がいません';
   $('sm-retry').style.display = c.retry > 0 && SM.fits && SM.ready ? '' : 'none';
   $('sm-retry').textContent = `失敗した ${c.retry}名に送り直す`;
@@ -1249,7 +1279,7 @@ $('sm-test-go').addEventListener('click', async () => {
 });
 async function sendSms(retry) {
   const n = retry ? SM.counts.retry : SM.counts.to_send;
-  if (!confirm(`${n}名の父兄に SMS を送ります。送ったあとは取り消せません。よろしいですか？`)) return;
+  if (!confirm(`${n}名の父兄に SMS（${SMK === 'video' ? '動画ができたお知らせ' : '試合速報の URL'}）を送ります。送ったあとは取り消せません。よろしいですか？`)) return;
   $('sm-send').disabled = true; $('sm-retry').style.display = 'none';
   let sent = 0, failed = 0;
   for (let i = 0; i < 200; i++) {
@@ -1265,6 +1295,97 @@ async function sendSms(retry) {
 }
 $('sm-send').addEventListener('click', () => sendSms(false));
 $('sm-retry').addEventListener('click', () => sendSms(true));
+
+// ── 道場の一括申込（Excel）──────────────────────────────
+// 見出しの名前で列を探す（並び順は自由）。携帯番号は画面に出さず、取り込みのときだけ送る
+const BK_COLS = [
+  ['name', ['選手名', '氏名', '名前', '選手氏名']], ['kana', ['よみがな', 'ふりがな', 'フリガナ', 'よみ']],
+  ['grade', ['学年']], ['gender', ['性別']], ['affiliation', ['所属道場', '所属', '道場', '道場名']],
+  ['kumite', ['組手クラス', '組手']], ['kata', ['形クラス', '形']],
+  ['phone', ['保護者の携帯番号', '保護者携帯', '携帯番号', '携帯電話番号', '電話番号', '保護者の携帯電話番号']], ['history', ['戦歴']]
+];
+let BK = null;   // { rows: [...], result }
+function bkReset() { BK = null; $('bk-res').style.display = 'none'; $('bk-file').value = ''; $('bk-body').innerHTML = ''; }
+$('bk-clear').addEventListener('click', bkReset);
+$('bk-tpl').addEventListener('click', () => {
+  if (typeof XLSX === 'undefined') { toast('Excel の部品（xlsx.full.min.js）が読み込めていません。タイマーと同じ場所に置いてください。', 'ng'); return; }
+  const head = ['選手名', 'よみがな', '学年', '性別', '所属道場', '組手クラス', '形クラス', '保護者の携帯番号', '戦歴'];
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([head, ['山田 太郎', 'やまだ たろう', '小学3年生', '男子', '空手道 桜道場', '（下のクラス一覧から）', '', '090-0000-0000', '○○市民大会 優勝']]);
+  ws['!cols'] = head.map((h, i) => ({ wch: [14, 16, 10, 6, 16, 18, 18, 16, 22][i] }));
+  XLSX.utils.book_append_sheet(wb, ws, '申込');
+  const cl = (D ? D.classes : []).map((c) => [EVENT[c.event], c.name]);
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['種目', 'クラス名（この名前のまま入れてください）']].concat(cl)), 'クラス一覧');
+  XLSX.writeFile(wb, '一括申込のひな形.xlsx');
+});
+function bkRead(file) {
+  return new Promise((ok, ng) => {
+    const fr = new FileReader();
+    fr.onload = () => {
+      try {
+        const wb = XLSX.read(new Uint8Array(fr.result), { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
+        // 見出しの行: 「選手名」などがある最初の行
+        const norm = (v) => String(v || '').normalize('NFKC').replace(/\s+/g, '');
+        const hi = aoa.findIndex((r) => r.some((c) => BK_COLS[0][1].map(norm).includes(norm(c))));
+        if (hi < 0) throw new Error('見出しの行（「選手名」など）が見つかりません。ひな形の形にしてください。');
+        const idx = {};
+        BK_COLS.forEach(([k, names]) => { const j = aoa[hi].findIndex((c) => names.map(norm).includes(norm(c))); if (j >= 0) idx[k] = j; });
+        const miss = ['name', 'grade', 'gender', 'affiliation'].filter((k) => idx[k] == null);
+        if (miss.length) throw new Error('列が足りません: ' + miss.map((k) => BK_COLS.find((x) => x[0] === k)[1][0]).join('、'));
+        const rows = [];
+        for (let i = hi + 1; i < aoa.length; i++) {
+          const r = aoa[i]; if (!r || r.every((c) => String(c).trim() === '')) continue;
+          const o = { row: i + 1 };
+          Object.keys(idx).forEach((k) => { o[k] = String(r[idx[k]] ?? '').trim(); });
+          if (o.kumite && /^（.*）$/.test(o.kumite)) o.kumite = '';
+          rows.push(o);
+        }
+        ok(rows);
+      } catch (e) { ng(e); }
+    };
+    fr.onerror = () => ng(new Error('ファイルを読めませんでした'));
+    fr.readAsArrayBuffer(file);
+  });
+}
+function bkRender() {
+  const r = BK.result, RES = { insert: ['ok', '新しく申込'], update: ['warn', '既存に追加'], error: ['ng', 'エラー'] };
+  $('bk-res').style.display = '';
+  const ok = r.inserted + r.updated;
+  $('bk-sum').innerHTML = [
+    [r.errors ? 'warn' : 'ok', `${BK.rows.length}行を確かめました。新しく申込 ${r.inserted}名、既存の申込に追加 ${r.updated}名、エラー ${r.errors}行。携帯番号のある選手 ${r.with_phone}名。`],
+    ...(r.errors ? [['ng', 'エラーの行は取り込みません。Excel を直して読み込み直すか、エラーの行を除いて取り込んでください。']] : [])
+  ].map(([k, t]) => `<div class="${k}">${esc(t)}</div>`).join('');
+  $('bk-body').innerHTML = r.rows.map((x) => {
+    const [k, t] = RES[x.result] || ['', x.result];
+    const msg = (x.errors || []).concat(x.warnings || []);
+    const info = x.result === 'error' ? '' : `${esc(x.grade || '')}・${esc(x.gender || '')}・${esc(x.affiliation || '')}${x.dojo_found ? '' : '<span class="sub">（登録のない道場名）</span>'}`;
+    return `<tr><td>${esc(x.row)}</td><td class="player">${esc(x.name || '')}</td><td><span class="badge ${k}">${t}</span></td><td>${x.phone_last4 ? '末尾 ' + esc(x.phone_last4) : '<span class="badge warn">なし</span>'}</td><td>${info}${msg.map((m) => `<span class="sub" style="color:${(x.errors || []).includes(m) ? '#9a1020' : '#5c4300'}">${esc(m)}</span>`).join('')}</td></tr>`;
+  }).join('');
+  $('bk-go').disabled = ok === 0;
+  $('bk-go').textContent = ok ? `問題のない ${ok}名を取り込む` : '取り込める行がありません';
+}
+$('bk-file').addEventListener('change', async () => {
+  const f = $('bk-file').files[0]; if (!f) return;
+  if (typeof XLSX === 'undefined') { toast('Excel の部品（xlsx.full.min.js）が読み込めていません。', 'ng'); return; }
+  let rows;
+  try { rows = await bkRead(f); } catch (e) { toast(e.message, 'ng'); bkReset(); return; }
+  if (!rows.length) { toast('取り込む行がありません。', 'ng'); bkReset(); return; }
+  if (rows.length > 2000) { toast('一度に取り込めるのは2000行までです。', 'ng'); bkReset(); return; }
+  const d = await call('kw_bulk_import', { p_tournament: T, p_rows: rows, p_dry_run: true });
+  if (!d) { bkReset(); return; }
+  BK = { rows, result: d }; bkRender();
+});
+$('bk-go').addEventListener('click', async () => {
+  if (!BK) return;
+  const n = BK.result.inserted + BK.result.updated;
+  if (!confirm(`${n}名を取り込みます。エラーの行は取り込みません。よろしいですか？`)) return;
+  const d = await call('kw_bulk_import', { p_tournament: T, p_rows: BK.rows, p_dry_run: false });
+  if (!d) return;
+  bkReset(); await load();
+  toast(`取り込みました（新しく申込 ${d.inserted}名、既存に追加 ${d.updated}名、エラー ${d.errors}行）`, d.errors ? 'warn' : 'ok');
+});
 
 init();
 </script>
